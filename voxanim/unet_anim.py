@@ -23,8 +23,17 @@ import numpy as np
 from . import color as C
 from . import deep_models as D
 from .easing import ease_in_out, remap, smoothstep
-from .mlp import (ACT_HI, ACT_LO, INK_HI, INK_LO, NetAnimation, amax, gray_colors,
-                  lit_colors, particle)
+from .mlp import (
+    ACT_HI,
+    ACT_LO,
+    INK_HI,
+    INK_LO,
+    NetAnimation,
+    amax,
+    gray_colors,
+    lit_colors,
+    particle,
+)
 
 AT = dict(x=(0.12, 0.31), e1=(0.235, 0.50), e2=(0.345, 0.665), b=(0.50, 0.78),
           d2=(0.655, 0.665), d1=(0.765, 0.50), out=(0.88, 0.31), clean=(0.50, 0.31),
@@ -43,7 +52,7 @@ class UNetAnimation(NetAnimation):
         from .mnist import load
         self.P, self.loss = D.unet_train(True)
         self.Pp, self.loss_plain = D.unet_train(False)
-        _a, _b, xte, yte = load()
+        _a, _b, xte, _yte = load()
         rng = np.random.default_rng(seed)
         self.clean = [xte[i] for i in digits]
         self.noisy = [D.noisy(x[None], rng)[0] for x in self.clean]
@@ -149,11 +158,9 @@ class UNetAnimation(NetAnimation):
         S["x"].fill(gray_colors(x))
         for k in ("x", "clean"):
             S[k].cage = 1.0
-        order = [("e1", "e1"), ("e2", "e2"), ("b", "b"), ("d2", "d2"), ("d1", "d1"),
-                 ("out", "out")]
-        for name, seg_name in order:
+        for name in ("e1", "e2", "b", "d2", "d1", "out"):
             sh = S[name]
-            u = p[seg_name]
+            u = p[name]
             sh.fill(gray_colors(v[name]) if name == "out" else act(v[name]))
             rows = np.repeat(np.arange(sh.h), sh.w) / sh.h
             sh.show(u * 1.15 - 0.1 > rows)
@@ -163,7 +170,7 @@ class UNetAnimation(NetAnimation):
             sh.fade(back)
         # skip bridges: the encoder layers' copies slide across
         sk = ease_in_out(p["skip"])
-        for cp, src, dst, side in ((self.copy2, "e2", "d2", -1), (self.copy1, "e1", "d1", -1)):
+        for cp, src, dst in ((self.copy2, "e2", "d2"), (self.copy1, "e1", "d1")):
             cp.fill(act(v[src]))
             a = S[src].block.origin
             b = S[dst].block.origin - np.array([cp.block.extent[0] + 1.2, 0, 0])
@@ -176,14 +183,12 @@ class UNetAnimation(NetAnimation):
             ca, cb = S[src].center, S[dst].center
             sc.line(ca, cb, width=1.2, color=(0.55, 0.57, 0.59), opacity=0.5, bias=0.0)  # always
         # flows
-        for dst, seg_name in (("e1", "e1"), ("e2", "e2"), ("b", "b"), ("d2", "d2"),
-                              ("d1", "d1"), ("out", "out")):
-            u = p[seg_name]
+        for dst in ("e1", "e2", "b", "d2", "d1", "out"):
+            u = p[dst]
             if not 0 < u < 1:
                 continue
             for sheet, i, j, val, start in self.parts[d][dst]:
-                src = S[sheet] if sheet in S else (self.copy1 if sheet == "copy1" else
-                                                   self.copy2)
+                src = S[sheet] if sheet in S else getattr(self, sheet)      # copy1 / copy2
                 particle(sc, src.cell(i), S[dst].cell(j), remap(u, start, start + 0.5),
                          C.POSITIVE if val > 0 else C.NEGATIVE, 0.5,
                          opacity=0.35 + 0.65 * abs(val), lift=1.5)

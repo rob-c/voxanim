@@ -240,6 +240,11 @@ def _box_pass(a, r, axis):
     return (c[tuple(hi)] - c[tuple(lo)]) * np.float32(1.0 / (2 * r + 1))
 
 
+def _along(axis, ndim, a, b):
+    """Index that slices ``a:b`` along ``axis`` and keeps every other axis."""
+    return tuple(slice(a, b) if d == axis else slice(None) for d in range(ndim))
+
+
 def gaussian_blur(arr, sigma):
     """Gaussian blur of a float HxW or HxWxC array (three box passes)."""
     if sigma <= 0.3:
@@ -252,9 +257,8 @@ def gaussian_blur(arr, sigma):
             p[axis] = (1, 1)
             q = np.pad(out, p, mode="edge")
             n = out.shape[axis]
-            sl = lambda a, b: tuple(slice(a, b) if d == axis else slice(None)
-                                    for d in range(out.ndim))
-            out = 0.25 * q[sl(0, n)] + 0.5 * q[sl(1, n + 1)] + 0.25 * q[sl(2, n + 2)]
+            taps = [q[_along(axis, out.ndim, a, a + n)] for a in (0, 1, 2)]
+            out = 0.25 * taps[0] + 0.5 * taps[1] + 0.25 * taps[2]
         return out
     # Box widths whose three-fold convolution matches the Gaussian variance.
     r = max(1, int(round((np.sqrt(4.0 * sigma * sigma + 1.0) - 1.0) / 2.0)))

@@ -72,7 +72,7 @@ def check_scene(scene, cam):
             if _overlap(boxes[i][1], boxes[j][1]):
                 issues.append(("text/text", "%s | %s" % (boxes[i][0], boxes[j][0])))
     # text over strong lines (cages, receptive-field frames)
-    for p0, p1, width, _col, op, _b in scene.lines:
+    for p0, p1, _width, _col, op, _b in scene.lines:
         if op < 0.5:
             continue
         pts = cam.project(np.linspace(p0, p1, 24))

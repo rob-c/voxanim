@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voxanim"
+version = "1.0.0"
+description = "Reproducible animations of convolutions, neural networks and transformers, rendered from real numbers in plain numpy."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "voxanim/fonts/*LICENSE*"]
+authors = [{ name = "Rob C", email = "rob.c@cern.ch" }]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0",
+    "Pillow>=10.1",
+]
+
+[project.optional-dependencies]
+# Only for loading user models into `dnn-eval` (--model file.pt / file.h5).
+torch = ["torch>=2.4"]
+keras = ["h5py>=3.10"]
+dev = ["pytest>=8", "ruff>=0.15"]
+
+[project.scripts]
+voxanim = "voxanim.__main__:main"
+
+[tool.setuptools]
+packages = ["voxanim"]
+
+[tool.setuptools.package-data]
+voxanim = ["fonts/*"]
+
+# ------------------------------------------------------------------ lint
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "C4", "SIM", "RUF"]
+ignore = [
+    "UP031",    # %-formatting is the house style for the many numeric labels
+    "C408",     # dict(a=1) reads better than {"a": 1} for keyword bundles
+    "RUF001",   # × − σ ŷ ... are intentional: they are drawn on screen
+    "RUF002",
+    "RUF003",
+    "E741",     # l, I, O: the maths in the code uses short names
+    "B905",     # zip(a, a[1:]) is deliberately unequal
+    "RUF005",   # [a] + list(b) is clearer than unpacking in the layout code
+    "RUF046",   # int(round(numpy_float)) is needed: round() keeps the numpy type
+    "SIM108",   # explicit if/else for multi-line choices
+    "B008",     # frozen dataclass instances (Style(), Look()) as defaults are safe
+    "RUF009",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["voxanim"]
+
+# ------------------------------------------------------------------ tests
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+markers = [
+    "mnist: needs the MNIST dataset (downloaded on first use, 11 MB)",
+    "gpt2: needs the GPT-2 small weights (downloaded on first use, 550 MB)",
+    "slow: takes more than a few seconds",
+]

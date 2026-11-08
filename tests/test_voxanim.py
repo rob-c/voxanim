@@ -17,11 +17,13 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from voxanim import presets                                  # noqa: E402
-from voxanim.camera import Camera                            # noqa: E402
-from voxanim.conv import ConvSpec, ConvStage, conv_forward   # noqa: E402
-from voxanim.scene import Renderer, Scene, Style             # noqa: E402
-from voxanim.tensor import Block                             # noqa: E402
+import itertools
+
+from voxanim import presets
+from voxanim.camera import Camera
+from voxanim.conv import ConvSpec, ConvStage, conv_forward
+from voxanim.scene import Renderer, Scene, Style
+from voxanim.tensor import Block
 
 DRAFT = Style(ss=2, motion_blur=False)
 
@@ -114,7 +116,7 @@ def test_presets_cover_every_output_cell_once():
             cells = [(x.i, x.j, x.k, x.f) for x in st.steps]
             assert len(cells) == len(set(cells)) == Ho * Wo * s.out_d * s.passes, name
             starts = [x.t for x in st.steps]
-            assert all(b > a for a, b in zip(starts, starts[1:])), name
+            assert all(b > a for a, b in itertools.pairwise(starts)), name
             # every output cell is on screen once the stage has finished
             anim.scene(st.t_end + 0.01)
             assert st.output.present.all(), name
@@ -346,6 +348,7 @@ def test_model_loader_formats(tmp=None):
     """npz (ours), PyTorch-style (out, in) names, and JSON all load the same."""
     import json
     import tempfile
+
     from voxanim import model_io
     rng = np.random.default_rng(4)
     layers = [(rng.normal(size=(784, 100)), rng.normal(size=100)),
@@ -398,7 +401,7 @@ def test_dnn_eval_matches_the_model():
                                                     "mnist_dnn_100x3.npz"))
     assert [W.shape for W, _ in layers] == [(784, 100), (100, 100), (100, 100), (100, 10)]
     _a, _b, xte, yte = mnist.load()
-    acts, pre, p = mnist._forward([[W, b] for W, b in layers], xte[:200])
+    _acts, _pre, p = mnist._forward([[W, b] for W, b in layers], xte[:200])
     acc = (p.argmax(1) == yte[:200]).mean()
     assert acc > 0.95, acc
     anim = presets.build("dnn-eval", digit=8)
@@ -419,7 +422,9 @@ def test_new_animations_loop():
 def test_text_is_not_clipped():
     """Text composited in its own little box must match Pillow drawing the
     same text on the whole frame (a tight box once cut the tops off 7s)."""
-    from PIL import Image as Im, ImageDraw as Dr
+    from PIL import Image as Im
+    from PIL import ImageDraw as Dr
+
     from voxanim.scene import Text, font
     anim = presets.get("conv2d").build()
     r = Renderer(anim.cam, replace_style(DRAFT, watermark=False))
@@ -441,7 +446,8 @@ def test_text_is_not_clipped():
 
 
 def test_autoencoder_and_rnn2_gradients():
-    from voxanim import autoencoder as A, sequence as S
+    from voxanim import autoencoder as A
+    from voxanim import sequence as S
     rng = np.random.default_rng(1)
     x = rng.random((2, 784))
     for kind in ("dense", "conv"):
@@ -624,7 +630,7 @@ if __name__ == "__main__":
             try:
                 fn()
                 print("ok    ", name)
-            except Exception as e:          # noqa: BLE001
+            except Exception as e:
                 failed += 1
                 print("FAIL  ", name, "--", type(e).__name__, e)
     sys.exit(1 if failed else 0)

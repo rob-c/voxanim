@@ -27,6 +27,7 @@ serves every shot.
 
 from __future__ import annotations
 
+import itertools
 import math
 
 import numpy as np
@@ -325,7 +326,7 @@ class GPT2Animation(NetAnimation):
         keys = self.keys
         if t <= keys[0][0]:
             return keys[0][1], keys[0][2]
-        for (t0, f0, s0), (t1, f1, s1) in zip(keys, keys[1:]):
+        for (t0, f0, s0), (t1, f1, s1) in itertools.pairwise(keys):
             if t0 <= t <= t1:
                 f0 = f0(t) if callable(f0) else f0
                 f1 = f1(t) if callable(f1) else f1

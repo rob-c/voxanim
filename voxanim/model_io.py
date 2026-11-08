@@ -122,13 +122,13 @@ def load_dense(path, n_in=784):
             if "preprocess" in d.files:
                 pre = str(d["preprocess"])
     elif ext in (".pt", ".pth"):
-        import torch                    # optional dependency
+        import torch  # optional dependency
         obj = torch.load(path, map_location="cpu", weights_only=False)
         if hasattr(obj, "state_dict"):
             obj = obj.state_dict()
         arrays = _ordered([(k, v.detach().cpu().numpy()) for k, v in obj.items()])
     elif ext in (".h5", ".keras"):
-        import h5py                     # optional dependency
+        import h5py  # optional dependency
         named = []
         with h5py.File(path, "r") as f:
             f.visititems(lambda name, obj: named.append((name, np.array(obj)))

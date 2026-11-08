@@ -29,10 +29,20 @@ from __future__ import annotations
 
 import numpy as np
 
-from .easing import ease_in_out, remap, smoothstep, soft_band
-from .mlp import (INK_HI, INK_LO, X, NetAnimation, OutputPanel, amax, div_colors,
-                  gray_colors, lit_colors, particle)
 from . import color as C
+from .easing import ease_in_out, remap, smoothstep, soft_band
+from .mlp import (
+    INK_HI,
+    INK_LO,
+    NetAnimation,
+    OutputPanel,
+    X,
+    amax,
+    div_colors,
+    gray_colors,
+    lit_colors,
+    particle,
+)
 from .vit import DH, HEADS, N_TOK
 
 BAND_Y = (0.33, 0.555, 0.78)

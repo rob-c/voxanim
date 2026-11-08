@@ -23,8 +23,18 @@ import numpy as np
 from . import color as C
 from . import model_io
 from .easing import ease_in_out, remap, smoothstep
-from .mlp import (INK_HI, INK_LO, X, NetAnimation, OutputPanel, amax, div_colors,
-                  gray_colors, lit_colors, particle)
+from .mlp import (
+    INK_HI,
+    INK_LO,
+    NetAnimation,
+    OutputPanel,
+    X,
+    amax,
+    div_colors,
+    gray_colors,
+    lit_colors,
+    particle,
+)
 
 
 def sheet_shape(n):
@@ -231,7 +241,7 @@ class ModelEvaluation(NetAnimation):
             dst.cage = 1.0
             dst.fade(back)
             label = "h%d  (%d%s%d)" % (k + 1, dst.h, X, dst.w)
-            if 0 < relu:
+            if relu > 0:
                 label = "h%d: %d > 0" % (k + 1, int((z > 0).sum()))
             self.caption(sc, dst, label)
         for (i, jj), v, start in self.parts[k]:

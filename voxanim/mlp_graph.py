@@ -18,7 +18,7 @@ lit by how large its value is otherwise.
 
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cache
 
 import numpy as np
 
@@ -47,7 +47,7 @@ def num(v, d=2):
     return MINUS + s[1:] if s.startswith("-") else s
 
 
-@lru_cache(maxsize=None)
+@cache
 def model():
     from . import mnist
     params, acc = mnist.train(sizes=SIZES, epochs=EPOCHS)

@@ -20,7 +20,7 @@ Everything is computed here, in numpy (:func:`grow`).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import cache
 
 import numpy as np
 
@@ -150,7 +150,7 @@ def all_nodes(root):
     return out
 
 
-@lru_cache(maxsize=None)
+@cache
 def model():
     X, y = dataset()
     root, order = grow(X, y)

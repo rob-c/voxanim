@@ -8,7 +8,7 @@ they caption every tensor with its shape.  Rendered files are named
 from __future__ import annotations
 
 import os
-from functools import lru_cache
+from functools import cache
 
 import numpy as np
 
@@ -244,7 +244,7 @@ def edge_detection():
 # ------------------------------------------------------------------ an MNIST classifier
 
 
-@lru_cache(maxsize=None)
+@cache
 def _trace():
     from . import mnist
     return mnist.trace(18)          # a '3' the network gets right, but only at 62% (8 is next)
@@ -253,7 +253,7 @@ def _trace():
 TRAIN_LR = 0.002                     # one SGD step: p(3) 0.62 -> 0.87, loss 0.48 -> 0.14
 
 
-@lru_cache(maxsize=None)
+@cache
 def _trained():
     from . import mnist
     return mnist.sgd_step(_trace(), TRAIN_LR)
@@ -290,7 +290,7 @@ _net("mlp-9-training-step",
 CNN_LR = 0.005                       # one SGD step: p(3) 0.70 -> 0.88
 
 
-@lru_cache(maxsize=None)
+@cache
 def _cnn_traces():
     from . import mnist
     tr = mnist.cnn_trace(18)         # the same '3': right, but only at 70% (5 next)

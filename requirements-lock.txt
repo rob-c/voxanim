@@ -1,0 +1,7 @@
+# The reference environment: the release renders were made with exactly
+# these versions (Python 3.13.5, ffmpeg 9.0.2, macOS 15 arm64).
+#   python3 -m pip install -r requirements-lock.txt
+numpy==2.5.4
+Pillow==13.0.0
+pytest==9.2.0
+ruff==0.16.8

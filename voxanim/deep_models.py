@@ -316,7 +316,7 @@ def cluster_train(kind="dec", iters=1500, batch=256, lr=1e-3, gamma=0.1, update_
     the centres, the soft assignments and accuracy for the animation."""
     path = os.path.join(CACHE, "%s_i%d_s%d.npz" % (kind, iters, seed))
     P0, _ = AE.train("dense", 3)
-    xtr, ytr, xte, yte = load(CACHE)
+    xtr, _ytr, xte, yte = load(CACHE)
     sel = np.arange(3000, 3000 + cloud)
     xc, yc = xte[sel], yte[sel]
     show = xte[[3, 2, 1, 18]]

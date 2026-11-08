@@ -24,7 +24,7 @@ import hashlib
 import itertools
 import math
 import os
-from dataclasses import dataclass, astuple
+from dataclasses import astuple, dataclass
 
 import numpy as np
 
@@ -151,7 +151,7 @@ class SpriteAtlas:
                 sx, sy = hires - kx * step, hires - ky * step
                 sl = (slice(sy, sy + self.h * hires), slice(sx, sx + self.w * hires))
 
-                def down(a):
+                def down(a, sl=sl):
                     return a[sl].reshape(self.h, hires, self.w, hires).mean(axis=(1, 3))
 
                 A = down(hitf)

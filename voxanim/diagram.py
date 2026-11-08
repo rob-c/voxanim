@@ -18,6 +18,7 @@ Text goes through :meth:`Diagram.label`, at a world point.
 
 from __future__ import annotations
 
+import itertools
 import math
 
 import numpy as np
@@ -158,7 +159,7 @@ class Diagram(NetAnimation):
             sc.probe(key, p, tol=6.0)
 
     def polyline(self, sc, pts, width=1.6, color=EDGE, opacity=1.0, bias=0.2):
-        for p, q in zip(pts[:-1], pts[1:]):
+        for p, q in itertools.pairwise(pts):
             sc.line(p, q, width=width, color=color, opacity=opacity, bias=bias)
 
     # ------------------------------------------------------------------ text

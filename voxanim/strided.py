@@ -56,10 +56,10 @@ def conv_backward(dz, cols, W, x_shape, s):
 
 def init(rng):
     P = {}
-    for n, (k, s, c, f) in enumerate(LAYERS):
+    for n, (k, _s, c, f) in enumerate(LAYERS):
         P["W%d" % n] = rng.normal(0, np.sqrt(2.0 / (k * k * c)), (k, k, c, f))
         P["b%d" % n] = np.zeros(f)
-    k, s, c, f = LAYERS[-1]
+    k, _s, c, f = LAYERS[-1]
     size = 28
     for k_, s_, _c, _f in LAYERS:
         size = out_size(size, k_, s_)

@@ -26,7 +26,7 @@ All numbers are real (:func:`train`), plain full-batch gradient descent.
 
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cache
 
 import numpy as np
 
@@ -69,8 +69,8 @@ def forward(p, x):
 
 def grads(p, x, y):
     """Gradient of 1/2 (y^ - y)^2 for one example, and the deltas."""
-    W, b, v, c = unpack(p)
-    z, h, o, yh = forward(p, x)
+    _W, _b, v, _c = unpack(p)
+    _z, h, _o, yh = forward(p, x)
     dy = yh - y
     d_out = dy * yh * (1 - yh)
     dv = d_out * h
@@ -81,7 +81,7 @@ def grads(p, x, y):
     return g, dict(dy=dy, d_out=d_out, dz=dz, dv=dv, dW=dW)
 
 
-@lru_cache(maxsize=None)
+@cache
 def train(seed=SEED, steps=STEPS, lr=LR):
     """Full-batch gradient descent on the mean loss.  ``(params per step, loss per step)``."""
     rng = np.random.default_rng(seed)
@@ -170,7 +170,7 @@ class GradientDescent(Diagram):
 
     @staticmethod
     def w_of(p, kind, i, j):
-        W, b, v, c = unpack(p)
+        W, _b, v, _c = unpack(p)
         return W[i, j] if kind == "w" else v[i]
 
     @staticmethod

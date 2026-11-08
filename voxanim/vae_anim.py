@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 import numpy as np
 
@@ -63,7 +64,7 @@ def vae_trace(latent=3, digits=(3, 2, 1), cloud=600, seed=5):
 
 
 class VAEAnimation(AutoencoderAnimation):
-    WEIGHT_KEYS = {0: "We0", 1: "We1", 2: "Wmu", 3: "Wd0", 4: "Wd1", 5: "Wd2"}
+    WEIGHT_KEYS: ClassVar[dict] = {0: "We0", 1: "We1", 2: "Wmu", 3: "Wd0", 4: "Wd1", 5: "Wd2"}
     WALK_SUBTITLE = ("generating: sample z from N(0, I) and decode it: new digits that were "
                      "never in the data")
     RANGE = 3.0

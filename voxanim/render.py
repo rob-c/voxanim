@@ -11,7 +11,6 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
-
 from PIL import Image
 
 from . import presets
@@ -143,6 +142,7 @@ def _master_frame(job):
     """Render one frame into a shared-memory slot as 16-bit RGB (no pickling
     of 200 MB frames); returns its light levels."""
     from multiprocessing import shared_memory
+
     from . import hdr
     idx, t, dt, transfer, slot, shape = job
     r = _W["renderer"]

@@ -14,6 +14,7 @@ intermediate the animations draw.
 
 from __future__ import annotations
 
+import itertools
 import os
 import urllib.request
 from dataclasses import dataclass
@@ -41,7 +42,7 @@ def load(cache_dir=DEFAULT_CACHE):
 
 def _init(rng, sizes=SIZES):
     params = []
-    for a, b in zip(sizes, sizes[1:]):
+    for a, b in itertools.pairwise(sizes):
         params.append([rng.normal(0, np.sqrt(2.0 / a), (a, b)), np.zeros(b)])
     return params
 
@@ -186,7 +187,7 @@ def _cnn_forward(params, x):
 
 
 def _cnn_backward(params, f, y_onehot):
-    (Wc, bc), (Wd, bd) = params
+    (_Wc, _bc), (Wd, _bd) = params
     n = len(f["p"])
     d2 = (f["p"] - y_onehot) / n
     dWd, dbd = f["flat"].T @ d2, d2.sum(0)

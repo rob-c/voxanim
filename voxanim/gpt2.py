@@ -16,6 +16,7 @@ GELU, pre-LayerNorm, learned positions, tied input / output embedding.
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import re
@@ -103,7 +104,7 @@ class Tokenizer:
         parts = list(word)
         while len(parts) > 1:
             pairs = [(self.ranks.get((a, b), 1e9), i) for i, (a, b) in
-                     enumerate(zip(parts, parts[1:]))]
+                     enumerate(itertools.pairwise(parts))]
             r, i = min(pairs)
             if r == 1e9:
                 break

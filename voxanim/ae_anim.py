@@ -28,8 +28,19 @@ import numpy as np
 from . import color as C
 from . import layout
 from .easing import ease_in_out, ease_out, remap, smoothstep
-from .mlp import (ACT_HI, ACT_LO, INK_HI, INK_LO, X, NetAnimation, amax, div_colors,
-                  gray_colors, lit_colors, particle)
+from .mlp import (
+    ACT_HI,
+    ACT_LO,
+    INK_HI,
+    INK_LO,
+    NetAnimation,
+    X,
+    amax,
+    div_colors,
+    gray_colors,
+    lit_colors,
+    particle,
+)
 from .tensor import Block
 
 # Ten distinguishable hues (categorical; no two neighbours alike).
@@ -395,7 +406,7 @@ class AutoencoderAnimation(NetAnimation):
         seg = min(len(self.walk) - 2, int(u * (len(self.walk) - 1)))
         w = ease_in_out(u * (len(self.walk) - 1) - seg)
         z = self.walk[seg] + (self.walk[seg + 1] - self.walk[seg]) * w
-        acts, img = self.tr.decode(z)
+        acts, _img = self.tr.decode(z)
         # the encoder side rests; the decoder side shows the walk
         for k in (0, 1, 2):
             b = self.blocks[k]

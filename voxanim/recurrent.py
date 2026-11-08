@@ -30,7 +30,7 @@ from . import color as C
 from . import layout
 from .conv import Tempo
 from .easing import ease_in_out, remap, smoothstep, soft_band
-from .mlp import X, NetAnimation, amax, div_colors, particle
+from .mlp import NetAnimation, X, amax, div_colors, particle
 
 PRED = C.FILTERS[0]
 GHOST = np.array([0.97, 0.97, 0.96], np.float32)

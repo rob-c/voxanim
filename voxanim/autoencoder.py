@@ -11,6 +11,7 @@ is seeded (Adam) and cached in ``build/.cache`` like the other models.
 
 from __future__ import annotations
 
+import itertools
 import os
 from dataclasses import dataclass
 
@@ -77,7 +78,7 @@ def init(kind, latent, rng):
 
     if kind == "dense":
         widths = list(DENSE) + [latent] + list(DENSE[::-1])
-        for n, (a, b) in enumerate(zip(widths, widths[1:])):
+        for n, (a, b) in enumerate(itertools.pairwise(widths)):
             dense(str(n), a, b)
     else:
         convw("e0", 3, 1, 8)
