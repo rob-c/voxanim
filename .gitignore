@@ -1,0 +1,12 @@
+# Everything voxanim writes: frames, encoded outputs, stills, downloaded data
+# and trained weights (see README "Reproducibility").
+/build/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+.DS_Store
+*.part
