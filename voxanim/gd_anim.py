@@ -34,7 +34,7 @@ from . import color as C
 from . import layout
 from .diagram import DATA, DATA_HI, EDGE, GRAD, NODE, Diagram
 from .easing import ease_in_out, remap, smoothstep
-from .mlp import _hash01
+from .netanim import hash01
 
 X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], np.float64)
 Y = np.array([0, 1, 1, 0], np.float64)
@@ -421,9 +421,9 @@ class GradientDescent(Diagram):
             * back
         for (ea, eb), speed in segs:
             for k in range(2):
-                ph = (u0 * speed + k * 0.5 + _hash01(n)) % 1.0
+                ph = (u0 * speed + k * 0.5 + hash01(n)) % 1.0
                 self.dot(sc, ea, eb, ph, DATA, 3.8, fade, key=("tf", n, k), bend=4)
-                ph = (u0 * speed + k * 0.5 + _hash01(n, 7) + 0.25) % 1.0
+                ph = (u0 * speed + k * 0.5 + hash01(n, 7) + 0.25) % 1.0
                 self.dot(sc, eb, ea, ph, GRAD, 3.8, fade, key=("tb", n, k), bend=-4)
             n += 1
 

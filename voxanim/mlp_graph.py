@@ -26,7 +26,7 @@ from . import color as C
 from . import layout
 from .diagram import DATA, EDGE, NODE, Diagram, draw_image
 from .easing import ease_in_out, remap, smoothstep
-from .mlp import ACT_HI, ACT_LO, GRAY_HI, GRAY_LO, OFF, _hash01
+from .netanim import ACT_HI, ACT_LO, GRAY_HI, GRAY_LO, OFF, hash01
 
 SIZES = (784, 32, 16, 10)
 EPOCHS = 6
@@ -273,7 +273,7 @@ class MLPClassifier(Diagram):
             uu = remap(u, 0.35, 1.0) if detail and L < 2 else u
         for n, (i, j) in enumerate(pairs):
             src = self.pix[i] if L == 0 else self.nodes[L - 1][i]
-            s0 = 0.45 * _hash01(n, L)
+            s0 = 0.45 * hash01(n, L)
             self.dot(sc, src, self.nodes[L][j], remap(uu, s0, s0 + 0.55),
                      C.POSITIVE if c[i, j] > 0 else C.NEGATIVE, 2.8, back, key=("f", L, n))
 

@@ -30,7 +30,8 @@ from . import color as C
 from . import layout
 from .conv import Tempo
 from .easing import ease_in_out, remap, smoothstep, soft_band
-from .mlp import NetAnimation, X, amax, div_colors, particle
+from .netanim import NetAnimation, amax, div_colors, particle
+from .text import TIMES
 
 PRED = C.FILTERS[0]
 GHOST = np.array([0.97, 0.97, 0.96], np.float32)
@@ -405,7 +406,7 @@ class RecurrentTrainingStep(NetAnimation):
             self.caption(sc, self.wpanels[-1][2], "gradients summed over the steps",
                          size=0.024, offset=0.035)
         elif 0 < up < 0.55:
-            self.caption(sc, self.wpanels[-1][2], "change = -lr %s gradient" % X,
+            self.caption(sc, self.wpanels[-1][2], "change = -lr %s gradient" % TIMES,
                          size=0.024, offset=0.035)
 
     def _weight(self, key, tr):

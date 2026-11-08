@@ -16,8 +16,7 @@ from . import color as C
 from . import mlp
 from .conv import CombineSpec, ConvAnimation, ConvSpec, Layout, Tempo
 from .presets import preset
-
-X = "×"
+from .text import TIMES
 
 # A roomier default than the originals': labels need space under each block.
 EDU = Layout(input=(0.215, 0.46), output=(0.75, 0.62), active=(0.47, 0.52),
@@ -41,7 +40,7 @@ def _stride(s):
     return lesson("stride-%d" % s, in_hw=(9, 9), in_ch=4, filters=2, stride=(s, s),
                   title="Stride %d" % s,
                   subtitle="the kernel steps %d pixel%s at a time: 9%s9 becomes %d%s%d"
-                  % (s, "" if s == 1 else "s", X, out, X, out),
+                  % (s, "" if s == 1 else "s", TIMES, out, TIMES, out),
                   tempo=Tempo(slow=1.0, fast=0.16 if s == 1 else 0.3, ramp_in=6, ramp_out=2))
 
 
@@ -63,7 +62,7 @@ def _dilation(d):
                   layout=L,
                   title="Dilation %d" % d,
                   subtitle="%d-pixel gaps between the taps: a 3%s3 kernel sees %d%s%d, "
-                  "9%s9 becomes %d%s%d" % (d - 1, X, ext, X, ext, X, out, X, out),
+                  "9%s9 becomes %d%s%d" % (d - 1, TIMES, ext, TIMES, ext, TIMES, out, TIMES, out),
                   tempo=Tempo(slow=1.0, fast=0.2, ramp_in=6, ramp_out=2))
 
 
@@ -86,9 +85,9 @@ def transposed():
                   tempo=Tempo(slow=0.9, fast=0.09, ramp_in=6, ramp_out=2),
                   title="Transposed convolution (stride 2)",
                   subtitle="spread the pixels apart, fill with zeros, pad, convolve: "
-                  "4%s4 is upsampled to 9%s9" % (X, X),
+                  "4%s4 is upsampled to 9%s9" % (TIMES, TIMES),
                   labels={"input": "input 4%s4%s3, spread and padded to 11%s11"
-                          % (X, X, X)})
+                          % (TIMES, TIMES, TIMES)})
 
 
 def _pool_data(seed=3):
@@ -101,9 +100,9 @@ def _pool(kind):
                   pool=kind, data=_pool_data(),
                   input_colors=[C.rgb("#3f8fb0")],
                   tempo=Tempo(slow=1.1, fast=0.35, ramp_in=4, ramp_out=2),
-                  title="%s pooling 2%s2, stride 2" % ("Max" if kind == "max" else "Average", X),
+                  title="%s pooling 2%s2, stride 2" % ("Max" if kind == "max" else "Average", TIMES),
                   subtitle="no weights: every channel keeps its %s of each window, "
-                  "8%s8 becomes 4%s4" % ("largest value" if kind == "max" else "mean", X, X))
+                  "8%s8 becomes 4%s4" % ("largest value" if kind == "max" else "mean", TIMES, TIMES))
 
 
 preset("lesson-max-pool", "lesson-max-pool",
@@ -118,7 +117,7 @@ def strided_down():
     return lesson("down", in_hw=(8, 8), in_ch=4, filters=3, stride=(2, 2),
                   padding=(1, 0, 1, 0), tempo=Tempo(slow=1.0, fast=0.3, ramp_in=5, ramp_out=2),
                   title="Downsampling with a strided convolution",
-                  subtitle="stride 2 halves the resolution: 8%s8 becomes 4%s4" % (X, X))
+                  subtitle="stride 2 halves the resolution: 8%s8 becomes 4%s4" % (TIMES, TIMES))
 
 
 @preset("lesson-pointwise", "lesson-pointwise")
@@ -126,7 +125,7 @@ def pointwise():
     """A 1x1 convolution only mixes channels."""
     return lesson("pointwise", in_hw=(6, 6), in_ch=8, filters=4, kernel=(1, 1),
                   tempo=Tempo(slow=0.9, fast=0.1, ramp_in=6, ramp_out=2),
-                  title="1%s1 convolution" % X,
+                  title="1%s1 convolution" % TIMES,
                   subtitle="each output pixel mixes the 8 channels of one input pixel")
 
 
@@ -143,7 +142,7 @@ def conv3d():
                   tempo=Tempo(slow=1.1, fast=0.22, ramp_in=6, ramp_out=2),
                   title="Conv3D",
                   subtitle="the kernel slides along depth too: a 6%s6%s6 volume "
-                  "becomes 4%s4%s4" % (X, X, X, X))
+                  "becomes 4%s4%s4" % (TIMES, TIMES, TIMES, TIMES))
 
 
 @preset("lesson-conv3d-channels", "lesson-conv3d-channels")
@@ -156,7 +155,7 @@ def conv3d_channels():
                   tempo=Tempo(slow=1.1, fast=0.25, ramp_in=6, ramp_out=2),
                   title="Conv3D with channels",
                   subtitle="each channel is a 5%s5%s5 volume; a filter spans both "
-                  "channels and 3 slices of depth" % (X, X))
+                  "channels and 3 slices of depth" % (TIMES, TIMES))
 
 
 # ------------------------------------------------------------------ conv1d
@@ -235,7 +234,7 @@ def edge_detection():
                          labels=True, combine=[mag], hold=2.2)
     # Caption each piece of the pipeline (shape labels add little here).
     a, b = anim.stages[0], anim.stages[1]
-    a.spec.labels = {"input": "image 16%s16" % X, "kernel": "Sobel x", "output": "Gx"}
+    a.spec.labels = {"input": "image 16%s16" % TIMES, "kernel": "Sobel x", "output": "Gx"}
     b.spec.labels = {"kernel": "Sobel y", "output": "Gy"}
     anim._labels = None
     return anim
@@ -371,13 +370,13 @@ def strided_classifier(digit=0):
     anim = ConvAnimation([s1, s2], title="Strided convolutions: less data per channel",
                          subtitle="each 3%s3 kernel steps 2 pixels: 28%s28 (784 values per "
                          "channel) to 13%s13 (169) to 6%s6 (36), then a dense layer classifies"
-                         % (X, X, X, X), labels=True, head=head, hold=2.5)
+                         % (TIMES, TIMES, TIMES, TIMES), labels=True, head=head, hold=2.5)
     st1, st2 = anim.stages[0], anim.stages[1]
-    st1.spec.labels = {"input": "image 28%s28: 784 per channel" % X,
-                       "kernel": "4 kernels 3%s3, stride 2" % X,
-                       "output": "13%s13%s4: 169 per channel" % (X, X)}
-    st2.spec.labels = {"kernel": "8 kernels 3%s3%s4, stride 2" % (X, X),
-                       "output": "6%s6%s8: 36 per channel" % (X, X)}
+    st1.spec.labels = {"input": "image 28%s28: 784 per channel" % TIMES,
+                       "kernel": "4 kernels 3%s3, stride 2" % TIMES,
+                       "output": "13%s13%s4: 169 per channel" % (TIMES, TIMES)}
+    st2.spec.labels = {"kernel": "8 kernels 3%s3%s4, stride 2" % (TIMES, TIMES),
+                       "output": "6%s6%s8: 36 per channel" % (TIMES, TIMES)}
     anim._labels = None
     return anim
 

@@ -28,7 +28,8 @@ from . import color as C
 from . import layout
 from .conv import Tempo
 from .easing import ease_in_out, remap, smoothstep, soft_band
-from .mlp import NetAnimation, X, amax, div_colors, particle
+from .netanim import NetAnimation, amax, div_colors, particle
+from .text import TIMES
 
 BATCH_COLORS = [C.FILTERS[5], C.FILTERS[0], C.FILTERS[3], C.FILTERS[6], C.FILTERS[1],
                 C.FILTERS[7], C.FILTERS[4], C.FILTERS[2]]
@@ -298,7 +299,7 @@ class RNNBatchTraining(NetAnimation):
             # the narration line says what is happening to the weights
             self.subtitle = ("backward through time: gradients from all %d sequences are "
                              "averaged" % self.B) if u < 0.45 else \
-                ("one update for the whole batch:  W = W - lr %s dW" % X)
+                ("one update for the whole batch:  W = W - lr %s dW" % TIMES)
             sc.probe(("upd",), (u * 30, 0, 0), tol=8.0)
 
     # -- loss curve -------------------------------------------------------------------------------

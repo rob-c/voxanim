@@ -36,7 +36,7 @@ from . import color as C
 from . import gpt2 as G
 from . import layout
 from .easing import ease_in_out, ease_out, remap, smoothstep
-from .mlp import ACT_HI, ACT_LO, OFF, NetAnimation
+from .netanim import ACT_HI, ACT_LO, OFF, NetAnimation
 
 LAYER, HEAD = 4, 11          # the head we dive into: layer 5, head 12 (1-based)
 TP = 16.0                    # model units per token (rows); a feature is 1 unit.

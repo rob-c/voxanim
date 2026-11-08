@@ -20,7 +20,7 @@ import numpy as np
 from . import deep_models as D
 from .ae_anim import DIGIT_COLORS, AutoencoderAnimation
 from .easing import ease_out, remap
-from .mlp import particle
+from .netanim import ACT_HI, ACT_LO, amax, div_colors, gray_colors, lit_colors, particle
 
 
 @dataclass
@@ -117,7 +117,6 @@ class VAEAnimation(AutoencoderAnimation):
         acts, _img = self.tr.decode(z)
         for b in self.blocks[:3]:
             b.present[...] = False
-        from .mlp import ACT_HI, ACT_LO, amax, div_colors, gray_colors, lit_colors
         self.code.base[0, :, 0] = div_colors(z / self.RANGE, 1.0)
         self.code.opacity *= back
         for kk, a in zip((4, 5, 6), acts[1:]):

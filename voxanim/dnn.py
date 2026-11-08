@@ -23,18 +23,18 @@ import numpy as np
 from . import color as C
 from . import model_io
 from .easing import ease_in_out, remap, smoothstep
-from .mlp import (
+from .netanim import (
     INK_HI,
     INK_LO,
     NetAnimation,
     OutputPanel,
-    X,
     amax,
     div_colors,
     gray_colors,
     lit_colors,
     particle,
 )
+from .text import TIMES
 
 
 def sheet_shape(n):
@@ -168,7 +168,7 @@ class ModelEvaluation(NetAnimation):
         g = gray_colors(self.x)
         self.img.fill(g + (lit_colors(self.x, 1.0, INK_LO, INK_HI) - g) * rv)
         self.img.light(self.x, rv)
-        self.caption(sc, self.img, "image 28%s28" % X)
+        self.caption(sc, self.img, "image 28%s28" % TIMES)
 
         for k in range(L):
             self._layer(sc, t, k, back)
@@ -220,7 +220,7 @@ class ModelEvaluation(NetAnimation):
             if one < 0.3:
                 s = "neuron %d: its %d weights" % (j + 1, len(w))
             elif one < 0.66:
-                s = "weights %s inputs (0 inputs add nothing)" % X
+                s = "weights %s inputs (0 inputs add nothing)" % TIMES
             else:
                 s = "sum + bias = %.2f" % z[j]
             self.caption(sc, tp, s, on)
@@ -240,7 +240,7 @@ class ModelEvaluation(NetAnimation):
             dst.light(z, smoothstep(0.5, 1.0, relu))
             dst.cage = 1.0
             dst.fade(back)
-            label = "h%d  (%d%s%d)" % (k + 1, dst.h, X, dst.w)
+            label = "h%d  (%d%s%d)" % (k + 1, dst.h, TIMES, dst.w)
             if relu > 0:
                 label = "h%d: %d > 0" % (k + 1, int((z > 0).sum()))
             self.caption(sc, dst, label)

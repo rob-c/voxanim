@@ -23,7 +23,7 @@ import numpy as np
 from . import color as C
 from . import deep_models as D
 from .easing import ease_in_out, remap, smoothstep
-from .mlp import (
+from .netanim import (
     ACT_HI,
     ACT_LO,
     INK_HI,

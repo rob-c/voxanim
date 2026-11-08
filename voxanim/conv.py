@@ -40,9 +40,7 @@ from .camera import Camera
 from .easing import ease_in_out, ease_out, lerp, remap, smoothstep, soft_band
 from .scene import Scene
 from .tensor import Block
-
-X = "\u00d7"
-
+from .text import TIMES
 
 # ------------------------------------------------------------------ spec
 
@@ -1098,7 +1096,7 @@ class HeadStage:
                            layout.CAPTION_INK, min(1, dn * 3) * op, "mt")
         if dn > 0:
             x, y = self._screen_box(self.bars, top=True)
-            scene.text(x, y - 0.045, "%s %s 10, softmax" % (self.spec.title, X), 0.026,
+            scene.text(x, y - 0.045, "%s %s 10, softmax" % (self.spec.title, TIMES), 0.026,
                        "regular", layout.CAPTION_INK, min(1, dn * 3) * op, "mb")
         if ht > 0:
             x, y = self._screen_box(self.hot, top=False)

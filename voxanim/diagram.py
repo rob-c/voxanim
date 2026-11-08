@@ -26,7 +26,7 @@ import numpy as np
 from . import color as C
 from . import layout
 from .easing import ease_in_out
-from .mlp import NetAnimation
+from .netanim import NetAnimation
 
 DATA = C.rgb("#1f9e94")            # values flowing forward (teal)
 DATA_HI = C.rgb("#8ff0e4")

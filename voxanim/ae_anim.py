@@ -28,13 +28,12 @@ import numpy as np
 from . import color as C
 from . import layout
 from .easing import ease_in_out, ease_out, remap, smoothstep
-from .mlp import (
+from .netanim import (
     ACT_HI,
     ACT_LO,
     INK_HI,
     INK_LO,
     NetAnimation,
-    X,
     amax,
     div_colors,
     gray_colors,
@@ -42,6 +41,7 @@ from .mlp import (
     particle,
 )
 from .tensor import Block
+from .text import TIMES
 
 # Ten distinguishable hues (categorical; no two neighbours alike).
 DIGIT_COLORS = [C.rgb(h) for h in ("#e6194b", "#f58231", "#ffd31a", "#3cb44b", "#42d4f4",
@@ -352,8 +352,8 @@ class AutoencoderAnimation(NetAnimation):
             sc.wire_box(dest - 1.0, dest + 1.0, color=(0.96, 0.96, 0.96), width=1.2,
                         opacity=0.9 * (1 - smoothstep(0.6, 1.0, prog[4])) * back, bias=0.1)
         # subtitle
-        names = {"dense": "dense layer", "conv": "3%s3 conv, stride 2" % X,
-                 "upconv": "upsample %s2, then 3%s3 conv" % (X, X)}
+        names = {"dense": "dense layer", "conv": "3%s3 conv, stride 2" % TIMES,
+                 "upconv": "upsample %s2, then 3%s3 conv" % (TIMES, TIMES)}
         cur = next((s for s in range(8) if 0 < prog[s] < 1), None)
         if cur is None:
             cur = 7 if prog[7] > 0 else 0
@@ -446,13 +446,13 @@ class AutoencoderAnimation(NetAnimation):
     # -- captions -------------------------------------------------------------------------------------
     def _captions(self, sc, back):
         conv = self.kind == "conv"
-        names = ["input\n28%s28" % X,
-                 "14%s14\n8 channels" % X if conv else "256",
-                 "7%s7\n16 channels" % X if conv else "64",
+        names = ["input\n28%s28" % TIMES,
+                 "14%s14\n8 channels" % TIMES if conv else "256",
+                 "7%s7\n16 channels" % TIMES if conv else "64",
                  None,
-                 "7%s7\n16 channels" % X if conv else "64",
-                 "14%s14\n8 channels" % X if conv else "256",
-                 "output\n28%s28" % X]
+                 "7%s7\n16 channels" % TIMES if conv else "64",
+                 "14%s14\n8 channels" % TIMES if conv else "256",
+                 "output\n28%s28" % TIMES]
         for k, b in enumerate(self.blocks):
             if b is None or not b.present.any():
                 continue

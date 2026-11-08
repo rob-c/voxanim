@@ -31,18 +31,18 @@ import numpy as np
 
 from . import color as C
 from .easing import ease_in_out, remap, smoothstep, soft_band
-from .mlp import (
+from .netanim import (
     INK_HI,
     INK_LO,
     NetAnimation,
     OutputPanel,
-    X,
     amax,
     div_colors,
     gray_colors,
     lit_colors,
     particle,
 )
+from .text import TIMES
 from .vit import DH, HEADS, N_TOK
 
 BAND_Y = (0.33, 0.555, 0.78)
@@ -160,8 +160,8 @@ class AttentionTrainingStep(NetAnimation):
         b.offset[:, :, 0, 2] -= (r // 7 - 1.5) * gap
         if 0 < spread < 1:
             sc.probe(("patch",), (spread * 20, 0, 0), tol=8.0)
-        self.caption(sc, self.img, "16 patches of 7%s7" % X if spread > 0.5 else
-                     "image 28%s28" % X)
+        self.caption(sc, self.img, "16 patches of 7%s7" % TIMES if spread > 0.5 else
+                     "image 28%s28" % TIMES)
 
     def _patch_center(self, p):
         r, c = divmod(p, GRID)
@@ -200,7 +200,7 @@ class AttentionTrainingStep(NetAnimation):
         elif e > 0.9:
             text = "tokens: CLS + 16 patches"
         else:
-            text = "tokens (17 %s 24)" % X
+            text = "tokens (17 %s 24)" % TIMES
         self.caption(sc, self.tok, text)
 
     # -- one head band -----------------------------------------------------------

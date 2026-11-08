@@ -25,7 +25,7 @@ from . import deep_models as D
 from . import layout
 from .ae_anim import DIGIT_COLORS
 from .easing import ease_in_out, remap, smoothstep
-from .mlp import NetAnimation, gray_colors
+from .netanim import NetAnimation, gray_colors
 from .tensor import Block
 
 

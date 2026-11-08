@@ -28,18 +28,18 @@ import numpy as np
 from . import color as C
 from .conv import Tempo
 from .easing import ease_in_out, remap, smoothstep, soft_band
-from .mlp import (
+from .netanim import (
     INK_HI,
     INK_LO,
     NetAnimation,
     OutputPanel,
-    X,
     amax,
     div_colors,
     gray_colors,
     lit_colors,
     particle,
 )
+from .text import TIMES
 
 F = 4
 ROW_Y = (0.315, 0.465, 0.615, 0.765)
@@ -138,13 +138,13 @@ class ConvNetTrainingStep(NetAnimation):
         label_ph = 0 if reset > 0 else ph
         self.subtitle = [
             "forward: each 3%s3 filter slides over the image; ReLU keeps values > 0; "
-            "max-pool keeps the largest of each 2%s2" % (X, X),
+            "max-pool keeps the largest of each 2%s2" % (TIMES, TIMES),
             "loss: a dense layer turns the 13%s13%s4 maps into 10 scores; softmax vs the "
-            "one-hot label" % (X, X),
+            "one-hot label" % (TIMES, TIMES),
             "backward: p - y flows back; max-pool sends it only to each window's winner, "
             "ReLU only where the map was on",
             "update: the filters and dense weights step against their gradients, "
-            "W = W - lr %s dW  (lr = %g)" % (X, self.lr),
+            "W = W - lr %s dW  (lr = %g)" % (TIMES, self.lr),
             "forward again: same image, updated network: p(%d) rises from %.2f to %.2f"
             % (tr.label, tr.p[tr.label], tr2.p[tr.label]),
         ][label_ph]
@@ -344,10 +344,10 @@ class ConvNetTrainingStep(NetAnimation):
 
     def _captions(self, sc, t, ph, again):
         T = self.T
-        self.caption(sc, self.sx, "image x  28%s28" % X)
-        ktext = "4 filters 3%s3" % X
+        self.caption(sc, self.sx, "image x  28%s28" % TIMES)
+        ktext = "4 filters 3%s3" % TIMES
         if t < T["relu"][0]:
-            conv = "conv 26%s26%s4" % (X, X)
+            conv = "conv 26%s26%s4" % (TIMES, TIMES)
         elif t < T["unpool"][0] + 0.3 or again > 0:
             conv = "conv + ReLU"
         else:
@@ -361,14 +361,14 @@ class ConvNetTrainingStep(NetAnimation):
         elif T["dense_back"][0] + 1.0 <= t < T["again"][0]:
             pool = "gradient dL/dpool"
         else:
-            pool = "max-pool 13%s13%s4" % (X, X)
+            pool = "max-pool 13%s13%s4" % (TIMES, TIMES)
         self.caption(sc, self.qs[0], pool, above=True)
         if T["kgrad"][0] <= t < T["kupdate"][1]:
             ku = self.p("kupdate", t)
             if ku <= 0:
                 s = "filter gradients"
             elif ku < 0.55:
-                s = "change = -lr %s gradient" % X
+                s = "change = -lr %s gradient" % TIMES
             else:
                 rel = np.abs(self.lr * self.tr.grad["dWc"]).max() / self.wcmax
                 s = "updated: at most %.2g%%" % (100 * rel)
