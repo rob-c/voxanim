@@ -1,35 +1,57 @@
-"""Named animations.
+"""Named animations: the registry every command looks names up in.
 
-Each preset is a zero-argument factory returning a :class:`ConvAnimation`, so
-adding an animation is one function.  ``media`` is the basename the site uses
-(under ``../media``) and ``reference`` the original GIF it re-creates, if any.
+A preset is a factory registered with :func:`preset`; it returns an animation
+object (anything with ``duration``, ``cam`` and ``scene(t)``).  Most take no
+arguments; parameterised ones (``dnn-eval``, ``gpt2-attention``, ...) accept
+keyword options such as ``digit`` or ``text``, and :func:`build` passes each
+factory only the options it declares.  This module registers the original
+conv2d / conv1d set; :mod:`voxanim.lessons` (imported at the end) registers
+the rest.  ``media`` is the basename the site uses (under ``../media``) and
+``reference`` the original GIF it re-creates, if any.
 """
 
 from __future__ import annotations
 
+import inspect
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import import_module
 
 import numpy as np
 
 from . import color as C
+from .camera import REF_H
 from .conv import ConvAnimation, ConvSpec, Layout, Tempo
 
 
 @dataclass(frozen=True)
 class Preset:
+    """A registered animation: its factory and where its renders go."""
+
     name: str
-    build: callable
-    media: str
-    reference: str | None = None
-    about: str = ""
+    build: Callable          # factory(**options) -> animation
+    media: str               # output basename (the site's file name)
+    reference: str | None = None    # original GIF under ../media, for `compare`
+    about: str = ""          # one-paragraph description (``list`` shows line 1)
+
+
+class UnknownPreset(KeyError):
+    """No preset is registered under the requested name."""
+
+    def __str__(self):
+        return self.args[0]
 
 
 REGISTRY: dict[str, Preset] = {}
 
 
-def preset(name, media, reference=None, about=None):
+def preset(name, media=None, reference=None, about=None):
+    """Decorator registering ``fn`` as preset ``name``.
+
+    ``media`` is the output file stem (default: the name); ``about`` defaults
+    to the function's docstring.  Also usable as ``preset(...)(fn)``."""
+    media = media or name
     def deco(fn):
         REGISTRY[name] = Preset(name, fn, media, reference,
                                 (about or fn.__doc__ or name).strip())
@@ -151,6 +173,8 @@ def conv1d_scroll():
 
 
 def _sweep_data(seed=11):
+    """An 8x8 single-channel sheet with two bright spikes per row, and the
+    1x3 matched filter for them."""
     rng = np.random.default_rng(seed)
     H, W = 8, 8
     x = np.linspace(-0.35, 0.15, W)[None, :] + rng.normal(0, 0.08, (H, W))
@@ -167,7 +191,7 @@ def conv1d_sweep():
     6 responses.  The kernel is a matched filter for the bright spikes."""
     data, w = _sweep_data()
     L = Layout(input=(0.27, 0.45), output=(0.75, 0.60), active=(0.52, 0.30),
-               queue=(0.70, 0.22), done=(0.15, 0.86), queue_axis="x", ppu=26.0 / 540.0)
+               queue=(0.70, 0.22), done=(0.15, 0.86), queue_axis="x", ppu=26.0 / REF_H)
     spec = ConvSpec(name="row-sweep", in_hw=(8, 8), in_ch=1, filters=1, kernel=(1, 3),
                     order="serpentine", data=data, weights=w,
                     filter_colors=[C.FILTERS[0]], layout=L,
@@ -175,36 +199,43 @@ def conv1d_sweep():
     return ConvAnimation(spec)
 
 
-# The teaching set registers itself into REGISTRY (imported last: it uses
-# ``preset`` from this module).
+# The teaching set and the network catalogue register themselves into
+# REGISTRY (imported last: they use ``preset`` from this module).
 import_module(".lessons", __package__)
+import_module(".catalog", __package__)
+
+
+def get(name) -> Preset:
+    """The preset registered as ``name``; raises :class:`UnknownPreset`
+    (a ``KeyError``) listing the valid names."""
+    try:
+        return REGISTRY[name]
+    except KeyError:
+        raise UnknownPreset("unknown animation %r; try: %s"
+                            % (name, ", ".join(REGISTRY))) from None
+
+
+def accepted_options(name, **kw):
+    """The options in ``kw`` that preset ``name``'s factory declares and that
+    are set (not ``None``)."""
+    params = inspect.signature(get(name).build).parameters
+    return {k: v for k, v in kw.items() if k in params and v is not None}
 
 
 def build(name, **kw):
     """Build preset ``name``, passing only the options its factory accepts
     (``--model``, ``--digit``, ...)."""
-    import inspect
-    fn = get(name).build
-    params = inspect.signature(fn).parameters
-    return fn(**{k: v for k, v in kw.items() if k in params and v is not None})
+    return get(name).build(**accepted_options(name, **kw))
 
 
 def options_suffix(name, **kw):
-    """File-name suffix for non-default options, e.g. ``_digit3``."""
-    import inspect
-    params = inspect.signature(get(name).build).parameters
+    """File-name suffix for the options that apply, e.g. ``_digit3`` (empty
+    when none do).  A model path contributes its stem, a prompt its words."""
     parts = []
-    for k, v in sorted(kw.items()):
-        if k in params and v is not None:
-            v = os.path.splitext(os.path.basename(str(v)))[0] if k == "model" else v
-            if k == "text":                        # a prompt: keep file names tidy
-                v = "-" + "-".join("".join(c if c.isalnum() else " " for c in v).split())[:40]
-            parts.append("%s%s" % (k, v))
+    for k, v in sorted(accepted_options(name, **kw).items()):
+        if k == "model":
+            v = os.path.splitext(os.path.basename(str(v)))[0]
+        if k == "text":                        # a prompt: keep file names tidy
+            v = "-" + "-".join("".join(c if c.isalnum() else " " for c in v).split())[:40]
+        parts.append("%s%s" % (k, v))
     return ("_" + "_".join(parts)) if parts else ""
-
-
-def get(name) -> Preset:
-    try:
-        return REGISTRY[name]
-    except KeyError:
-        raise SystemExit("unknown animation %r; try: %s" % (name, ", ".join(REGISTRY)))

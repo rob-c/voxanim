@@ -8,6 +8,9 @@
 * :class:`NetAnimation` -- camera, sheets, captions, title, step indicator
   and the loop reset; a subclass only implements ``draw(scene, t, reset)``.
 * :class:`OutputPanel` -- logits, softmax bars, one-hot target and loss.
+* Helpers: :func:`screen_box` (a world box's bounds on screen),
+  :func:`strongest` (the largest contributions, for particles) and
+  :func:`hash01` / :func:`hash_mod` (deterministic staggering).
 
 Every animation is a pure function of time: ``scene(t)`` builds a fresh
 :class:`~voxanim.scene.Scene` and nothing carries over between frames.
@@ -54,11 +57,13 @@ def div_colors(v, vmax, mask=None):
 
 
 def gray_colors(v):
+    """(n,) values in [0, 1] -> (n, 3) colours on a plain greyscale ramp."""
     v = np.clip(np.asarray(v, np.float64), 0.0, 1.0)
     return (GRAY_LO[None] + (GRAY_HI - GRAY_LO)[None] * v[:, None]).astype(np.float32)
 
 
 def amax(v):
+    """Largest ``|v|``, or 1 for an all-zero array (a safe colour-scale maximum)."""
     m = float(np.abs(v).max())
     return m if m > 0 else 1.0
 
@@ -78,11 +83,13 @@ class Sheet:
         self.cage = False
 
     def reset(self):
+        """Back to the default state at the start of every frame."""
         self.block.reset()
         self.visible = True
         self.cage = False
 
     def fill(self, colors, glow=None):
+        """Set the ``(n, 3)`` cell colours (and optionally the ``(n,)`` glow)."""
         self.block.base[:, :, 0] = np.asarray(colors).reshape(self.h, self.w, 3)
         if glow is not None:
             self.block.glow[:, :, 0] = np.asarray(glow).reshape(self.h, self.w)
@@ -98,13 +105,16 @@ class Sheet:
         self.block.glow[:, :, 0] += np.where(on, 0.10 * amount, 0.0)
 
     def cell(self, n):
+        """World centre of cell ``n`` (row-major)."""
         r, c = divmod(int(n), self.w)
         return self.block.cell_center(r, c, 0)
 
     def show(self, mask):
+        """Draw only the cells where the ``(n,)`` ``mask`` is true."""
         self.block.present[:, :, 0] = np.asarray(mask).reshape(self.h, self.w)
 
     def fade(self, opacity):
+        """Multiply the sheet's opacity by ``opacity``."""
         self.block.opacity *= opacity
 
     def bbox(self, offsets=True):
@@ -118,9 +128,11 @@ class Sheet:
 
     @property
     def center(self):
+        """World centre of the sheet."""
         return self.block.center
 
     def emit(self, scene, view, mview):
+        """Draw the sheet (and its cage, if any) into ``scene``."""
         if not self.visible:
             return
         self.block.emit(scene, view, mview)
@@ -131,6 +143,7 @@ class Sheet:
 
 
 def bezier(a, b, u, lift):
+    """Point ``u`` in [0, 1] along a quadratic arc from ``a`` to ``b``, raised by ``lift``."""
     a, b = np.asarray(a, np.float64), np.asarray(b, np.float64)
     ctrl = (a + b) / 2 + np.array([0.0, -0.3 * lift, lift])
     return (1 - u) ** 2 * a + 2 * (1 - u) * u * ctrl + u ** 2 * b
@@ -144,19 +157,54 @@ def particle(scene, p0, p1, u, color, size, opacity=1.0, lift=2.0):
     scene.voxel(pos, color, opacity, glow=0.35, shadow=False, reflect=False, size=size)
 
 
+KNUTH = 2654435761          # Knuth's multiplicative hash constant (~2^32 / golden ratio)
+
+
 def hash01(n, salt=0):
     """Deterministic pseudo-random number in [0, 1) for staggering."""
-    return ((n * 2654435761 + salt * 40503) % 4294967296) / 4294967296.0
+    return ((n * KNUTH + salt * 40503) % 4294967296) / 4294967296.0
+
+
+def hash_mod(n, modulus):
+    """``n * KNUTH mod modulus``: a deterministic integer in ``[0, modulus)`` for staggering."""
+    return (n * KNUTH) % modulus
+
+
+def strongest(c, k):
+    """Flat indices of (up to) the ``k`` largest ``|c|``, in no particular order.
+
+    ``k`` is capped at the number of non-zero entries.  Used to pick which
+    contributions a layer's particles carry.
+    """
+    flat = np.abs(c).ravel()
+    k = min(k, int((flat > 0).sum()))
+    if k == 0:
+        return np.array([], int)
+    return np.argpartition(-flat, k - 1)[:k]
+
+
+def screen_box(cam, lo, hi):
+    """Screen bounds ``(x0, y0, x1, y1)``, in pixels, of the world box ``lo``..``hi``."""
+    corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1])
+                        for z in (lo[2], hi[2])])
+    s = cam.project(corners)
+    return s[:, 0].min(), s[:, 1].min(), s[:, 0].max(), s[:, 1].max()
 
 
 # ------------------------------------------------------------------ base
 
 
 class NetAnimation:
-    """Shared plumbing: camera, sheets, captions, titles, the loop reset."""
+    """Shared plumbing: camera, sheets, captions, titles, the loop reset.
 
-    hold = 2.0
-    reset = 1.0
+    A subclass creates its sheets with :meth:`sheet`, calls :meth:`finish`
+    with the time its story ends, and implements :meth:`draw`.  Timelines are
+    kept in ``self.Tm``, ``{phase name: (start, end)}`` in seconds, and read
+    with :meth:`progress`.
+    """
+
+    hold = 2.0                  # seconds the final state is held before the reset
+    reset = 1.0                 # seconds the loop reset takes
 
     def __init__(self, title, subtitle, ppu, azimuth=33.0, elevation=22.0):
         self.cam = Camera(ppu=ppu, azimuth=azimuth, elevation=elevation, zoom=layout.ZOOM)
@@ -166,36 +214,45 @@ class NetAnimation:
         self._cap = 1.0
 
     def sheet(self, shape, at, scale=1.0, name="", **kw):
+        """A new :class:`Sheet` of ``shape`` at screen fraction ``at``, owned by this animation."""
         s = Sheet(self.cam, shape, at, scale, name, **kw)
         self.sheets.append(s)
         return s
 
     def finish(self, t_done):
+        """Close the timeline at ``t_done`` (adds the hold and the reset); places the floor."""
         self.t_done = t_done
         self.duration = t_done + self.hold + self.reset
         self.floor_z = min([s.block.origin[2] for s in self.sheets] +
                            [b.origin[2] for b in self.blocks_extra]) - 1.2
 
+    def progress(self, name, t):
+        """Progress in [0, 1] of phase ``name`` of ``self.Tm`` at time ``t``."""
+        return remap(t, *self.Tm[name])
+
     def caption(self, scene, sheet_or_box, text, opacity=1.0, size=0.029, above=False,
                 offset=0.0, max_width=0.30, ink=None):
+        """Centred caption under (or ``above``) a sheet or a world box ``(lo, hi)``.
+
+        ``size`` and ``max_width`` are fractions of the frame; ``offset``
+        moves it further away; text wraps and ``\\n`` breaks lines.
+        """
         opacity *= self._cap
         size = max(size, layout.MIN_TEXT)
         if opacity <= 0.01 or not text:
             return
         lo, hi = sheet_or_box.bbox() if isinstance(sheet_or_box, Sheet) else sheet_or_box
-        corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1])
-                            for z in (lo[2], hi[2])])
-        s = self.cam.project(corners)
-        x = (s[:, 0].min() + s[:, 0].max()) / 2 / self.cam.width
+        x0, y0, x1, y1 = screen_box(self.cam, lo, hi)
+        x = (x0 + x1) / 2 / self.cam.width
         lines = [ln.strip() for part in text.split("\n")
                  for ln in layout.wrap(part.strip(), size, max_width)]
         step = size * 1.3
         for n, line in enumerate(lines):
             if above:
-                y = (s[:, 1].min() - 8) / self.cam.height - offset - (len(lines) - 1 - n) * step
+                y = (y0 - 8) / self.cam.height - offset - (len(lines) - 1 - n) * step
                 anchor = "mb"
             else:
-                y = (s[:, 1].max() + 10) / self.cam.height + offset + n * step
+                y = (y1 + 10) / self.cam.height + offset + n * step
                 anchor = "mt"
             scene.text(x, y, line, size, "regular", ink or layout.CAPTION_INK, opacity,
                        anchor)
@@ -207,14 +264,12 @@ class NetAnimation:
         if opacity <= 0.01:
             return
         lo, hi = sheet.bbox() if isinstance(sheet, Sheet) else sheet
-        corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1])
-                            for z in (lo[2], hi[2])])
-        s = self.cam.project(corners)
-        scene.text((s[:, 0].max() + 12) / self.cam.width,
-                   (s[:, 1].min() + s[:, 1].max()) / 2 / self.cam.height, text, size,
+        _x0, y0, x1, y1 = screen_box(self.cam, lo, hi)
+        scene.text((x1 + 12) / self.cam.width, (y0 + y1) / 2 / self.cam.height, text, size,
                    "regular", layout.CAPTION_INK, opacity, "lm")
 
     def step_indicator(self, sc, current, phases):
+        """Draw the row of ``phases`` with ``current`` (an index, -1: none) highlighted."""
         self._indicator_left = layout.step_indicator(sc, current, phases)
 
     def caption_left(self, scene, sheet, text, opacity=1.0, size=0.027):
@@ -224,14 +279,12 @@ class NetAnimation:
         if opacity <= 0.01:
             return
         lo, hi = sheet.bbox()
-        corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1])
-                            for z in (lo[2], hi[2])])
-        s = self.cam.project(corners)
-        scene.text((s[:, 0].min() - 10) / self.cam.width,
-                   (s[:, 1].min() + s[:, 1].max()) / 2 / self.cam.height, text, size,
+        x0, y0, _x1, y1 = screen_box(self.cam, lo, hi)
+        scene.text((x0 - 10) / self.cam.width, (y0 + y1) / 2 / self.cam.height, text, size,
                    "regular", layout.CAPTION_INK, opacity, "rm")
 
     def scene(self, t):
+        """The :class:`~voxanim.scene.Scene` at time ``t`` (seconds): a pure function of ``t``."""
         t = float(np.clip(t, 0.0, self.duration))
         r = remap(t, self.t_done + self.hold, self.duration)
         sc = Scene(floor_z=self.floor_z)
@@ -254,6 +307,7 @@ class NetAnimation:
         return sc
 
     def draw(self, sc, t, reset):
+        """Fill the sheets and add to ``sc`` for time ``t``; ``reset`` (0..1) rewinds the loop."""
         raise NotImplementedError
 
 
@@ -276,6 +330,7 @@ class OutputPanel:
     COLUMN_PX = 14.0            # on-screen column spacing: room for a digit label
 
     def __init__(self, anim, tr, at, scale):
+        """Panel for ``tr`` (needs ``p``, ``loss``, ``label``) at screen fraction ``at``."""
         self.anim, self.tr = anim, tr
         cam = anim.cam
         dx = abs(cam.M[0, 0]) * 960.0 / cam.width          # ref px per unit along x
@@ -293,6 +348,7 @@ class OutputPanel:
         self.set_probs(tr.p, tr.loss)
         self._fit_safe_area()
 
+    # Captions to the right of the bars, the logits and the one-hot row.
     SIDE_TEXTS = ("softmax p(digit)", "logits z", "target y (one-hot)")
 
     def _fit_safe_area(self):
@@ -302,10 +358,7 @@ class OutputPanel:
         blocks = (self.bars, self.logits.block, self.onehot.block)
         right = 0.0
         for b in blocks:
-            lo, hi = b.origin, b.origin + b.extent
-            c = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1])
-                          for z in (lo[2], hi[2])])
-            right = max(right, cam.project(c)[:, 0].max())
+            right = max(right, screen_box(cam, b.origin, b.origin + b.extent)[2])
         text = max(layout.text_width(s, layout.MIN_TEXT) for s in self.SIDE_TEXTS)
         over = (right + 12) / cam.width + text - (1 - layout.SAFE) + 0.005
         if over <= 0:
@@ -330,7 +383,13 @@ class OutputPanel:
         self.heights[visible] = np.maximum(self.heights[visible], 1)
 
     def draw(self, sc, t_bars, t_hot, t_loss, logit_mask=None, logit_colors=None, fade=1.0):
-        """Progress values in [0, 1] for each part (0 hides it)."""
+        """Set the panel's blocks: progress values in [0, 1] for each part (0 hides it).
+
+        ``logit_colors`` ``(10, 3)`` colours the logits row (None hides it) and
+        ``logit_mask`` picks the cells shown.  ``sc`` and ``t_loss`` are not used
+        here: they keep the call identical to :meth:`captions`, which writes the
+        loss text.
+        """
         if logit_colors is not None:
             self.logits.fill(logit_colors)
             if logit_mask is not None:
@@ -367,15 +426,24 @@ class OutputPanel:
         return self.tr.label
 
     def emit(self, sc):
+        """Draw the bars (the logits and one-hot rows are sheets of the animation)."""
         self.bars.emit(sc, self.anim.cam.view, self.anim.cam.mirrored().view)
 
     def result_text(self):
+        """The prediction and the loss, two lines."""
         pred = int(self.p.argmax())
         return "prediction %d (p = %.2f)\nloss = -log p[%d] = %.2f" % (
             pred, self.p[pred], self.tr.label, self.loss)
 
-    def captions(self, sc, t_bars, t_hot, t_loss, logits_text="logits z",
-                 hot_text="target y (one-hot)"):
+    def captions(self, sc, t_bars, t_hot, t_loss, logits_text=None, hot_text=None):
+        """Probabilities, digit labels, the side captions and the result text.
+
+        ``logits_text`` / ``hot_text`` replace the side captions of the logits
+        and one-hot rows (default: :attr:`SIDE_TEXTS`).
+        """
+        soft_text, default_logits, default_hot = self.SIDE_TEXTS
+        logits_text = default_logits if logits_text is None else logits_text
+        hot_text = default_hot if hot_text is None else hot_text
         a = self.anim
         h = 0.5 * self.bars.scale
         if self.logits.visible:
@@ -386,7 +454,7 @@ class OutputPanel:
                 p = self.bars.cell_center(10 - self.heights[c], c, 0)
                 a.caption(sc, (p - h, p + h), "%.2f" % self.p[c], op, size=0.029, above=True)
             mid = self.bars.cell_center(9, 9, 0)
-            a.caption_side(sc, (mid - h, mid + h), "softmax p(digit)", op)
+            a.caption_side(sc, (mid - h, mid + h), soft_text, op)
         # the digits label the columns, under the lowest row
         if self.logits.visible or t_bars > 0:
             row = self.onehot if t_hot > 0 else self.logits

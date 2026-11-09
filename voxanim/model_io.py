@@ -1,6 +1,9 @@
 """Load (and save) fully-connected models so any pre-trained MNIST network can
 be animated.
 
+The bundled ``models/mnist_dnn_100x3.npz`` is reproducible: ``python3 -m
+voxanim.model_io --make-default`` retrains it (:func:`make_default`).
+
 A model is a list of ``(W, b)`` layers with ``W`` shaped ``(inputs, outputs)``;
 ReLU between layers, softmax on the last.  Accepted files:
 
@@ -29,9 +32,11 @@ Input preprocessing (how the network expects pixels):
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
+import warnings
 
 import numpy as np
 
@@ -43,7 +48,14 @@ PREPROCESS = {
 }
 
 
+DEFAULT_MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models",
+                             "mnist_dnn_100x3.npz")
+# How DEFAULT_MODEL was made: :func:`voxanim.mnist.train` with these settings.
+DEFAULT_RECIPE = dict(sizes=(784, 100, 100, 100, 10), epochs=6, batch=128, lr=1e-3, seed=0)
+
+
 def _natural(key):
+    """Sort key that orders digit runs numerically (``fc.9`` before ``fc.10``)."""
     return [int(p) if p.isdigit() else p for p in re.split(r"(\d+)", key)]
 
 
@@ -107,8 +119,29 @@ def _pair(arrays, n_in=784):
     return layers
 
 
+def _torch_load(path):
+    """A PyTorch file's contents, safely if possible.
+
+    ``weights_only=True`` reads tensors without running pickled code; a whole
+    pickled ``nn.Module`` needs the unsafe path, so that is only tried after,
+    with a warning (only load such files from sources you trust).
+    """
+    import torch  # optional dependency
+    try:
+        return torch.load(path, map_location="cpu", weights_only=True)
+    except Exception as e:            # torch raises UnpicklingError or RuntimeError
+        warnings.warn("%s is not a plain state_dict (%s); loading it with "
+                      "weights_only=False, which runs code stored in the file"
+                      % (path, e), stacklevel=3)
+        return torch.load(path, map_location="cpu", weights_only=False)
+
+
 def load_dense(path, n_in=784):
-    """``(layers, preprocess)`` from a model file."""
+    """``(layers, preprocess)`` from a model file (see the module docstring).
+
+    ``layers`` is ``[(W (in, out), b (out,)), ...]`` in float64 and
+    ``preprocess`` a key of :data:`PREPROCESS`.
+    """
     ext = os.path.splitext(path)[1].lower()
     pre = "unit"
     if ext == ".npz":
@@ -122,8 +155,7 @@ def load_dense(path, n_in=784):
             if "preprocess" in d.files:
                 pre = str(d["preprocess"])
     elif ext in (".pt", ".pth"):
-        import torch  # optional dependency
-        obj = torch.load(path, map_location="cpu", weights_only=False)
+        obj = _torch_load(path)
         if hasattr(obj, "state_dict"):
             obj = obj.state_dict()
         arrays = _ordered([(k, v.detach().cpu().numpy()) for k, v in obj.items()])
@@ -149,6 +181,7 @@ def load_dense(path, n_in=784):
 
 
 def save_dense(path, layers, preprocess="unit"):
+    """Write ``layers`` as float32 ``W0, b0, W1, b1, ...`` plus ``preprocess`` to ``path``."""
     arrays = {}
     for n, (W, b) in enumerate(layers):
         arrays["W%d" % n] = np.asarray(W, np.float32)
@@ -157,12 +190,45 @@ def save_dense(path, layers, preprocess="unit"):
 
 
 def forward(layers, x):
-    """Pre-activations, activations (ReLU hidden) and softmax probabilities."""
+    """Run a dense ReLU network on ``x`` ``(784,)`` or a batch ``(N, 784)``.
+
+    Returns ``(zs, acts, p)``: the pre-activation of every layer, the input
+    of every layer (``acts[0]`` is ``x``; ReLU between layers) and the softmax
+    of the last pre-activation, normalised along the last axis.
+    """
     zs, acts = [], [np.asarray(x, np.float64)]
     for n, (W, b) in enumerate(layers):
         z = acts[-1] @ W + b
         zs.append(z)
         if n < len(layers) - 1:
             acts.append(np.maximum(z, 0.0))
-    e = np.exp(zs[-1] - zs[-1].max())
-    return zs, acts, e / e.sum()
+    e = np.exp(zs[-1] - zs[-1].max(axis=-1, keepdims=True))
+    return zs, acts, e / e.sum(axis=-1, keepdims=True)
+
+
+def make_default(path=DEFAULT_MODEL):
+    """Retrain the bundled 784-100-100-100-10 network and write it to ``path``.
+
+    Deterministic: the arrays equal the committed ``models/mnist_dnn_100x3.npz``.
+    Returns the test accuracy (0.9755).
+    """
+    from . import mnist
+    params, acc = mnist.train(**DEFAULT_RECIPE)
+    save_dense(path, params, "unit")
+    return acc
+
+
+def main(argv=None):
+    """``python3 -m voxanim.model_io --make-default [--out PATH]``."""
+    ap = argparse.ArgumentParser(prog="python3 -m voxanim.model_io", description=main.__doc__)
+    ap.add_argument("--make-default", action="store_true",
+                    help="retrain the bundled model (%s)" % os.path.basename(DEFAULT_MODEL))
+    ap.add_argument("--out", default=DEFAULT_MODEL, help="where to write it")
+    args = ap.parse_args(argv)
+    if not args.make_default:
+        ap.error("nothing to do (pass --make-default)")
+    print("wrote %s (test accuracy %.4f)" % (args.out, make_default(args.out)))
+
+
+if __name__ == "__main__":
+    main()

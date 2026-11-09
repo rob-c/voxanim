@@ -7,23 +7,24 @@
 Each stride-2 convolution reads every other window, so the data per channel
 drops 784 -> 169 -> 36 while the channel count grows: no pooling layers are
 needed to shrink the image.  Weights are stored ``(kh, kw, C_in, C_out)``.
-Training is seeded and cached in ``build/.cache``.
+Training (:func:`train`: He-normal init, minibatch Adam via
+:func:`voxanim.mnist.fit`) is seeded and cached by :mod:`voxanim.cache`.
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 
 import numpy as np
 
-from .mnist import load
-from .scene import DEFAULT_CACHE
+from .cache import cached_npz
+from .mnist import chunked_accuracy, fit, load
 
 LAYERS = ((3, 2, 1, 4), (3, 2, 4, 8))          # kernel, stride, C_in, C_out
 
 
 def out_size(n, k, s):
+    """Output length of a valid convolution: ``n`` inputs, kernel ``k``, stride ``s``."""
     return (n - k) // s + 1
 
 
@@ -35,13 +36,23 @@ def _windows(x, k, s):
 
 
 def conv(x, W, b, s):
+    """Valid convolution of ``x`` ``(N, H, W, C)`` with ``W`` ``(k, k, C, F)``, stride ``s``.
+
+    Returns ``(z, cols)``: the pre-activation ``(N, Ho, Wo, F)`` and the
+    patches it was computed from (kept for :func:`conv_backward`).
+    """
     k = W.shape[0]
     cols = _windows(x, k, s)
     return cols @ W.reshape(-1, W.shape[-1]) + b, cols
 
 
 def conv_backward(dz, cols, W, x_shape, s):
-    """Gradients of a strided valid convolution: (dW, db, dx)."""
+    """Gradients of a strided valid convolution: ``(dW, db, dx)``.
+
+    ``dz`` is dL/dz ``(N, Ho, Wo, F)``; ``cols`` and ``x_shape`` come from the
+    forward pass.  Each tap ``(a, b)`` scatters its share back onto the input
+    rows/cols it read.
+    """
     k, _, c, f = W.shape
     dW = cols.reshape(-1, cols.shape[-1]).T @ dz.reshape(-1, f)
     db = dz.sum((0, 1, 2))
@@ -55,11 +66,12 @@ def conv_backward(dz, cols, W, x_shape, s):
 
 
 def init(rng):
+    """Initial parameters: He-normal convolutions, ``N(0, sqrt(1 / fan_in))`` dense, zero biases."""
     P = {}
     for n, (k, _s, c, f) in enumerate(LAYERS):
         P["W%d" % n] = rng.normal(0, np.sqrt(2.0 / (k * k * c)), (k, k, c, f))
         P["b%d" % n] = np.zeros(f)
-    k, _s, c, f = LAYERS[-1]
+    f = LAYERS[-1][3]                    # channels of the last feature map
     size = 28
     for k_, s_, _c, _f in LAYERS:
         size = out_size(size, k_, s_)
@@ -69,6 +81,12 @@ def init(rng):
 
 
 def forward(P, x):
+    """Forward pass on ``x`` ``(N, 784)``.
+
+    Returns a dict: ``acts`` (each convolution's input, then the last
+    feature map), ``zs`` and ``cols`` per convolution, ``flat``, ``logits``
+    and the softmax ``p`` ``(N, 10)``.
+    """
     a = x.reshape(-1, 28, 28, 1)
     f = dict(acts=[a], zs=[], cols=[])
     for n, (_k, s, _c, _f) in enumerate(LAYERS):
@@ -85,6 +103,7 @@ def forward(P, x):
 
 
 def backward(P, f, y_onehot):
+    """Gradients of the mean cross-entropy, a dict with the keys of ``P``."""
     g = {}
     d = (f["p"] - y_onehot) / len(f["p"])
     g["Wd"], g["bd"] = f["flat"].T @ d, d.sum(0)
@@ -96,55 +115,50 @@ def backward(P, f, y_onehot):
     return g
 
 
-def train(epochs=3, batch=64, lr=2e-3, seed=0, cache_dir=DEFAULT_CACHE):
-    tag = "strided_%s_e%d_s%d.npz" % ("-".join("%dx%ds%d" % (k, f, s) for k, s, _c, f in LAYERS),
-                                      epochs, seed)
-    path = os.path.join(cache_dir, tag)
-    if os.path.exists(path):
-        with np.load(path, allow_pickle=False) as d:
-            return {k: d[k] for k in d.files if k != "acc"}, float(d["acc"])
-    xtr, ytr, xte, yte = load(cache_dir)
-    rng = np.random.default_rng(seed)
-    P = init(rng)
-    m = {k: np.zeros_like(v) for k, v in P.items()}
-    v = {k: np.zeros_like(a) for k, a in P.items()}
-    eye = np.eye(10)
-    step = 0
-    for _ in range(epochs):
-        order = rng.permutation(len(xtr))
-        for s in range(0, len(order), batch):
-            idx = order[s:s + batch]
-            g = backward(P, forward(P, xtr[idx]), eye[ytr[idx]])
-            step += 1
-            for k in P:
-                m[k] = 0.9 * m[k] + 0.1 * g[k]
-                v[k] = 0.999 * v[k] + 0.001 * g[k] ** 2
-                P[k] = P[k] - lr * (m[k] / (1 - 0.9 ** step)) / (
-                    np.sqrt(v[k] / (1 - 0.999 ** step)) + 1e-8)
-    acc = float(np.mean([(forward(P, xte[s:s + 1000])["p"].argmax(1) == yte[s:s + 1000]).mean()
-                         for s in range(0, len(xte), 1000)]))
-    os.makedirs(cache_dir, exist_ok=True)
-    np.savez(path, acc=acc, **P)
-    return P, acc
+def train(epochs=3, batch=64, lr=2e-3, seed=0, cache_dir=None):
+    """Train the strided classifier (or load it from the cache).
+
+    Returns ``(P, accuracy)``: ``P`` holds ``W0, b0, W1, b1`` (the
+    convolutions, ``(k, k, C_in, C_out)``) and ``Wd, bd`` (the dense layer).
+    """
+    settings = dict(model="strided", layers=[list(layer) for layer in LAYERS], epochs=epochs,
+                    batch=batch, lr=lr, seed=seed, init="he_normal conv, lecun_normal dense",
+                    optimizer="adam", data="mnist/255")
+
+    def build():
+        xtr, ytr, xte, yte = load(cache_dir)
+        rng = np.random.default_rng(seed)
+        P = init(rng)
+        fit(P, lambda Q, x, y: backward(Q, forward(Q, x), y), xtr, ytr, epochs, batch, lr, rng)
+        acc = chunked_accuracy(lambda x: forward(P, x)["p"], xte, yte)
+        return dict(P, acc=np.array(acc))
+
+    tag = "strided_%s" % "-".join("%dx%ds%d" % (k, f, s) for k, s, _c, f in LAYERS)
+    d = cached_npz(tag, settings, build, cache_dir)
+    return {k: v for k, v in d.items() if k != "acc"}, float(d["acc"])
 
 
 @dataclass
 class StridedTrace:
-    x: np.ndarray            # (28, 28)
-    label: int
-    P: dict
+    """One test image through the strided classifier (batch of one)."""
+
+    x: np.ndarray            # (28, 28) pixels in [0, 1]
+    label: int               # the true digit
+    P: dict                  # the trained parameters (see :func:`train`)
     acts: list               # [x (28,28,1), a1 (13,13,4), a2 (6,6,8)]
-    zs: list                 # pre-activations
-    logits: np.ndarray
-    p: np.ndarray
-    accuracy: float
+    zs: list                 # pre-activations of the two convolutions
+    logits: np.ndarray       # (10,)
+    p: np.ndarray            # (10,) softmax probabilities
+    accuracy: float          # test accuracy of the model
 
     @property
     def prediction(self):
+        """The most probable digit."""
         return int(self.p.argmax())
 
 
 def trace(index, **kw) -> StridedTrace:
+    """Test image ``index`` through the trained model; ``kw`` go to :func:`train`."""
     P, acc = train(**kw)
     _a, _b, xte, yte = load()
     f = forward(P, xte[index:index + 1])

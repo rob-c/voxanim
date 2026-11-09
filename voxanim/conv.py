@@ -38,6 +38,7 @@ from . import color as C
 from . import layout
 from .camera import Camera
 from .easing import ease_in_out, ease_out, lerp, remap, smoothstep, soft_band
+from .netanim import ACT_HI, ACT_LO, INK_HI, OFF, hash_mod, screen_box, strongest
 from .scene import Scene
 from .tensor import Block
 from .text import TIMES
@@ -56,6 +57,7 @@ class Tempo:
     ramp_out: float = 2.5      # steps over which it slows down at the end
 
     def durations(self, n):
+        """``(n,)`` seconds for each of ``n`` steps."""
         k = np.arange(n, dtype=np.float64)
         e = np.maximum(np.exp(-k / self.ramp_in), np.exp(-(n - 1 - k) / self.ramp_out))
         return self.fast + (self.slow - self.fast) * e
@@ -84,6 +86,12 @@ class Layout:
 
 @dataclass
 class ConvSpec:
+    """One convolution (or pooling) layer and how it is staged.
+
+    Shapes are ``(rows, cols)``; ``padding`` is ``(top, bottom, left, right)``.
+    The derived properties give the sizes the stage draws.
+    """
+
     name: str = "conv2d"
     in_hw: tuple = (7, 7)
     in_ch: int = 8
@@ -136,43 +144,52 @@ class ConvSpec:
     # -- derived ------------------------------------------------------------
     @property
     def dilated_hw(self):
+        """Input size after inserting the transposed convolution's zeros."""
         (H, W), (a, b) = self.in_hw, self.input_dilation
         return (H - 1) * a + 1, (W - 1) * b + 1
 
     @property
     def padded_hw(self):
-        t, b, l, r = self.padding
+        """Input size after zero padding."""
+        top, bottom, left, right = self.padding
         H, W = self.dilated_hw
-        return H + t + b, W + l + r
+        return H + top + bottom, W + left + right
 
     @property
     def padded_d(self):
+        """Depth after padding (conv3d; 1 otherwise)."""
         return self.in_d + sum(self.pad_d)
 
     @property
     def kernel_extent(self):
+        """Rows and cols the kernel spans, gaps included (dilation)."""
         (kh, kw), (dh, dw) = self.kernel, self.dilation
         return (kh - 1) * dh + 1, (kw - 1) * dw + 1
 
     @property
     def out_hw(self):
+        """Output ``(rows, cols)``."""
         (H, W), (kh, kw), (sh, sw) = self.padded_hw, self.kernel_extent, self.stride
         return (H - kh) // sh + 1, (W - kw) // sw + 1
 
     @property
     def out_d(self):
+        """Output depth (conv3d; 1 otherwise)."""
         return (self.padded_d - self.kernel_d) // self.stride_d + 1
 
     @property
     def out_ch(self):
+        """Output channels: one per filter (pooling keeps the input's)."""
         return self.in_ch if self.pool else self.filters
 
     @property
     def group_ch(self):
+        """Input channels each filter sees."""
         return self.in_ch // self.groups
 
     @property
     def per_group(self):
+        """Filters per group."""
         return self.filters // self.groups
 
     @property
@@ -198,6 +215,7 @@ class ConvSpec:
         return out
 
     def validate(self):
+        """Raise ``AssertionError`` for a spec the stage cannot draw."""
         assert self.in_ch % self.groups == 0, "in_ch must divide into groups"
         assert self.filters % self.groups == 0, "filters must divide into groups"
         assert not (self.groups > 1 and self.padded_d > 1), "grouped conv3d not supported"
@@ -218,8 +236,8 @@ def expand_input(spec, data):
     a, b = spec.input_dilation
     xd = np.zeros(((H - 1) * a + 1, (W - 1) * b + 1, Cin, D))
     xd[::a, ::b] = x
-    t, bo, l, r = spec.padding
-    return np.pad(xd, ((t, bo), (l, r), (0, 0), tuple(spec.pad_d)))
+    top, bottom, left, right = spec.padding
+    return np.pad(xd, ((top, bottom), (left, right), (0, 0), tuple(spec.pad_d)))
 
 
 def conv_forward(spec, data, weights=None):
@@ -257,6 +275,8 @@ def conv_forward(spec, data, weights=None):
 
 @dataclass
 class Step:
+    """One kernel position: which filter, which output cell, and when."""
+
     f: int          # filter (0 when pooling)
     i: int          # output row
     j: int          # output col
@@ -296,7 +316,11 @@ def _taps_boxes(rows, cols, ranges, spread):
 
 
 class ConvStage:
-    """One convolution (or pooling) layer, staged."""
+    """One convolution (or pooling) layer, staged.
+
+    ``t0`` is when it starts (seconds); ``source``, for a chained stage, is
+    the block it reads (a previous stage's output) instead of its own input.
+    """
 
     def __init__(self, spec: ConvSpec, cam: Camera, t0=0.0, source: Block | None = None):
         spec.validate()
@@ -304,7 +328,6 @@ class ConvStage:
         self.cam = cam
         self.t0 = t0
         self.last = True               # set by ConvAnimation for chained stages
-        self.kernel_label = True
         Hp, Wp = spec.padded_hw
         Dp, kd = spec.padded_d, spec.kernel_d
         Ho, Wo = spec.out_hw
@@ -336,11 +359,11 @@ class ConvStage:
             for c in range(spec.in_ch):
                 self.input.base[:, :, c * Dp:(c + 1) * Dp] = in_cols[(c // Cg) % len(in_cols)]
             # real pixels vs zeros (padding and, for transposed convs, inserted)
-            t, _b, l, _r = spec.padding
+            top, _bottom, left, _right = spec.padding
             a, b = spec.input_dilation
             H, W = spec.in_hw
             real = np.zeros((Hp, Wp), bool)
-            real[t:t + (H - 1) * a + 1:a, l:l + (W - 1) * b + 1:b] = True
+            real[top:top + (H - 1) * a + 1:a, left:left + (W - 1) * b + 1:b] = True
             self.real = real
             d0 = spec.pad_d[0]
             zero = np.ones((Hp, Wp, spec.in_ch * Dp), bool)
@@ -378,6 +401,7 @@ class ConvStage:
 
     # -- values -----------------------------------------------------------------
     def _apply_values(self, data, weights, in_cols, styles):
+        """Colour input, kernels and output by real values; keep ``raw`` / ``values``."""
         spec = self.spec
         Dp, Do = spec.padded_d, spec.out_d
         if self.owns_input:
@@ -412,6 +436,7 @@ class ConvStage:
 
     # -- layout -----------------------------------------------------------------
     def _layout(self):
+        """Place the blocks and the kernel queue / done slots; find the floor."""
         spec, cam, L = self.spec, self.cam, self.spec.layout
         if self.owns_input:
             self.input.place(cam.frac(*L.input))
@@ -466,6 +491,7 @@ class ConvStage:
 
     # -- schedule ---------------------------------------------------------------
     def _schedule(self):
+        """Every :class:`Step`'s start and duration, and the kernel swaps between filters."""
         spec = self.spec
         steps = spec.steps()
         n = len(steps) * spec.passes
@@ -496,10 +522,12 @@ class ConvStage:
         self.step_starts = [s.t for s in self.steps]
 
     def group_of(self, f):
+        """Channel group of filter ``f``."""
         return 0 if self.spec.pool else f // self.spec.per_group
 
     @property
     def duration(self):
+        """Seconds from the stage's start to its last result."""
         return self.t_end - self.t0
 
     # -- state queries ------------------------------------------------------------
@@ -508,6 +536,7 @@ class ConvStage:
         return bisect.bisect_right(self.step_starts, t) - 1
 
     def swap_progress(self, f, t):
+        """How far kernel ``f`` is on its way into the active slot (0..1, eased)."""
         if f == 0:
             return 1.0
         a, b = self.swaps[f]
@@ -523,6 +552,7 @@ class ConvStage:
         return g
 
     def window(self, step):
+        """The :class:`Window` a step reads."""
         spec = self.spec
         (kh, kw), (sh, sw), (dh, dw) = spec.kernel, spec.stride, spec.dilation
         Dp, kd, sd = spec.padded_d, spec.kernel_d, spec.stride_d
@@ -561,6 +591,7 @@ class ConvStage:
         return v
 
     def kernel_center(self, f, t, reset=0.0):
+        """World centre of kernel ``f``: queue, active slot, done row, or flying home."""
         F = self.spec.filters
         p_in = self.swap_progress(f, t)
         p_out = self.swap_progress(f + 1, t) if f + 1 < F else 0.0
@@ -614,46 +645,58 @@ class ConvStage:
         ``reset`` (0..1) rewinds everything to the opening state for looping.
         """
         spec = self.spec
-        G, Cg = spec.groups, spec.group_ch
-
-        # ---- input groups: explode, ghost, track ----------------------------
-        if self.owns_input and G > 1:
-            boom = ease_in_out(remap(t, self.t0 + spec.intro * 0.5,
-                                     self.t0 + spec.intro * 0.5 + 0.9))
-            boom *= 1.0 - ease_in_out(remap(reset, 0.45, 0.95))
-            self.input.gap = self.gap * boom
-            g_now = self.active_group(t) * (1.0 - ease_in_out(remap(reset, 0.3, 0.9)))
-            ghost_in = ease_in_out(remap(t, self.t0 + spec.intro * 0.5 + 0.5,
-                                         self.t0 + spec.intro * 0.5 + 1.1))
-            ghost_in *= 1.0 - ease_in_out(remap(reset, 0.5, 1.0))
-            for g in range(G):
-                # Solid only near the active group; the hand-over is kept short
-                # so no group lingers half-transparent.
-                near = smoothstep(0.55, 0.95, 1.0 - abs(g - g_now))
-                op = lerp(1.0, lerp(spec.ghost, 1.0, near), ghost_in)
-                self.input.opacity[:, :, g * Cg:(g + 1) * Cg] *= op
-            # Framing once exploded.  Tracking: the block slides along the
-            # channel axis so the active group always sits where group 0
-            # started -- the eye never has to chase it.  Otherwise the exploded
-            # block stays centred on the solid one.
-            home = self.input_home
-            if spec.track_groups:
-                y = home[1] - g_now * (Cg + self.input.gap)
-            else:
-                y = home[1] + (spec.in_ch - self.input.extent[1]) / 2
-            self.input.origin = np.array([home[0], y, home[2]])
-            scene.probe(("input", id(self)), self.input.origin)
-
-        # ---- transposed conv: the pixels spread apart, zeros appear between --
+        if self.owns_input and spec.groups > 1:
+            self._apply_groups(t, scene, reset)
         if self.owns_input and spec.input_dilation != (1, 1):
-            spread = ease_in_out(remap(t, self.t0 + spec.intro, self.t0 + spec.intro + 1.3))
-            spread *= 1.0 - ease_in_out(remap(reset, 0.35, 0.9))
-            if spread < 1.0:
-                self._compact(1.0 - spread)
-            self.input.opacity[self.zero] *= spread
-            scene.probe(("spread", id(self)), (spread * 8.0, 0.0, 0.0))
+            self._apply_spread(t, scene, reset)
+        self._apply_kernels(t, scene, reset)
+        n = self.step_at(t)
+        self._apply_output(t, n, reset)
+        self._apply_frame(t, scene, n, reset)
 
-        # ---- kernels --------------------------------------------------------
+    def _apply_groups(self, t, scene, reset):
+        """Grouped input: explode the groups apart, ghost the inactive ones, track."""
+        spec = self.spec
+        G, Cg = spec.groups, spec.group_ch
+        boom = ease_in_out(remap(t, self.t0 + spec.intro * 0.5,
+                                 self.t0 + spec.intro * 0.5 + 0.9))
+        boom *= 1.0 - ease_in_out(remap(reset, 0.45, 0.95))
+        self.input.gap = self.gap * boom
+        g_now = self.active_group(t) * (1.0 - ease_in_out(remap(reset, 0.3, 0.9)))
+        ghost_in = ease_in_out(remap(t, self.t0 + spec.intro * 0.5 + 0.5,
+                                     self.t0 + spec.intro * 0.5 + 1.1))
+        ghost_in *= 1.0 - ease_in_out(remap(reset, 0.5, 1.0))
+        for g in range(G):
+            # Solid only near the active group; the hand-over is kept short
+            # so no group lingers half-transparent.
+            near = smoothstep(0.55, 0.95, 1.0 - abs(g - g_now))
+            op = lerp(1.0, lerp(spec.ghost, 1.0, near), ghost_in)
+            self.input.opacity[:, :, g * Cg:(g + 1) * Cg] *= op
+        # Framing once exploded.  Tracking: the block slides along the
+        # channel axis so the active group always sits where group 0
+        # started -- the eye never has to chase it.  Otherwise the exploded
+        # block stays centred on the solid one.
+        home = self.input_home
+        if spec.track_groups:
+            y = home[1] - g_now * (Cg + self.input.gap)
+        else:
+            y = home[1] + (spec.in_ch - self.input.extent[1]) / 2
+        self.input.origin = np.array([home[0], y, home[2]])
+        scene.probe(("input", id(self)), self.input.origin)
+
+    def _apply_spread(self, t, scene, reset):
+        """Transposed convolution: the pixels spread apart, zeros appear between."""
+        spec = self.spec
+        spread = ease_in_out(remap(t, self.t0 + spec.intro, self.t0 + spec.intro + 1.3))
+        spread *= 1.0 - ease_in_out(remap(reset, 0.35, 0.9))
+        if spread < 1.0:
+            self._compact(1.0 - spread)
+        self.input.opacity[self.zero] *= spread
+        scene.probe(("spread", id(self)), (spread * 8.0, 0.0, 0.0))
+
+    def _apply_kernels(self, t, scene, reset):
+        """Place (and, if dilated, spread) every kernel."""
+        spec = self.spec
         kvis = self.kernel_visibility(t, reset)
         for f, kb in enumerate(self.kernels):
             kb.opacity *= kvis
@@ -664,11 +707,9 @@ class ConvStage:
             kb.place(c)
             scene.probe(("kernel", id(self), f), c)
 
-        n = self.step_at(t)
-        started = n >= 0 and t >= self.t_start
-        cur = self.steps[n] if started else None
-
-        # ---- output cells ---------------------------------------------------
+    def _apply_output(self, t, n, reset):
+        """Output cells of steps ``0..n`` that have landed: a glint, then the
+        loop reset dissolves them in step order."""
         out = self.output
         out.present[...] = False
         total = len(self.steps)
@@ -687,11 +728,17 @@ class ConvStage:
                     out.white[s.i, s.j, ch] = max(out.white[s.i, s.j, ch], 0.8 * gone)
                     out.opacity[s.i, s.j, ch] = 1.0 - ease_in_out(gone)
 
-        # ---- the receptive-field frame ----------------------------------------
-        # Before the first step it waits on the first window (the first stage
-        # starts with it showing, later stages fade it in); after the last step
-        # it stays on the final window if this is the last stage, otherwise it
-        # hands over.  The loop reset swaps it back to the first window.
+    def _apply_frame(self, t, scene, n, reset):
+        """The receptive-field frame and the multiply/accumulate wave of step ``n``.
+
+        Before the first step it waits on the first window (the first stage
+        starts with it showing, later stages fade it in); after the last step
+        it stays on the final window if this is the last stage, otherwise it
+        hands over.  The loop reset swaps it back to the first window.
+        """
+        spec = self.spec
+        started = n >= 0 and t >= self.t_start
+        cur = self.steps[n] if started else None
         first = self.window(self.steps[0])
         if cur is None:
             op = 1.0 if self.t0 <= 0 else ease_out(remap(t, self.t_start - 0.35, self.t_start))
@@ -741,6 +788,7 @@ class ConvStage:
         self.input.offset[ri, rj, :, 2] += dz[:, None]
 
     def _boxes_world(self, block, win_boxes):
+        """World ``(lo, hi)`` of each window box in ``block``."""
         return [block.box(r, c, ch) for r, c, ch, _m0 in win_boxes]
 
     def _frame(self, scene, win, opacity, win_to=None, m=0.0):
@@ -753,7 +801,8 @@ class ConvStage:
         if win_to is not None and m > 0:
             to = self._boxes_world(self.input, win_to.boxes)
             if len(to) == len(boxes):
-                boxes = [(lerp(a, c, m), lerp(b, d, m)) for (a, b), (c, d) in zip(boxes, to)]
+                pairs = zip(boxes, to, strict=True)
+                boxes = [(lerp(a, c, m), lerp(b, d, m)) for (a, b), (c, d) in pairs]
             elif m > 0.5:
                 boxes = to
         width = 1.5 if len(boxes) <= 2 else 1.1
@@ -802,7 +851,7 @@ class ConvStage:
                 lo, hi = block.box(rr, cc, kk)
                 y0 = block.origin[1] + block.chan_y(kk[0])
 
-                def shader(pts, n, y0=y0, m0=m0):
+                def shader(pts, _normal, y0=y0, m0=m0):
                     ml = pts[..., 1] - y0 + m0
                     a = np.clip((ml - trail_m) / soft + 0.5, 0, 1) * \
                         np.clip((lead_m - ml) / soft + 0.5, 0, 1)
@@ -820,7 +869,7 @@ class ConvStage:
         if want is False:
             return []
         want = want if isinstance(want, dict) else {}
-        x = "×"
+        x = TIMES
 
         def shape(h, w, c, d):
             dims = [h, w] + ([d] if d > 1 else [])
@@ -835,7 +884,7 @@ class ConvStage:
             text = want.get("input") if isinstance(want.get("input"), str) else \
                 "input  " + shape(H, W, spec.in_ch, spec.in_d)
             out.append((lo, hi, text))
-        if self.kernels and want.get("kernel", True) and self.kernel_label:
+        if self.kernels and want.get("kernel", True):
             ext = self.kernels[0].extent
             kh, kw = spec.kernel
             text = "%d%s%d%s%d kernel" % (kh, x, kw, x, spec.group_ch)
@@ -860,6 +909,7 @@ class ConvStage:
         return out
 
     def emit(self, scene, view, mview):
+        """Draw the blocks and the output's cage(s)."""
         if self.owns_input:
             self.input.emit(scene, view, mview)
         for kb in self.kernels:
@@ -875,6 +925,7 @@ class ConvStage:
                            bias=0.0)
 
     def reset_blocks(self):
+        """Back to the default block state at the start of every frame."""
         if self.owns_input:
             self.input.reset()
         for kb in self.kernels:
@@ -903,6 +954,8 @@ class CombineSpec:
 
 
 class CombineStage:
+    """A :class:`CombineSpec`, staged: the merged block fills in row by row."""
+
     def __init__(self, spec: CombineSpec, cam: Camera, t0, stages):
         self.spec = spec
         self.cam = cam
@@ -931,9 +984,11 @@ class CombineStage:
         self.floor_z = self.output.origin[2] - 0.7
 
     def reset_blocks(self):
+        """Back to the default block state at the start of every frame."""
         self.output.reset()
 
     def apply(self, t, scene, reset=0.0):
+        """Rows landed by ``t``; the row being merged is outlined in every source."""
         sp = self.spec
         out = self.output
         out.present[...] = False
@@ -959,12 +1014,14 @@ class CombineStage:
         scene.probe(("combine", id(self)), out.cell_center(r, 0, 0), tol=4.0)
 
     def labels(self):
+        """``[(lo, hi, text)]``: the result's caption, if any."""
         if self.spec.label is None:
             return []
         o = self.output
         return [(o.origin, o.origin + o.extent, self.spec.label)]
 
     def emit(self, scene, view, mview):
+        """Draw the result and its cage."""
         self.output.emit(scene, view, mview)
         lo, hi = self.output.box((0, self.output.H), (0, self.output.W), (0, 1))
         scene.wire_box(lo, hi, inflate=0.04, color=C.CAGE, width=1.45, opacity=0.95, bias=0.0)
@@ -992,6 +1049,11 @@ class HeadSpec:
 
 
 class HeadStage:
+    """A :class:`HeadSpec`, staged: the dense layer's particles, then softmax
+    bars, then the one-hot prediction."""
+
+    BAR_PITCH = (1, 1.75)               # spaced columns: room for every label
+
     def __init__(self, spec: HeadSpec, cam: Camera, t0, source_stage):
         self.spec, self.cam, self.t0, self.last = spec, cam, t0, True
         src = source_stage
@@ -1004,7 +1066,7 @@ class HeadStage:
         self.pred = int(self.p.argmax())
         n = len(self.p)
         sc = spec.scale
-        pitch = (1, 1.75)                       # spaced columns: room for every label
+        pitch = self.BAR_PITCH
         self.row = Block((1, n, 1), scale=sc, pitch=pitch,
                          name="logits").place(cam.frac(*spec.at))
         lo = self.row.origin
@@ -1020,14 +1082,12 @@ class HeadStage:
         # the strongest contributions, for the particles
         H, W_, Cc = vals.shape
         contrib = flat[:, None] * spec.W
-        k = min(spec.particles, int((np.abs(contrib) > 0).sum()))
-        idx = np.argpartition(-np.abs(contrib).ravel(), k - 1)[:k]
         cmax = np.abs(contrib).max() or 1.0
         self.parts = []
-        for m in idx:
+        for m in strongest(contrib, spec.particles):
             i, j = divmod(int(m), n)
             r, c, ch = np.unravel_index(i, (H, W_, Cc))
-            start = 0.55 * ((m * 2654435761) % 1000) / 1000.0
+            start = 0.55 * hash_mod(m, 1000) / 1000.0
             self.parts.append(((int(r), int(c), int(ch)), j, contrib[i, j] / cmax, start))
         Tm, t = {}, t0 + 0.2
         for name, d in (("dense", 2.4), ("softmax", 1.4), ("hot", 0.8)):
@@ -1037,17 +1097,21 @@ class HeadStage:
         self.t_end = t + 0.6
         self.floor_z = self.hot.origin[2] - 0.8
 
-    def p_(self, name, t):
+    def progress(self, name, t):
+        """Progress in [0, 1] of phase ``name`` (``dense``, ``softmax``, ``hot``) at ``t``."""
         return remap(t, *self.Tm[name])
 
     def reset_blocks(self):
+        """Back to the default block state at the start of every frame."""
         for b in (self.row, self.bars, self.hot):
             b.reset()
 
     def apply(self, t, scene, reset=0.0):
+        """Particles, bars, the one-hot row and every number, for time ``t``."""
         back = 1.0 - ease_in_out(remap(reset, 0.0, 0.6))
         n = len(self.p)
-        dn, sm, ht = self.p_("dense", t), self.p_("softmax", t), self.p_("hot", t)
+        dn, sm, ht = (self.progress("dense", t), self.progress("softmax", t),
+                      self.progress("hot", t))
         self.row.present[0, :, 0] = np.arange(n) < dn * (n + 2) - 1
         self.row.opacity *= back
         # dense: the strongest weighted inputs fly to their class
@@ -1067,12 +1131,12 @@ class HeadStage:
             h = int(min(self.heights[j], np.ceil(grow)))
             self.bars.present[:, j, 0] = np.arange(10) >= 10 - h
             win = j == self.pred
-            self.bars.base[:, j, 0] = C.rgb("#c9fff6") if win else C.rgb("#2f8a86")
+            self.bars.base[:, j, 0] = ACT_HI if win else ACT_LO
             self.bars.glow[:, j, 0] = 0.3 * win
         self.bars.opacity *= back
         # one-hot: the prediction
         hot = np.arange(n) == self.pred
-        self.hot.base[0, :, 0] = np.where(hot[:, None], C.rgb("#fbfbf4"), C.rgb("#2b2f33"))
+        self.hot.base[0, :, 0] = np.where(hot[:, None], INK_HI, OFF)
         self.hot.glow[0, :, 0] = 0.35 * hot
         self.hot.present[0, :, 0] = ht > 0
         self.hot.opacity *= ease_out(ht) * back
@@ -1112,17 +1176,16 @@ class HeadStage:
 
     def _screen_box(self, block, top):
         """Centre x and top (or bottom) y of a block on screen, as fractions."""
-        lo, hi = block.origin, block.origin + block.extent
-        c = np.array([[a, b, d] for a in (lo[0], hi[0]) for b in (lo[1], hi[1])
-                      for d in (lo[2], hi[2])])
-        s = self.cam.project(c)
-        y = s[:, 1].min() if top else s[:, 1].max()
-        return (s[:, 0].min() + s[:, 0].max()) / 2 / self.cam.width, y / self.cam.height
+        x0, y0, x1, y1 = screen_box(self.cam, block.origin, block.origin + block.extent)
+        y = y0 if top else y1
+        return (x0 + x1) / 2 / self.cam.width, y / self.cam.height
 
     def labels(self):
-        return []                     # the head captions itself as it appears
+        """None: the head captions itself as it appears."""
+        return []
 
     def emit(self, scene, view, mview):
+        """Draw the logits row, the bars, the one-hot row and the row's cage."""
         for b in (self.row, self.bars, self.hot):
             b.emit(scene, view, mview)
         lo, hi = self.row.box((0, 1), (0, self.row.W), (0, 1))
@@ -1133,7 +1196,12 @@ class HeadStage:
 
 
 class ConvAnimation:
-    """One or more chained stages, a hold, and an optional loop reset."""
+    """One or more chained stages, a hold, and an optional loop reset.
+
+    ``specs`` is a :class:`ConvSpec` or a list of them; ``combine`` adds
+    :class:`CombineSpec` steps and ``head`` a :class:`HeadSpec` after them.
+    ``hold`` and ``reset`` are seconds; ``labels`` turns the captions on.
+    """
 
     def __init__(self, specs, camera=None, hold=1.6, reset=1.4, title=None,
                  subtitle=None, labels=False, combine=None, head=None):
@@ -1181,14 +1249,13 @@ class ConvAnimation:
                 for lo, hi, text in st.labels():
                     kind = "kernel" if hasattr(st, "kernels") and st.kernels and \
                         np.allclose((lo + hi) / 2, st.active) else "other"
-                    corners = np.array([[x, y, z] for x in (lo[0], hi[0])
-                                        for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
-                    s = cam.project(corners)
-                    self._labels.append(((s[:, 0].min() + s[:, 0].max()) / 2 / cam.width,
-                                         (s[:, 1].max() + 10) / cam.height, text, st, kind))
+                    x0, _y0, x1, y1 = screen_box(cam, lo, hi)
+                    self._labels.append(((x0 + x1) / 2 / cam.width, (y1 + 10) / cam.height,
+                                         text, st, kind))
         return self._labels
 
     def scene(self, t):
+        """The :class:`~voxanim.scene.Scene` at time ``t`` (seconds)."""
         t = float(np.clip(t, 0.0, self.duration))
         r = remap(t, self.t_done + self.hold, self.duration) if self.reset > 0 else 0.0
         sc = Scene(floor_z=self.floor_z)

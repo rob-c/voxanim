@@ -4,7 +4,7 @@ through an MNIST classifier, and gradients flowing back.
 Visual language (shared by every animation here):
 
 * every vector is a **sheet** of voxels facing the camera -- the 28x28 image,
-  the 8x8 / 4x8 hidden layers, the 10 logits;
+  the 8x8 / 4x8 hidden layers, the 10 logits (:data:`SHAPES`);
 * a value > 0 is **lit**: bright, glowing and popped towards the viewer; a 0 is
   dark and flush.  That is the input's ink, and it is ReLU: only neurons whose
   value is above zero light up;
@@ -29,6 +29,7 @@ import numpy as np
 from . import color as C
 from .conv import Tempo
 from .easing import ease_in_out, ease_out, remap, smoothstep, soft_band
+from .mnist import SIZES
 from .netanim import (
     ACT_HI,
     INK_HI,
@@ -43,10 +44,13 @@ from .netanim import (
     hash01,
     lit_colors,
     particle,
+    strongest,
 )
 from .text import TIMES
 
-SHAPES = [(28, 28), (8, 8), (4, 8), (1, 10)]
+SHAPES = [(28, 28), (8, 8), (4, 8), (1, 10)]     # how each layer of SIZES is drawn
+assert [h * w for h, w in SHAPES] == list(SIZES), "SHAPES must match mnist.SIZES"
+N_IN, N_H1, N_H2, N_OUT = SIZES
 
 # ------------------------------------------------------------------ forward, one layer
 
@@ -59,15 +63,18 @@ VIEW = {   # per layer: ppu, sheet scales (input, template, output), anchors
 
 
 class DenseForward(NetAnimation):
-    """Layer ``k`` computed neuron by neuron, then its activation function."""
+    """Layer ``k`` (0, 1, 2) of ``tr`` (a :class:`~voxanim.mnist.Trace`)
+    computed neuron by neuron, then its activation function."""
 
     def __init__(self, tr, k):
-        names = ["Layer 1: 784 pixels into 64 neurons", "Layer 2: 64 into 32 neurons",
-                 "Output layer: 32 neurons into 10 digits"]
+        names = ["Layer 1: %d pixels into %d neurons" % (N_IN, N_H1),
+                 "Layer 2: %d into %d neurons" % (N_H1, N_H2),
+                 "Output layer: %d neurons into %d digits" % (N_H2, N_OUT)]
         subs = ["each neuron weighs every pixel; only pixels > 0 contribute, then ReLU "
                 "keeps the positive sums",
-                "the same again on the 64 activations; neurons that were 0 add nothing",
-                "10 sums (logits) become probabilities, compared with the one-hot label"]
+                "the same again on the %d activations; neurons that were 0 add nothing" % N_H1,
+                "%d sums (logits) become probabilities, compared with the one-hot label"
+                % N_OUT]
         v = VIEW[k]
         super().__init__(names[k], subs[k], v["ppu"])
         self.tr, self.k = tr, k
@@ -85,7 +92,7 @@ class DenseForward(NetAnimation):
         else:
             self.out = self.sheet(SHAPES[k + 1], ao, so, "output")
 
-        self.intro = 3.2 if k == 0 else 0.8
+        self.intro = 3.2 if k == 0 else 0.8      # seconds before the first neuron (the image sweep)
         tempo = Tempo(slow=3.0, fast=0.11 if k == 0 else 0.16, ramp_in=4, ramp_out=1.5)
         if k == 2:
             tempo = Tempo(slow=3.0, fast=0.55, ramp_in=3, ramp_out=1.5)
@@ -116,6 +123,7 @@ class DenseForward(NetAnimation):
 
     # -- the input sheet ---------------------------------------------------------
     def _input(self, sc, t, reset):
+        """The input sheet; layer 1 first sweeps the image from grey to lit ink."""
         a = self.a
         if self.k == 0:
             # Plain greyscale first, then a sweep: ink lights up, zeros go dark.
@@ -138,6 +146,7 @@ class DenseForward(NetAnimation):
             self.inp.light(a)
 
     def draw(self, sc, t, reset):
+        """One frame: input, outputs landed so far, the current neuron's template."""
         k = self.k
         self._input(sc, t, reset)
         n = int(np.searchsorted(self.starts, t, side="right") - 1)
@@ -206,6 +215,7 @@ class DenseForward(NetAnimation):
         self._captions(sc, t, reset)
 
     def _step_text(self, sc, j, u, op):
+        """The template's caption: detailed while the steps are slow, a count once fast."""
         slow = self.durs[j] > 0.8
         if slow:
             if u < 0.24:
@@ -219,9 +229,11 @@ class DenseForward(NetAnimation):
         self.caption(sc, self.tpl, s, op)
 
     def _captions(self, sc, t, reset):
+        """Captions of the input and output sheets (or the panel)."""
         k = self.k
         f = 1.0 - smoothstep(0.0, 0.5, reset)
-        names = ["image x  (784 pixels)", "h1 = ReLU(layer 1)  (64)", "h2 = ReLU(layer 2)  (32)"]
+        names = ["image x  (%d pixels)" % N_IN, "h1 = ReLU(layer 1)  (%d)" % N_H1,
+                 "h2 = ReLU(layer 2)  (%d)" % N_H2]
         if k == 0 and t < 2.6:
             names[0] = "image x  (28%s28 pixels, 0 to 1)" % TIMES if t < 0.7 else \
                 "only pixels > 0 light up"
@@ -240,6 +252,7 @@ class DenseForward(NetAnimation):
                                 remap(t, *self.t_loss))
 
     def scene(self, t):
+        """The scene at ``t``, plus the output panel's bars for the last layer."""
         sc = super().scene(t)
         if self.panel is not None:
             self.panel.emit(sc)
@@ -260,8 +273,8 @@ class DenseBackward(NetAnimation):
 
     def __init__(self, tr, k):
         names = ["Backprop, layer 1: errors to weights and pixels",
-                 "Backprop, layer 2: 32 errors back to 64 neurons",
-                 "Backprop, output layer: p - y back to 32 neurons"]
+                 "Backprop, layer 2: %d errors back to %d neurons" % (N_H2, N_H1),
+                 "Backprop, output layer: p - y back to %d neurons" % N_H2]
         subs = ["weight gradients are error %s pixel: only pixels > 0 change their weights"
                 % TIMES,
                 "each error reaches back along its weights; neurons that were off get no "
@@ -276,12 +289,11 @@ class DenseBackward(NetAnimation):
         self.dW = tr.dWs[k]
         self.da = tr.dacts[k]
         in_shape, out_shape = SHAPES[k], SHAPES[k + 1]
-        if k == 0:
-            pos = dict(act=(0.17, 0.33), grad=(0.17, 0.74), tpl=(0.50, 0.55), err=(0.82, 0.55))
-            so = 3.0
-        else:
-            pos = dict(act=(0.17, 0.36), grad=(0.17, 0.74), tpl=(0.50, 0.55), err=(0.82, 0.55))
-            so = 1.0
+        # screen anchors; the 28x28 image sits a little higher, and layer 1's
+        # 8x8 error sheet is drawn 3x larger to match it
+        pos = dict(act=(0.17, 0.33 if k == 0 else 0.36), grad=(0.17, 0.74), tpl=(0.50, 0.55),
+                   err=(0.82, 0.55))
+        so = 3.0 if k == 0 else 1.0
         self.act = self.sheet(in_shape, pos["act"], 1.0, "activations")
         self.grad = self.sheet(in_shape, pos["grad"], 1.0, "grad")
         self.tpl = self.sheet(in_shape, pos["tpl"], 1.0, "dW")
@@ -313,20 +325,27 @@ class DenseBackward(NetAnimation):
             self.gate = tr.zs[k - 1] > 0
 
     def draw(self, sc, t, reset):
-        k = self.k
+        """One frame: inputs and errors, the gradient below so far, the current neuron."""
         f = 1.0 - ease_in_out(remap(reset, 0.0, 0.6))
-        # forward activations (what the weight gradients multiply with)
-        if k == 0:
+        self._inputs_and_errors()
+        n = int(np.searchsorted(self.starts, t, side="right") - 1)
+        gate = self._gradient_below(t, n, f)
+        self._current_neuron(sc, t, n)
+        self._captions(sc, reset, gate)
+
+    def _inputs_and_errors(self):
+        """The forward activations (what the weight gradients multiply) and dL/dz."""
+        if self.k == 0:
             self.act.fill(lit_colors(self.a, 1.0, INK_LO, INK_HI))
         else:
             self.act.fill(lit_colors(self.a, amax(self.a)))
         self.act.light(self.a)
-        # the incoming error
         self.err.fill(self.err_cols)
         self.err.cage = 1.0
-        n = int(np.searchsorted(self.starts, t, side="right") - 1)
 
-        # the gradient flowing down accumulates neuron by neuron
+    def _gradient_below(self, t, n, f):
+        """The gradient flowing down, accumulated over neurons ``0..n``, then ReLU's
+        gate; returns the gate's progress (0..1)."""
         appear = smoothstep(0.2, 1.2, t)
         if n < 0:
             g = np.zeros_like(self.da)
@@ -346,47 +365,50 @@ class DenseBackward(NetAnimation):
             cols[off] = cols[off] + (OFF - cols[off]) * m[off][:, None]
         self.grad.fill(cols)
         self.grad.fade(f * appear)
+        return gate
 
-        # the neuron being back-propagated
+    def _current_neuron(self, sc, t, n):
+        """Neuron ``active[n]``: its error flies to the template, which becomes its
+        weight gradient, and its share pours into the gradient below."""
+        t_last = self.starts[-1] + self.durs[-1]
         tpl_on = smoothstep(self.intro - 0.5, self.intro, t) * \
-            (1.0 - smoothstep(self.starts[-1] + self.durs[-1],
-                              self.starts[-1] + self.durs[-1] + 0.5, t))
+            (1.0 - smoothstep(t_last, t_last + 0.5, t))
         if n < 0 or tpl_on <= 0.01:
             self.tpl.visible = False
+            return
+        j = min(n, len(self.active) - 1)
+        nj = self.active[j]
+        u = (t - self.starts[j]) / self.durs[j]
+        prev = self.tcols[self.active[j - 1]] if j > 0 else \
+            np.tile(C.NEUTRAL, (self.tpl.n, 1))
+        rows = np.repeat(np.arange(self.tpl.h), self.tpl.w) / max(self.tpl.h - 1, 1)
+        m = np.array([smoothstep(0.22 + 0.3 * r, 0.30 + 0.3 * r, u) for r in rows])
+        self.tpl.fill(prev + (self.tcols[nj] - prev) * m[:, None])
+        self.tpl.fade(tpl_on)
+        self.tpl.cage = tpl_on
+        # the error flies from its neuron to the template...
+        size = 0.7 * self.err.block.scale
+        particle(sc, self.err.cell(nj), self.tpl.center, remap(u, 0.0, 0.25),
+                 self.err_cols[nj], size, lift=3.0)
+        # ...and its share pours into the gradient below
+        particle(sc, self.tpl.center, self.grad.center, remap(u, 0.55, 0.85),
+                 self.err_cols[nj], 0.9, lift=-2.0)
+        sc.probe(("err",), self.err.cell(nj), tol=6.0)
+        r, c = divmod(int(nj), self.err.w)
+        lo, hi = self.err.block.box((r, r + 1), (c, c + 1), (0, 1))
+        sc.wire_box(lo, hi, inflate=0.06 * self.err.block.scale, color=(0.93, 0.93, 0.93),
+                    width=1.3, opacity=0.9 * tpl_on, bias=0.1)
+        slow = self.durs[j] > 0.8
+        if slow and u < 0.25:
+            s = "error of neuron %d = %.3g" % (nj + 1, self.delta[nj])
+        elif slow:
+            s = "weight gradient = error %s input" % TIMES
         else:
-            j = min(n, len(self.active) - 1)
-            nj = self.active[j]
-            u = (t - self.starts[j]) / self.durs[j]
-            prev = self.tcols[self.active[j - 1]] if j > 0 else \
-                np.tile(C.NEUTRAL, (self.tpl.n, 1))
-            rows = np.repeat(np.arange(self.tpl.h), self.tpl.w) / max(self.tpl.h - 1, 1)
-            m = np.array([smoothstep(0.22 + 0.3 * r, 0.30 + 0.3 * r, u) for r in rows])
-            self.tpl.fill(prev + (self.tcols[nj] - prev) * m[:, None])
-            self.tpl.fade(tpl_on)
-            self.tpl.cage = tpl_on
-            # the error flies from its neuron to the template...
-            size = 0.7 * self.err.block.scale
-            particle(sc, self.err.cell(nj), self.tpl.center, remap(u, 0.0, 0.25),
-                     self.err_cols[nj], size, lift=3.0)
-            # ...and its share pours into the gradient below
-            particle(sc, self.tpl.center, self.grad.center, remap(u, 0.55, 0.85),
-                     self.err_cols[nj], 0.9, lift=-2.0)
-            sc.probe(("err",), self.err.cell(nj), tol=6.0)
-            r, c = divmod(int(nj), self.err.w)
-            lo, hi = self.err.block.box((r, r + 1), (c, c + 1), (0, 1))
-            sc.wire_box(lo, hi, inflate=0.06 * self.err.block.scale, color=(0.93, 0.93, 0.93),
-                        width=1.3, opacity=0.9 * tpl_on, bias=0.1)
-            slow = self.durs[j] > 0.8
-            if slow and u < 0.25:
-                s = "error of neuron %d = %.3g" % (nj + 1, self.delta[nj])
-            elif slow:
-                s = "weight gradient = error %s input" % TIMES
-            else:
-                s = "neuron %d" % (nj + 1)
-            self.caption(sc, self.tpl, s, tpl_on)
-        self._captions(sc, t, reset, gate)
+            s = "neuron %d" % (nj + 1)
+        self.caption(sc, self.tpl, s, tpl_on)
 
-    def _captions(self, sc, t, reset, gate):
+    def _captions(self, sc, reset, gate):
+        """Captions of the activations, the errors and the gradient below."""
         k = self.k
         f = 1.0 - smoothstep(0.0, 0.5, reset)
         below = ["image x", "h1 (forward)", "h2 (forward)"][k]
@@ -451,7 +473,7 @@ class NetworkFlow(NetAnimation):
         self.parts_bwd = [self._particles(k, True) for k in range(3)]
 
     def _particles(self, k, backward):
-        """Top contributions of layer ``k``: (src, dst, value, start)."""
+        """Top contributions of layer ``k``: ``(i, j, value / max, start)``."""
         tr = self.tr
         W = tr.Ws[k]
         if not backward:
@@ -459,12 +481,9 @@ class NetworkFlow(NetAnimation):
         else:
             gate = (tr.zs[k - 1] > 0) if k > 0 else np.ones(W.shape[0], bool)
             c = W * tr.deltas[k][None, :] * gate[:, None]  # w_ij delta_j (gated)
-        flat = np.abs(c).ravel()
-        K = min(self.K, int((flat > 0).sum()))
-        idx = np.argpartition(-flat, K - 1)[:K] if K > 0 else np.array([], int)
         out = []
         cmax = amax(c)
-        for n in idx:
+        for n in strongest(c, self.K):
             i, j = divmod(int(n), W.shape[1])
             v = c[i, j] / cmax
             src_row = (i // SHAPES[k][1]) / SHAPES[k][0] if not backward else \
@@ -475,6 +494,7 @@ class NetworkFlow(NetAnimation):
 
     # forward: layer k carries layer k -> k+1; backward: layer k+1 -> k
     def draw(self, sc, t, reset):
+        """One frame of the forward (or backward) flow."""
         if not self.backward:
             self._draw_forward(sc, t, reset)
         else:
@@ -494,6 +514,7 @@ class NetworkFlow(NetAnimation):
         return div + (lit - div) * smoothstep(0.75, 1.0, prog)
 
     def _draw_forward(self, sc, t, reset, t_layer=None):
+        """Values flowing forward; ``t_layer[k]`` times layer ``k`` (default ``self.t_layer``)."""
         tr = self.tr
         t_layer = t_layer or self.t_layer
         f = 1.0 - ease_in_out(remap(reset, 0.0, 0.6))
@@ -537,11 +558,15 @@ class NetworkFlow(NetAnimation):
             s.fade(f)
         self.panel.emit(sc)
         # captions
-        self.caption(sc, self.sx, "image x (784)")
-        self.caption(sc, self.s1, "h1 (64)")
-        self.caption(sc, self.s2, "h2 (32)")
+        self._layer_captions(sc)
         self.panel.captions(sc, remap(t, *self.t_bars), remap(t, *self.t_hot),
                             remap(t, *self.t_loss))
+
+    def _layer_captions(self, sc):
+        """``image x (784)``, ``h1 (64)``, ``h2 (32)`` under the three sheets."""
+        self.caption(sc, self.sx, "image x (%d)" % N_IN)
+        self.caption(sc, self.s1, "h1 (%d)" % N_H1)
+        self.caption(sc, self.s2, "h2 (%d)" % N_H2)
 
     def _draw_backward(self, sc, t, back, t_layer=None, t_err=None, layers=(2, 1, 0)):
         """``t_layer[n]`` times the n-th layer in ``layers`` (output side first)."""
@@ -623,28 +648,40 @@ class TrainingStep(NetworkFlow):
     PHASES = ("forward", "loss", "backward", "update", "forward again")
 
     def __init__(self, tr, tr_after, lr):
+        """``tr`` / ``tr_after``: :class:`~voxanim.mnist.Trace` before and after the step."""
         super().__init__(tr, False, at=TRAIN_AT, ppu=6.8,
                          title="One training step on one image", subtitle="")
         self.tr2, self.lr = tr_after, lr
         self.hold = 2.5
-        t = 1.2
+        self._make_timeline()
+        self._make_templates()
+
+    def _make_timeline(self):
+        """Phase times in seconds (each written out so the numbers stay exact)."""
+        t = 1.2                                     # after the image fades in
+        # forward: 2.4 s per layer, 0.3 s apart
         self.t_fwd = [(t, t + 2.4), (t + 2.7, t + 5.1), (t + 5.4, t + 7.8)]
         t += 8.1
+        # loss: the bars grow, the one-hot target, the loss text
         self.t_bars, self.t_hot, self.t_loss = (t, t + 1.2), (t + 1.4, t + 2.0), (t + 2.2, t + 2.8)
         t += 3.6
-        self.t_err = (t, t + 0.8)
+        self.t_err = (t, t + 0.8)                   # the logits turn into p - y
         t += 1.0
+        # backward: output -> h2, h2 -> h1 (2.4 s each)
         self.t_bwd = [(t, t + 2.4), (t + 2.7, t + 5.1)]
         t += 5.6
+        # update: one neuron per layer, output first, 3.4 s each
         self.t_upd = {2: (t, t + 3.4), 1: (t + 3.7, t + 7.1), 0: (t + 7.4, t + 10.8)}
         t += 11.2
-        self.t_again = (t, t + 5.0)
+        self.t_again = (t, t + 5.0)                 # forward again
         t += 5.4
         self.finish(t)
         self.marks = [0.0, self.t_bars[0], self.t_err[0], self.t_upd[2][0], self.t_again[0]]
 
-        # One neuron per layer to show the update on: the most-blamed hidden
-        # neurons, and the true digit's output neuron.
+    def _make_templates(self):
+        """One neuron per layer to show the update on (the most-blamed hidden
+        neurons and the true digit's output neuron), and its colours."""
+        tr, lr = self.tr, self.lr
         self.focus = {0: int(np.argmax(np.abs(tr.deltas[0]))),
                       1: int(np.argmax(np.abs(tr.deltas[1]))), 2: tr.label}
         at = {0: (0.20, 0.76), 1: (0.43, 0.77), 2: (0.645, 0.78)}
@@ -669,6 +706,7 @@ class TrainingStep(NetworkFlow):
         return int(np.searchsorted(self.marks, t, side="right") - 1)
 
     def draw(self, sc, t, reset):
+        """One frame of whichever step is under way at ``t``."""
         for s in self.tpl.values():
             s.visible = False
         ph = self.step_of(t)
@@ -695,6 +733,7 @@ class TrainingStep(NetworkFlow):
 
     # -- 4: the update ---------------------------------------------------------------
     def _draw_update(self, sc, t):
+        """Step 4: weights, change ``-lr x error x input`` and result, one neuron per layer."""
         tr = self.tr
         names = {0: "into h1 neuron %d", 1: "into h2 neuron %d", 2: "into digit %d"}
         for k in (2, 1, 0):
@@ -745,6 +784,7 @@ class TrainingStep(NetworkFlow):
 
     # -- 5: forward again -------------------------------------------------------------
     def _draw_again(self, sc, t, reset):
+        """Step 5: the same image through the updated weights, then the loop reset."""
         tr, tr2 = self.tr, self.tr2
         m = remap(t, *self.t_again)
         back = 1.0 - ease_in_out(remap(reset, 0.0, 0.7))
@@ -788,9 +828,7 @@ class TrainingStep(NetworkFlow):
         self.panel.draw(sc, back, back, back * smoothstep(0.85, 1.0, m), np.ones(10, bool),
                         logits, fade=back)
         self.panel.emit(sc)
-        self.caption(sc, self.sx, "image x (784)")
-        self.caption(sc, self.s1, "h1 (64)")
-        self.caption(sc, self.s2, "h2 (32)")
+        self._layer_captions(sc)
         self.panel.captions(sc, back, back, back * smoothstep(0.85, 1.0, m))
         self.panel.note(sc, "before the step: p = %.2f, loss %.2f" % (tr.p[tr.label], tr.loss),
                         smoothstep(0.85, 1.0, m) * (1 - hide))
