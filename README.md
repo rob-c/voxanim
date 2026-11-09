@@ -1,38 +1,61 @@
-# voxanim — the convolution animations
+# voxanim
 
-Source for every convolution animation on the site: the original conv2d set
-(basic, padding, stride, groups, depthwise, depthwise-separable), the two
-conv1d pieces, and a set of titled, labelled teaching animations (stride,
-dilation, transposed convolution, pooling, 1×1, conv3d, conv1d variants, and
-Sobel edge detection on an image). One renderer, one scene grammar, and one
-`ConvSpec` per animation.
+Animations that explain convolutions, neural networks and transformers,
+rendered from **real numbers**: every weight, activation, gradient and
+probability on screen comes from a model trained or run right here, in plain
+numpy. 53 animations, from a 3×3 convolution to the inside of GPT-2, all from
+one small renderer (voxels, lines, textured quads and text, written with
+numpy and Pillow).
 
-Pure Python: `numpy`, `Pillow`, and `ffmpeg` on the `PATH`. No Blender.
+The rendered MP4s and GIFs, with a SHA-256 manifest, are attached to the
+[GitHub releases](../../releases).
+
+- **Reproducible:** the same commit renders the same pixels and the same
+  encoded bytes. See [Reproducibility](#reproducibility).
+- **Checked:** every gradient is tested against finite differences, every
+  animation's loop seam and layout are tested, and every refactor of the code
+  was checked frame by frame against the previous output.
+- **Documented:** every module, class and function has a docstring. This
+  README covers what each animation shows and how the pieces fit together.
+
+## Quick start
+
+Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
-cd anim
-python3 -m voxanim list                         # what can be rendered
-python3 -m voxanim still conv2d -t 1.0 12.7     # single frames -> build/stills/
-python3 -m voxanim compare conv2d -t 0 1        # ours above the original GIF frame
-python3 -m voxanim sheet depthwise              # contact sheet -> build/sheets/
-python3 -m voxanim render conv2d                # frames + MP4/GIF -> build/out/
-python3 -m voxanim render all --install         # write into ../media (site names)
-python3 tests/test_voxanim.py                   # regression tests
-./make_animations.sh                            # render + install the conv1d pair
+python3 -m pip install -r requirements-lock.txt   # the exact reference versions
+python3 -m voxanim list --names                   # the 53 animations
+python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
+python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
+python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
+python3 -m voxanim render all --clean-frames      # everything (hours; see below)
+python3 -m pytest tests                           # the test suite
 ```
 
-Useful options:
+`pip install -e .` installs the `voxanim` command too.
+
+Other commands:
+
+- `info <name>`: the timeline of one animation.
+- `sheet <name>`: a contact sheet in `build/sheets/`.
+- `qa [names]`: layout checks without rendering.
+- `encode <name>`: re-encode frames a previous `render` left behind.
+- `master <name>`: 4K/8K HDR broadcast masters.
+- `compare <name>`: ours next to the original GIF, when the
+  [animatedai.github.io](https://animatedai.github.io) media folder is at
+  `$VOXANIM_MEDIA` (default `../media`).
+
+Options for `still`, `render` and `encode`:
 
 - `--quality draft|preview|final|max`: draft drops supersampling, motion
-  blur and reflections, so it's quick to iterate with; final is 2×
-  supersampled, max 3×.
-- `--scale 2`: 1920×1080.
-- `--fps`, `--jobs`.
-- `--formats mp4,gif,webm`.
-- `--gif-fps`.
+  blur and reflections, for quick iteration; final is 2× supersampled, max 3×.
+- `--scale 2` or `--res 4k`: a larger render.
+- `--fps` and `--jobs`.
+- `--formats mp4,gif,webm`, `--gif-fps`.
+- Model options for some animations: `--digit` (an MNIST test-set index),
+  `--model` (your own dense network for `dnn-eval`) and `--text` (your own
+  prompt for `gpt2-attention`).
 
-`render` writes PNG frames to `build/<name>/`. `encode <name>` re-encodes them
-without rendering again.
 
 ## Animations
 
@@ -90,7 +113,7 @@ have something to say. MNIST (~11 MB) and the weights are cached in
 | `mlp-6-backward-layer2` | the same one layer down: neurons that were off get no gradient |
 | `mlp-7-backward-layer1` | weight gradients = error × pixel, so only pixels > 0 light up; the input gradient dL/dx accumulates |
 | `mlp-8-backward-pass` | the whole backward pass: gradients flowing back to the pixels (saliency) |
-| `mlp-9-training-step` | one full SGD step on the image: forward, loss, backward, update, then forward again. During the update, one neuron per layer shows its weights, the change −lr × error × input (only inputs > 0) and the result; every neuron with an error updates at once. Afterwards p(3) rises from 0.62 to 0.87 and the loss falls from 0.48 to 0.14 (lr = 0.002, `lessons.TRAIN_LR`) |
+| `mlp-9-training-step` | one full SGD step on the image: forward, loss, backward, update, then forward again. During the update, one neuron per layer shows its weights, the change −lr × error × input (only inputs > 0) and the result; every neuron with an error updates at once. Afterwards p(3) rises from 0.62 to 0.87 and the loss falls from 0.48 to 0.14 (lr = 0.002, `catalog.TRAIN_LR`) |
 
 The visual language throughout:
 
@@ -105,7 +128,7 @@ The network: x 28×28 → conv 3×3 with 4 filters → ReLU → 2×2 max-pool �
 dense 676 → 10 → softmax. It is trained in numpy (about 96% test accuracy)
 and cached like the MLP.
 
-The animation shows one SGD step on the same "3" (lr 0.005, `lessons.CNN_LR`):
+The animation shows one SGD step on the same "3" (lr 0.005, `catalog.CNN_LR`):
 p(3) rises from 0.70 to 0.88. It is laid out as one row per channel:
 kernel → feature map → pooled map → shared output panel. The five steps:
 
@@ -141,7 +164,7 @@ matrix, O = A V, and the CLS row of A laid back on the 4 × 4 patch grid
 4. **Update:** each head's Wq, Wk and Wv take a step against their
    gradients.
 5. **Forward again:** the attention shifts and p(5) rises from 0.66 to 0.82
-   (lr 0.001, `lessons.ATTN_LR`).
+   (lr 0.001, `catalog.ATTN_LR`).
 
 ### RNN and LSTM on a sine wave (`sequence.py`, `recurrent.py`)
 
@@ -173,7 +196,7 @@ errors are visible:
 | `rnn-training-step` | loss 0.045 → 0.023 (lr 0.1) |
 | `lstm-training-step` | loss 0.091 → 0.058 (lr 0.5) |
 
-`python3 tests/test_voxanim.py` checks every gradient of every network
+`tests/test_models.py` checks every gradient of every network
 against finite differences. It also checks that layer-1 weight gradients are exactly zero
 wherever the pixel is zero. Use `mnist.trace(i)` to animate another test
 image, and change `mnist.SIZES` for another architecture (the sheet shapes
@@ -499,38 +522,109 @@ is about 200 MB.
   per sub-frame per worker, with 4 workers fitting in RAM alongside x265.
   conv2d (58 s at 60 fps) takes several hours. 4K is about 4× cheaper.
 
+## Reproducibility
+
+A render is a pure function of the commit, the reference environment and the
+inputs below. Each of them is pinned:
+
+- **Code:** each frame is a pure function of time (`scene(t)`), with no
+  randomness that isn't seeded. Every seed is a named constant.
+- **Environment:** `requirements-lock.txt` gives the exact versions the
+  release was made with (Python 3.13.5, numpy 2.5.4, Pillow 13.0.0, ffmpeg
+  9.0.2 on macOS 15 arm64).
+- **Fonts:** Inter and DejaVu Sans Mono are bundled with the package
+  (`voxanim/fonts/`, with their licences) and checked against their SHA-256
+  when loaded. Text is laid out with Pillow's basic engine, so it doesn't
+  depend on optional system libraries.
+- **Data:** MNIST and GPT-2 small are downloaded once and verified against
+  pinned SHA-256s before use. GPT-2 comes from a fixed Hugging Face revision.
+- **Trained weights:** every model is trained by seeded numpy code and
+  cached under a name that hashes *all* of its settings (`cache.cached_npz`),
+  so a changed hyperparameter can never load stale weights.
+  `models/mnist_dnn_100x3.npz` (the default model for `dnn-eval`) is rebuilt
+  byte for byte by `python3 -m voxanim.model_io --make-default`.
+- **Encoding:** ffmpeg runs with bit-exact flags, no metadata and one
+  encoder thread, so the encoded bytes depend only on the frames and the
+  encoder version.
+- **Manifests:** each `render` writes `build/out/<name>.json` next to its
+  outputs. It records the options, the render style, every tool version, the
+  git commit and the SHA-256 of each file.
+
+Floating-point training can differ in the last bits on another CPU or BLAS
+library, and Adam can amplify that. A retrained model may then differ
+slightly from the cached one the release used. To reproduce a release
+exactly, use the reference environment, or unpack the release's trained
+weights (`voxanim-weights.tar.gz`, about 35 MB) into `build/.cache/` first.
+The renders use exactly those weights.
+
+## Development
+
+```bash
+python3 -m pip install -r requirements-lock.txt
+ruff check voxanim tests                 # lint (configuration in pyproject.toml)
+python3 -m pytest tests                  # everything available offline
+python3 -m voxanim prepare && python3 -m pytest tests   # the full suite
+```
+
+The tests:
+
+- **`tests/test_models.py`:** gradients against finite differences, the model
+  loaders, and known behaviour (GPT-2 predicts " four" after "One, two,
+  three,").
+- **`tests/test_animations.py`:** every animation builds and loops without a
+  seam.
+- **`tests/test_conv.py`:** convolution arithmetic and the schedule.
+- **`tests/test_render.py`:** culling, determinism, HDR and resolution
+  independence.
+- **`tests/test_layout.py`:** no clipped or colliding text.
+
+A test that needs MNIST or GPT-2 is skipped, with the reason, until
+`prepare` has run. CI (`.github/workflows/ci.yml`) runs the lint and the
+offline tests on every push, plus a job that prepares MNIST and runs
+everything except GPT-2.
+
+Before changing a module, render a few `draft` frames of the animations that
+use it and compare them afterwards. Every refactor in the history was checked
+this way: three frames from each animation, plus 25 dense frames for larger
+rewrites, all pixel-identical.
+
 ## How it works
 
 ```
 voxanim/
-  camera.py    orthographic camera (2x3 projection; its null space is the view direction)
-  sprites.py   ray-marched bevelled voxel, pre-filtered into sub-pixel phases
-  raster.py    float framebuffer with z-buffer: sprites, shaded quads, AA lines
-  scene.py     Scene (per-frame primitives) + Renderer (floor, passes, motion blur)
-  tensor.py    Block: an HWC tensor as voxels; group gaps, pitch, scale, culling
-  conv.py      ConvSpec / ConvStage / ConvAnimation / CombineSpec: the choreography
-  presets.py   the named animations (the site's originals)
-  lessons.py   the teaching set
-  mlp.py       fully-connected network: forward per layer, backprop per layer, overviews
-  mnist.py     MNIST download + numpy MLP and CNN (train, forward, backward, SGD step)
-  cnn.py       the CNN training-step animation
-  vit.py       a tiny 3-head vision transformer (numpy, trained on MNIST)
-  attention.py the self-attention training-step animation
-  sequence.py  RNN and LSTM on sine waves (numpy, BPTT)
-  recurrent.py the RNN / LSTM training-step animation
-  autoencoder.py dense and conv autoencoders (numpy; 2-D / 3-D latent)
-  ae_anim.py   the autoencoder animation (latent space, latent walk)
-  rnn_batches.py the 2-layer RNN batch-training animation
-  deep_models.py dense VAE, U-Net (denoising), DEC / IDEC (numpy)
-  vae_anim.py  unet_anim.py  dec_anim.py   their animations
-  strided.py   a stride-2 conv classifier (numpy, trained on MNIST)
-  model_io.py  load / save dense models (.npz, PyTorch, Keras, JSON)
-  dnn.py       evaluating a loaded dense network on one digit
-  hdr.py       BT.2100 HDR: PQ / HLG, BT.2020, light levels
-  layout.py    titles, step indicator, safe areas, captions that yield
-  qa.py        layout QA over every animation
-  render.py    multi-process rendering; streamed broadcast masters
-  __main__.py  CLI, multi-process rendering, ffmpeg encoding
+  rendering
+    camera.py      orthographic camera (2x3 projection; its null space is the view direction)
+    sprites.py     ray-marched bevelled voxel, pre-filtered into sub-pixel phases
+    raster.py      float framebuffer with z-buffer: sprites, shaded quads, AA lines
+    scene.py       Scene (per-frame primitives) + Renderer (floor, passes, motion blur, text)
+    fonts.py       the bundled fonts (checked by SHA-256) and text measurement
+    hdr.py         BT.2100 HDR: PQ / HLG, BT.2020, light levels
+    layout.py      titles, step indicator, safe areas, captions that yield
+    color.py easing.py text.py   palettes; easing curves; number/symbol typography
+    render.py      multi-process rendering, ffmpeg encoding, manifests, broadcast masters
+    qa.py          layout QA over every animation
+  animation frameworks
+    tensor.py      Block: an HWC tensor as voxels; group gaps, pitch, scale, culling
+    conv.py        ConvSpec / ConvStage / ConvAnimation / CombineSpec: the conv choreography
+    netanim.py     NetAnimation, Sheet, OutputPanel, value colours: the network animations' base
+    diagram.py     flat node-and-line diagrams (camera-facing billboards)
+  registry
+    presets.py     the registry and the original conv2d set
+    lessons.py     the convolution teaching set
+    catalog.py     every network animation
+  models (numpy) and their data
+    cache.py       checksummed downloads; trained weights keyed on all their settings
+    optim.py minibatch.py   the shared Adam and minibatch loop
+    mnist.py       MNIST, the dense and convolutional classifiers
+    strided.py vit.py sequence.py autoencoder.py deep_models.py   the other models
+    model_io.py    load / save dense models (.npz, PyTorch, Keras, JSON)
+    gpt2.py        GPT-2 small: safetensors reader, BPE tokenizer, forward pass
+  animations
+    mlp.py cnn.py attention.py recurrent.py rnn_batches.py dnn.py
+    ae_anim.py vae_anim.py unet_anim.py dec_anim.py
+    gpt2_anim.py (+ gpt2_panel.py, gpt2_camera.py, gpt2_layout.py)
+    gd_anim.py mlp_graph.py dtree.py
+  __main__.py      the command line
 ```
 
 - **Pure function of time.** `ConvAnimation.scene(t)` builds a fresh `Scene`
@@ -625,3 +719,15 @@ original style, use `ConvAnimation(ConvSpec(...))` directly.
 
 `compare` and `sheet` are the debugging loop: change a number, re-render a
 frame next to the original, look.
+
+## Licence and credits
+
+- **Code:** MIT (see `LICENSE`).
+- **Convolution animations:** the conv2d originals' look is reproduced from
+  [Animated AI](https://animatedai.github.io) (MIT, Brad Klingensmith),
+  where this project began.
+- **Fonts:** Inter (SIL Open Font License 1.1) and DejaVu Sans Mono
+  (Bitstream Vera licence). Their licence texts are in `voxanim/fonts/`.
+- **Data:** MNIST (Yann LeCun, Corinna Cortes and Christopher Burges), via
+  the Keras mirror. GPT-2 small (OpenAI, MIT), via the Hugging Face hub. Both
+  are downloaded on first use; neither is included here.
