@@ -1,55 +1,70 @@
 """Fonts for on-screen text, and the box a piece of text covers.
 
-Each type role (``light``, ``regular``, ``mono``) lists font files in order of
-preference; the first one that loads is used.  Text is laid out with Pillow's
-BASIC engine (no libraqm shaping), so the result does not depend on which
-optional libraries Pillow was built with.  A missing font is an error: a
-silent fallback to Pillow's bitmap default font would change every frame.
+The fonts ship with the package (``voxanim/fonts/``), so every machine draws
+identical text:
+
+* ``regular`` -- Inter 4.1 Regular (SIL Open Font License 1.1),
+* ``mono`` -- DejaVu Sans Mono 2.37 (Bitstream Vera licence), used for the
+  numbers in matrices and tables and for the few glyphs Inter lacks (the
+  superscript T of Kᵀ).
+
+Text is laid out with Pillow's BASIC engine (no libraqm shaping), so the result
+does not depend on which optional libraries Pillow was built with.  Each file
+is checked against its SHA-256 the first time it is loaded: a different font
+would change every frame.
 """
 
 from __future__ import annotations
+
+import hashlib
+import os
 
 from PIL import ImageFont
 
 from .camera import REF_H, REF_W
 
-# (path, face index within a .ttc collection); bare names are searched for on
-# Pillow's font path.
+DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
 FONTS = {
-    "light": [("/System/Library/Fonts/HelveticaNeue.ttc", 7),
-              ("/System/Library/Fonts/Avenir Next.ttc", 10),
-              ("/usr/share/fonts/truetype/dejavu/DejaVuSans-ExtraLight.ttf", 0),
-              ("DejaVuSans.ttf", 0)],
-    "regular": [("/System/Library/Fonts/HelveticaNeue.ttc", 0),
-                ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 0),
-                ("DejaVuSans.ttf", 0)],
-    "mono": [("/System/Library/Fonts/Menlo.ttc", 0),
-             ("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 0),
-             ("DejaVuSansMono.ttf", 0)],
+    "regular": ("Inter-Regular.ttf",
+                "40d692fce188e4471e2b3cba937be967878f631ad3ebbbdcd587687c7ebe0c82"),
+    "mono": ("DejaVuSansMono.ttf",
+             "b4a6c3e4faab8773f4ff761d56451646409f29abedd68f05d38c2df667d3c582"),
 }
+# Inter sets about 7% wider than the Helvetica Neue the layouts were designed
+# with; drawing it at 94% keeps every line the width it was laid out for (its
+# taller x-height keeps it as legible).
+SCALE = {"regular": 0.94, "mono": 1.0}
 _cache = {}
+_checked = set()
 
 
 class FontNotFoundError(OSError):
-    """None of the font files listed for a type role could be loaded."""
+    """A bundled font file is missing or is not the expected file."""
+
+
+def path(kind):
+    """The verified path of the ``kind`` font (a key of :data:`FONTS`)."""
+    name, sha = FONTS[kind]
+    p = os.path.join(DIR, name)
+    if kind not in _checked:
+        try:
+            with open(p, "rb") as fh:
+                got = hashlib.sha256(fh.read()).hexdigest()
+        except OSError as e:
+            raise FontNotFoundError("bundled font %s is missing" % p) from e
+        if got != sha:
+            raise FontNotFoundError("%s has SHA-256 %s, expected %s" % (p, got, sha))
+        _checked.add(kind)
+    return p
 
 
 def font(kind, px):
-    """The ``kind`` font (a key of :data:`FONTS`) at ``px`` pixels, rounded to
-    whole pixels and cached.  Raises :class:`FontNotFoundError` if no listed
-    file loads."""
-    key = (kind, int(round(px)))
+    """The ``kind`` font for text ``px`` pixels tall (scaled by :data:`SCALE`),
+    rounded to whole pixels and cached."""
+    key = (kind, int(round(px * SCALE[kind])))
     if key not in _cache:
-        for path, index in FONTS[kind]:
-            try:
-                _cache[key] = ImageFont.truetype(path, key[1], index=index,
-                                                 layout_engine=ImageFont.Layout.BASIC)
-                break
-            except OSError:
-                continue
-        else:
-            raise FontNotFoundError("no %r font found; tried: %s"
-                                    % (kind, ", ".join(p for p, _ in FONTS[kind])))
+        _cache[key] = ImageFont.truetype(path(kind), key[1],
+                                         layout_engine=ImageFont.Layout.BASIC)
     return _cache[key]
 
 

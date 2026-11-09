@@ -40,8 +40,10 @@ def test_text_is_not_clipped():
             ref = Im.new("L", (960, 540), 0)
             Dr.Draw(ref).text((t.x * 960, t.y * 540), t.s, font=font("regular", size * 540),
                               fill=255, anchor=anchor)
+            # the same coverage threshold on both: black ink over the 0.87 grey
             ink_ref = np.asarray(ref) > 128
-            assert (ours[ink_ref] < 0.45).all(), (size, anchor)
+            ink_ours = ours < 0.87 * (1 - 128.5 / 255)
+            assert ink_ours[ink_ref].all(), (size, anchor)
             rows = np.nonzero(ink_ref.any(1))[0]
-            got = np.nonzero((ours < 0.45).any(1))[0]
+            got = np.nonzero(ink_ours.any(1))[0]
             assert rows.min() == got.min() and rows.max() == got.max(), (size, anchor)

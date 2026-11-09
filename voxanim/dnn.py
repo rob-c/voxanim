@@ -77,6 +77,7 @@ class EvalPanel(OutputPanel):
 
 
 IMAGE_AT = (0.11, 0.47)            # screen anchors: the image, the output panel, and
+PANEL_SCALE = 1.1                   # wide enough for ten digit labels with clear gaps
 PANEL_AT = (0.83, 0.47)            # the hidden layers spread evenly between HIDDEN_X
 HIDDEN_X = (0.28, 0.575)
 SPOTLIGHT_Y = 0.78                 # the spotlight template's centre, fraction of the height
@@ -119,7 +120,7 @@ class ModelEvaluation(NetAnimation):
             shp = sheet_shape(n)
             scale = min(1.35, 13.5 / max(shp))     # at most 13.5 units wide
             self.hid.append(self.sheet(shp, (fx, IMAGE_AT[1]), scale, "h%d" % (k + 1)))
-        self.panel = EvalPanel(self, self.ev, PANEL_AT, 1.0)
+        self.panel = EvalPanel(self, self.ev, PANEL_AT, PANEL_SCALE)
         self.layer_in = [self.img] + self.hid
         self.layer_out = self.hid + [self.panel.logits]
         # the spotlight template: one neuron's weights, shaped like its input
