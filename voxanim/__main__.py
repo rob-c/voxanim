@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
 import time
 
@@ -240,6 +241,8 @@ def cmd_render(args):
         frames = os.path.join(BUILD, name) + presets.options_suffix(name, **opts(args))
         render_frames(name, style, args.fps, args.jobs, frames, opts=opts(args))
         _encode(name, args, style)
+        if args.clean_frames:
+            shutil.rmtree(frames)
 
 
 def cmd_encode(args):
@@ -340,6 +343,10 @@ def parser():
         sp.add_argument("--install", action="store_true",
                         help="write into $VOXANIM_MEDIA (default ../media) under the "
                              "site's names")
+        if cmd == "render":
+            sp.add_argument("--clean-frames", action="store_true",
+                            help="delete each animation's PNG frames once it is encoded "
+                                 "(a full render keeps ~26 GB otherwise)")
         common(sp)
         sp.set_defaults(fn=fn)
     return ap
