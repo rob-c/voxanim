@@ -93,10 +93,26 @@ def _targets(names):
 
 
 def cmd_list(args):
-    """Print every preset with its duration and one-line description."""
+    """Print every preset with its duration and one-line description (which
+    builds it: may download data or train).  ``--names``: just the names."""
+    if args.names:
+        print("\n".join(presets.REGISTRY))
+        return
     for p in presets.REGISTRY.values():
         anim = p.build()
         print("%-30s %5.1fs  %s" % (p.name, anim.duration, p.about.splitlines()[0]))
+
+
+def cmd_prepare(args):
+    """Download the datasets and train every model, so that later renders and
+    the full test suite run offline.  Everything lands in the cache directory
+    (``build/.cache`` or ``$VOXANIM_CACHE``); it is safe to run again."""
+    names = args.names or list(presets.REGISTRY)
+    for n, name in enumerate(names, 1):
+        t0 = time.time()
+        presets.build(name)
+        print("[%2d/%d] %-30s ready (%.1fs)" % (n, len(names), name, time.time() - t0),
+              flush=True)
 
 
 def cmd_info(args):
@@ -271,7 +287,12 @@ def parser():
         sp.add_argument("--fps", type=int, default=30)
         sp.add_argument("--out")
 
-    sub.add_parser("list").set_defaults(fn=cmd_list)
+    sp = sub.add_parser("list")
+    sp.add_argument("--names", action="store_true", help="names only, without building")
+    sp.set_defaults(fn=cmd_list)
+    sp = sub.add_parser("prepare", help="download data and train every model (offline after)")
+    sp.add_argument("names", nargs="*", help="only these presets (default: all)")
+    sp.set_defaults(fn=cmd_prepare)
     sp = sub.add_parser("info")
     sp.add_argument("name")
     model_opts(sp)

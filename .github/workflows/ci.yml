@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    # Lint, then every test that needs no download: the renderer, the
+    # convolution animations, the diagrams, layout QA and the gradient checks
+    # of the models that train on synthetic data.  Tests that need MNIST or
+    # GPT-2 report as skipped.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-lock.txt
+      - run: python -m pip install -r requirements-lock.txt
+      - run: ruff check voxanim tests
+      - run: python -m pytest tests -q
+
+  full:
+    # The whole suite: downloads MNIST, trains every model (cached between
+    # runs, keyed on the training code) and runs everything except GPT-2.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-lock.txt
+      - run: python -m pip install -r requirements-lock.txt
+      - uses: actions/cache@v4
+        with:
+          path: build/.cache
+          key: voxanim-cache-${{ hashFiles('voxanim/cache.py', 'voxanim/mnist.py', 'voxanim/strided.py', 'voxanim/sequence.py', 'voxanim/vit.py', 'voxanim/autoencoder.py', 'voxanim/deep_models.py', 'voxanim/optim.py', 'voxanim/minibatch.py') }}
+      - run: python -m voxanim prepare $(python -m voxanim list --names | grep -v '^gpt2-')
+      - run: python -m pytest tests -q
