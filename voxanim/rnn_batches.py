@@ -141,13 +141,13 @@ class RNNBatchTraining(NetAnimation):
 
     def step_of(self, t):
         """Index into :attr:`PHASES` of the phase at time ``t``."""
-        # NOTE: never returns 3 ("fast-forward"): the loop finds batch 3's start
-        # first.  Kept as is for now (fixing it changes the step indicator).
-        for bi, (b0, _u, _e) in reversed(list(enumerate(self.batch_t))):
-            if t >= b0:
-                return 4 if bi == 3 else bi
+        if t >= self.batch_t[3][0]:
+            return 4                                    # the last batch
         if t >= self.t_ff[0]:
-            return 3
+            return 3                                    # fast-forward
+        for bi in (2, 1, 0):
+            if t >= self.batch_t[bi][0]:
+                return bi
         return 0
 
     # ------------------------------------------------------------------ frame

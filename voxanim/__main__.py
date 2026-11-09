@@ -31,6 +31,7 @@ from PIL import Image
 from . import presets
 from .camera import REF_W
 from .fonts import FontNotFoundError
+from .gpt2_anim import PromptLengthError
 from .raster import to_uint8
 from .render import (
     BUILD,
@@ -337,7 +338,8 @@ def parser():
         sp.add_argument("--gif-fps", type=int, default=15)
         sp.add_argument("--gif-width", type=int, help="default: the render width")
         sp.add_argument("--install", action="store_true",
-                        help="write into ../media under the site's names")
+                        help="write into $VOXANIM_MEDIA (default ../media) under the "
+                             "site's names")
         common(sp)
         sp.set_defaults(fn=fn)
     return ap
@@ -349,7 +351,7 @@ def main(argv=None):
     args = parser().parse_args(argv)
     try:
         args.fn(args)
-    except (presets.UnknownPreset, FFmpegError, FontNotFoundError) as e:
+    except (presets.UnknownPreset, FFmpegError, FontNotFoundError, PromptLengthError) as e:
         print("voxanim: error: %s" % e, file=sys.stderr)
         raise SystemExit(2) from None
 

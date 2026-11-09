@@ -34,7 +34,10 @@ from .scene import Renderer
 
 ANIM = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BUILD = os.path.join(ANIM, "build")
-MEDIA = os.path.abspath(os.path.join(ANIM, "..", "media"))
+# A website's media folder: where `render --install` writes and where `compare`
+# finds the original GIFs.  $VOXANIM_MEDIA, else ../media (this repository
+# checked out inside the animatedai.github.io site, as it began).
+MEDIA = os.path.abspath(os.environ.get("VOXANIM_MEDIA") or os.path.join(ANIM, "..", "media"))
 
 PROGRESS_EVERY = 30            # frames between progress lines
 

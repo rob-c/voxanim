@@ -122,6 +122,11 @@ def _thousands(n):
     return format(n, ",")
 
 
+
+class PromptLengthError(ValueError):
+    """The prompt does not tokenize to 2..MAX_TOKENS tokens."""
+
+
 class GPT2Animation(NetAnimation):
     """The ``gpt2-attention`` animation for a prompt of 2 to :data:`MAX_TOKENS` tokens.
 
@@ -140,8 +145,8 @@ class GPT2Animation(NetAnimation):
         self.tr = G.run(text)
         self.T = len(self.tr.ids)
         if not 2 <= self.T <= MAX_TOKENS:
-            raise SystemExit("gpt2-attention: the prompt must be 2 to %d tokens, not %d"
-                             % (MAX_TOKENS, self.T))
+            raise PromptLengthError("gpt2-attention: the prompt must be 2 to %d tokens, not %d"
+                                    % (MAX_TOKENS, self.T))
         self.tp = HT / self.T                # model units per token row
         self._build_stream()
         self._build_dive()
@@ -698,8 +703,8 @@ class GPT2Animation(NetAnimation):
         if u < 0.66:
             return "multiply element by element: %d products q%d[d] · k%d[d]" % (d, i + 1, j + 1)
         s = self.tr.scores[LAYER, HEAD, i, j]
-        return ("sum the %d products: q%d · k%d = %.1f;  ÷ √%d = %.2f  =  score[%d, %d]"
-                % (d, i + 1, j + 1, s * math.sqrt(d), d, s, i + 1, j + 1))
+        return ("sum the %d products: q%d · k%d = %s;  ÷ √%d = %s  =  score[%d, %d]"
+                % (d, i + 1, j + 1, num(s * math.sqrt(d), 1), d, num(s), i + 1, j + 1))
 
     # -- concat, W_O, residual add, MLP for the dive layer -----------------------------------------
     def _after_heads(self, sc, t, back, model, pulse_x):
