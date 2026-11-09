@@ -54,6 +54,8 @@ class Diagram(NetAnimation):
         self.view = cam.view
 
     def finish(self, t_done):
+        """Set the duration; the floor sits far below, so a flat diagram casts no
+        shadows or reflections."""
         self.t_done = t_done
         self.duration = t_done + self.hold + self.reset
         # far below: no floor shadows or reflections under a flat diagram
@@ -68,11 +70,20 @@ class Diagram(NetAnimation):
         return self.Mi @ (s - cam.offset) + self.view * lift
 
     def px(self, p):
+        """Screen position of world point ``p``, in reference px."""
         return self.cam.project(p)
 
     def fr(self, p):
+        """Screen position of world point ``p``, as fractions of the frame."""
         s = self.cam.project(p)
         return s[0] / self.cam.width, s[1] / self.cam.height
+
+    def ends(self, a, b, ra, rb):
+        """The segment from ``a`` to ``b`` shortened by ``ra`` / ``rb`` px at each
+        end, so an edge stops at the rim of the nodes it joins."""
+        sa, sb = self.px(a), self.px(b)
+        u = (b - a) / np.linalg.norm(sb - sa)
+        return a + u * ra, b - u * rb
 
     def shift(self, p, dx, dy):
         """``p`` moved by ``(dx, dy)`` screen px (in the view plane)."""
@@ -159,12 +170,15 @@ class Diagram(NetAnimation):
             sc.probe(key, p, tol=6.0)
 
     def polyline(self, sc, pts, width=1.6, color=EDGE, opacity=1.0, bias=0.2):
+        """Lines joining consecutive points (``width`` in px)."""
         for p, q in itertools.pairwise(pts):
             sc.line(p, q, width=width, color=color, opacity=opacity, bias=bias)
 
     # ------------------------------------------------------------------ text
     def label(self, sc, p, text, size=layout.CAPTION, anchor="mm", dx=0.0, dy=0.0,
               ink=None, opacity=1.0, kind="regular"):
+        """Text centred (``anchor``) on world point ``p``, offset ``dx``, ``dy`` px;
+        it fades with the caption fade of the loop."""
         opacity *= self._cap
         if opacity <= 0.01 or not text:
             return
@@ -198,6 +212,8 @@ def image_shader(anim, c, tex, w, h, opacity=1.0, grid=0.0):
 
 
 def draw_image(anim, sc, c, tex, w, h, opacity=1.0, grid=0.35, lift=0.3):
+    """Draw texture ``tex`` (rows, cols, 3) as a crisp ``w x h`` px image centred at
+    ``c``; ``grid`` darkens the cell borders when cells are large enough to show."""
     if opacity <= 0.01:
         return
     c = np.asarray(c, np.float64) + anim.view * lift

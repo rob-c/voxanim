@@ -141,7 +141,7 @@ def test_camera_roundtrip_and_view():
 def test_culling_is_invisible():
     """Dropping hidden voxels must not change a single pixel."""
     cam = Camera()
-    r = Renderer(cam, replace_style(DRAFT, reflection=0.0, shadow=0.0, watermark=False))
+    r = Renderer(cam, replace_style(DRAFT, reflection=0.0, shadow=0.0))
     b = Block((5, 6, 7)).place(cam.frac(0.5, 0.5))
     culled, full = Scene(), Scene()
     b.emit(culled, r.cam.view)
@@ -427,7 +427,7 @@ def test_text_is_not_clipped():
 
     from voxanim.scene import Text, font
     anim = presets.get("conv2d").build()
-    r = Renderer(anim.cam, replace_style(DRAFT, watermark=False))
+    r = Renderer(anim.cam, replace_style(DRAFT))
     bg = np.full((540, 960, 3), 0.87, np.float32)
     for size in (0.029, 0.033, 0.054):
         for anchor in ("la", "mt", "rm", "ls"):
@@ -566,7 +566,7 @@ def test_xor_gradients_match_finite_differences():
     from voxanim import gd_anim as G
     rng = np.random.default_rng(1)
     p = rng.normal(0, 1, 13)
-    for x, y in zip(G.X, G.Y):
+    for x, y in zip(G.XOR_X, G.XOR_Y):
         g, _ = G.grads(p, x, y)
         num = np.zeros_like(p)
         for i in range(len(p)):
@@ -576,8 +576,8 @@ def test_xor_gradients_match_finite_differences():
             num[i] = (L[0] - L[1]) / 2e-6
         assert np.allclose(g, num, atol=1e-7), (g, num)
     hist, losses = G.train()
-    yh = [G.forward(hist[-1], x)[3] for x in G.X]
-    assert losses[-1] < 0.01 and np.all(np.round(yh) == G.Y)    # it learns XOR
+    yh = [G.forward(hist[-1], x)[3] for x in G.XOR_X]
+    assert losses[-1] < 0.01 and np.all(np.round(yh) == G.XOR_Y)    # it learns XOR
 
 
 def test_decision_tree_splits():
