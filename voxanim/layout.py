@@ -6,11 +6,13 @@ the **action-safe** area.  ``python3 -m voxanim qa`` checks both.
 
 from __future__ import annotations
 
-from .scene import font
+import numpy as np
+
+from .camera import REF_H, REF_W
+from .fonts import font, text_box
 
 SAFE = 0.05                     # title-safe margin, as a fraction of the frame
 ZOOM = 0.90                     # compositions designed edge to edge -> 0.05 .. 0.95
-REF_H = 540.0
 
 # Type roles.  Sizes are fractions of the picture height; inks are chosen for
 # contrast against the ~#dedede backdrop (WCAG 2 ratios in brackets): body
@@ -26,8 +28,9 @@ MIN_TEXT = 0.029                    # nothing smaller is ever drawn
 
 
 def text_width(s, size, kind="regular"):
-    """Width of ``s`` as a fraction of the frame width (16:9)."""
-    return font(kind, size * REF_H).getlength(s) / (REF_H * 16 / 9)
+    """Width of ``s`` (``size`` a fraction of the frame height) as a fraction
+    of the frame width, measured at the reference resolution."""
+    return font(kind, size * REF_H).getlength(s) / REF_W
 
 
 def wrap(s, size, width):
@@ -88,36 +91,41 @@ def step_indicator(scene, current, phases, size=0.030):
     return left
 
 
+# Voxels at least this opaque, and casting a shadow or reflection, count as
+# solid for text collisions (particles and ghosts do not).
+SOLID_OPACITY = 0.3
+DISK_RADIUS = 0.42      # footprint radius per voxel edge (times px per world unit)
+
+
 def solid_disks(scene, cam):
-    """Screen centres and radii (reference px) of the solid voxels -- not the
-    particles, which only cross text for an instant."""
-    import numpy as np
-    vis = [v for v in scene.voxels if v[7] and v[2] > 0.3 and (v[5] or v[6])]
+    """Screen centres and radii (in ``cam``'s px) of the solid voxels -- not
+    the particles, which only cross text for an instant."""
+    vis = [v for v in scene.voxels
+           if v.visible and v.opacity > SOLID_OPACITY and (v.shadow or v.reflect)]
     if not vis:
         return np.zeros((0, 2)), np.zeros(0)
-    c = cam.project(np.array([v[0] for v in vis]))
-    return c, np.array([v[8] for v in vis]) * cam.ppu * cam.zoom * 0.42
+    c = cam.project(np.array([v.center for v in vis]))
+    return c, np.array([v.size for v in vis]) * cam.ppu * cam.zoom * DISK_RADIUS
 
 
-def text_box(t, W=960, H=540):
-    f = font(t.kind, t.size * H)
-    l, tp, r, b = f.getbbox(t.s, anchor=t.anchor)
-    x, y = t.x * W, t.y * H
-    return x + l, y + tp, x + r, y + b
+def box_distance(box, pts):
+    """Distance from each point ``pts (n, 2)`` to the box ``(x0, y0, x1, y1)``
+    (0 inside it)."""
+    x0, y0, x1, y1 = box
+    dx = np.maximum(np.maximum(x0 - pts[:, 0], pts[:, 0] - x1), 0)
+    dy = np.maximum(np.maximum(y0 - pts[:, 1], pts[:, 1] - y1), 0)
+    return np.hypot(dx, dy)
 
 
 def yield_to_geometry(scene, cam, texts):
     """Fade captions that something solid is passing under (a kernel flying
     to the 'done' row, say): smooth, and a pure function of the scene."""
-    import numpy as np
     c, r = solid_disks(scene, cam)
     if not len(c):
         return
     for t in texts:
-        x0, y0, x1, y1 = text_box(t, cam.width, cam.height)
-        dx = np.maximum(np.maximum(x0 - c[:, 0], c[:, 0] - x1), 0)
-        dy = np.maximum(np.maximum(y0 - c[:, 1], c[:, 1] - y1), 0)
-        clear = float(np.min(np.hypot(dx, dy) - r * 0.6))
+        box = text_box(t, cam.width, cam.height)
+        clear = float(np.min(box_distance(box, c) - r * 0.6))
         k = min(1.0, max(0.0, (clear + 1.0) / 5.0))
         t.opacity *= k
         t.yielded = k

@@ -28,7 +28,7 @@ from dataclasses import astuple, dataclass
 
 import numpy as np
 
-VERSION = 3
+VERSION = 3                      # part of the cache key: bump to invalidate atlases
 
 
 @dataclass(frozen=True)
@@ -91,7 +91,13 @@ def _shade(n, look):
 
 
 class SpriteAtlas:
-    """All sub-pixel phases of one voxel look, for one camera."""
+    """All sub-pixel phases of one voxel look, for one camera.
+
+    ``data`` is ``(phases, phases, 4, h, w)`` float32 (the A, D, W, Z channels
+    above); ``(ox, oy)`` is the sprite's top-left offset from the voxel centre
+    in px.  Atlases are cached in ``cache_dir`` keyed on everything that
+    shapes them (bump :data:`VERSION` when the ray-marcher changes).
+    """
 
     def __init__(self, M, view, look=Look(), hires=8, phases=4, cache_dir=None):
         self.look = look

@@ -7,7 +7,7 @@ rendering.
 * text drawn over voxels (a caption colliding with the thing it labels, or
   with something else).
 
-Everything is measured at the 960 x 540 reference resolution; the renderer is
+Everything is measured in reference px (960 x 540); the renderer is
 resolution independent, so the result holds at 4K and 8K too.
 
     python3 -m voxanim qa                 # every animation
@@ -21,33 +21,26 @@ from collections import defaultdict
 import numpy as np
 
 from . import presets
-from .scene import font
+from .camera import REF_H as H
+from .camera import REF_W as W
+from .fonts import text_box
+from .layout import box_distance, solid_disks
 
-W, H = 960, 540
-TITLE = 0.05
-ACTION = 0.035
+TITLE = 0.05                 # title-safe margin, fraction of the frame
+ACTION = 0.035               # action-safe margin, fraction of the frame
+FAINT = 0.05                 # text fainter than this is ignored
+SEEN = 0.3                   # text at least this opaque must not be covered
 
 
 def text_boxes(scene):
-    """``[(text, (x0, y0, x1, y1))]`` in reference pixels."""
-    out = []
-    for t in scene.texts:
-        if t.opacity < 0.05 or not t.s.strip():
-            continue
-        f = font(t.kind, t.size * H)
-        l, tp, r, b = f.getbbox(t.s, anchor=t.anchor)
-        x, y = t.x * W, t.y * H
-        out.append((t.s, (x + l, y + tp, x + r, y + b)))
-    return out
-
-
-def voxel_disks(scene, cam):
-    """Screen centres and radii of the solid voxels (particles excluded)."""
-    from .layout import solid_disks
-    return solid_disks(scene, cam)
+    """``[(text, (x0, y0, x1, y1))]`` in reference pixels, for the visible,
+    non-blank texts."""
+    return [(t.s, text_box(t, W, H)) for t in scene.texts
+            if t.opacity >= FAINT and t.s.strip()]
 
 
 def _text_opacity(scene, s):
+    """Highest opacity of any text reading ``s``."""
     return max((t.opacity for t in scene.texts if t.s == s), default=0.0)
 
 
@@ -61,6 +54,7 @@ def _overlap(a, b, slack=-GAP):
 
 
 def check_scene(scene, cam):
+    """Layout issues in one scene: ``[(kind, what)]`` (see the module docstring)."""
     issues = []
     boxes = text_boxes(scene)
     lo_x, hi_x, lo_y, hi_y = W * TITLE, W * (1 - TITLE), H * TITLE, H * (1 - TITLE)
@@ -72,24 +66,21 @@ def check_scene(scene, cam):
             if _overlap(boxes[i][1], boxes[j][1]):
                 issues.append(("text/text", "%s | %s" % (boxes[i][0], boxes[j][0])))
     # text over strong lines (cages, receptive-field frames)
-    for p0, p1, _width, _col, op, _b in scene.lines:
-        if op < 0.5:
+    for ln in scene.lines:
+        if ln.opacity < 0.5:
             continue
-        pts = cam.project(np.linspace(p0, p1, 24))
+        pts = cam.project(np.linspace(ln.p0, ln.p1, 24))
         for s, b in boxes:
-            if _text_opacity(scene, s) < 0.3:
+            if _text_opacity(scene, s) < SEEN:
                 continue
             inside = (pts[:, 0] > b[0] + 1) & (pts[:, 0] < b[2] - 1) & \
                 (pts[:, 1] > b[1] + 1) & (pts[:, 1] < b[3] - 1)
             if inside.any():
                 issues.append(("text/line", s))
-    c, r = voxel_disks(scene, cam)
+    c, r = solid_disks(scene, cam)
     if len(c):
         for s, b in boxes:
-            dx = np.maximum(np.maximum(b[0] - c[:, 0], c[:, 0] - b[2]), 0)
-            dy = np.maximum(np.maximum(b[1] - c[:, 1], c[:, 1] - b[3]), 0)
-            if np.any(np.hypot(dx, dy) < r * 0.6) and \
-                    _text_opacity(scene, s) > 0.3:
+            if np.any(box_distance(b, c) < r * 0.6) and _text_opacity(scene, s) > SEEN:
                 issues.append(("text/voxel", s))
         a = ACTION
         out = (c[:, 0] - r < W * a) | (c[:, 0] + r > W * (1 - a)) | \

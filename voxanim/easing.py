@@ -3,29 +3,41 @@
 Every function takes plain floats so timeline code can stay readable:
 
     u = ease_in_out(remap(t, t0, t1))
+
+Mind the argument order: :func:`remap` takes the value *first*
+(``remap(x, x0, x1)``, like the rest of this module), while
+:func:`smoothstep` takes it *last* (``smoothstep(x0, x1, x)``, the GLSL
+convention).
 """
 
 from __future__ import annotations
 
-import math
-
 
 def clamp(x, lo=0.0, hi=1.0):
+    """``x`` limited to ``[lo, hi]``."""
     return lo if x < lo else (hi if x > hi else x)
 
 
 def lerp(a, b, t):
+    """``a`` at ``t = 0`` to ``b`` at ``t = 1`` (not clamped)."""
     return a + (b - a) * t
 
 
 def remap(x, x0, x1):
-    """Progress of ``x`` through ``[x0, x1]``, clamped to ``[0, 1]``."""
+    """Progress of ``x`` through ``[x0, x1]``, clamped to ``[0, 1]``.
+
+    Value first: ``remap(x, x0, x1)`` (compare :func:`smoothstep`).  An empty
+    interval is a step at ``x1``."""
     if x1 <= x0:
         return 1.0 if x >= x1 else 0.0
     return clamp((x - x0) / (x1 - x0))
 
 
 def smoothstep(x0, x1, x):
+    """Hermite ``3t^2 - 2t^3`` of :func:`remap` ``(x, x0, x1)``.
+
+    Value *last*: ``smoothstep(x0, x1, x)`` (GLSL order), unlike
+    :func:`remap`."""
     t = remap(x, x0, x1)
     return t * t * (3.0 - 2.0 * t)
 
@@ -37,20 +49,15 @@ def ease_in_out(t):
 
 
 def ease_out(t):
+    """Cubic ease-out: fast start, gentle arrival."""
     t = clamp(t)
     return 1 - (1 - t) ** 3
 
 
 def ease_in(t):
+    """Cubic ease-in: gentle start, fast arrival."""
     t = clamp(t)
     return t * t * t
-
-
-def ease_out_back(t, overshoot=1.4):
-    """Arrives slightly past the target and settles -- used for 'pops'."""
-    t = clamp(t)
-    c3 = overshoot + 1
-    return 1 + c3 * (t - 1) ** 3 + overshoot * (t - 1) ** 2
 
 
 def pulse(t, t0, rise, fall):
@@ -69,7 +76,3 @@ def soft_band(x, lo, hi, soft):
     a = smoothstep(lo - soft, lo + soft, x) if soft > 0 else float(x >= lo)
     b = 1.0 - (smoothstep(hi - soft, hi + soft, x) if soft > 0 else float(x > hi))
     return a * b
-
-
-def exp_decay(n, scale):
-    return math.exp(-n / scale) if scale > 0 else 0.0

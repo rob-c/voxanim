@@ -14,6 +14,10 @@ what the z-buffer compares.
 The defaults reproduce the originals' framing: a dimetric view with both
 horizontal axes at ~26 deg and a slightly squashed vertical (``vscale``) that
 the originals' camera has.
+
+:data:`REF_W` x :data:`REF_H` is the *reference resolution*: layout sizes,
+line widths and QA distances quoted in "reference px" mean pixels of a frame
+this size, and scale with the output resolution.
 """
 
 from __future__ import annotations
@@ -23,11 +27,19 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
+REF_W, REF_H = 960, 540         # the reference resolution (16:9)
+
 
 @dataclass(frozen=True)
 class Camera:
-    width: int = 960
-    height: int = 540
+    """An orthographic camera rendering a ``width x height`` frame.
+
+    Frozen: derived views (supersampled, mirrored) are new instances made
+    with :meth:`scaled` and :meth:`mirrored`.
+    """
+
+    width: int = REF_W
+    height: int = REF_H
     ppu: float = 17.0                 # pixels per world unit along a horizontal axis
     azimuth: float = 45.0
     elevation: float = 29.4
@@ -40,6 +52,7 @@ class Camera:
     # -- derived -----------------------------------------------------------
     @property
     def M(self):
+        """The ``2 x 3`` projection matrix: screen pixels per world unit."""
         a, e = math.radians(self.azimuth), math.radians(self.elevation)
         ex = (math.cos(a), -math.sin(a) * math.sin(e))
         ey = (math.sin(a), math.cos(a) * math.sin(e))
@@ -57,6 +70,7 @@ class Camera:
 
     @property
     def offset(self):
+        """Screen position (px) of the world origin, so ``target`` lands on ``anchor``."""
         a = np.array([self.anchor[0] * self.width, self.anchor[1] * self.height])
         return a - self.M @ np.asarray(self.target, np.float64)
 
@@ -67,6 +81,7 @@ class Camera:
         return p @ self.M.T + self.offset
 
     def depth(self, p):
+        """Depth of world point(s) ``p`` along :attr:`view` (larger is nearer)."""
         return np.asarray(p, np.float64) @ self.view
 
     def unproject(self, sx, sy, z=0.0):
@@ -91,7 +106,5 @@ class Camera:
                        height=int(round(self.height * k)), ppu=self.ppu * k)
 
     def mirrored(self):
+        """The same camera looking at the scene reflected in z (floor reflections)."""
         return replace(self, mirror=not self.mirror)
-
-    def with_target(self, target):
-        return replace(self, target=tuple(float(v) for v in target))

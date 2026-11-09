@@ -23,9 +23,16 @@ from __future__ import annotations
 import numpy as np
 
 from . import color as C
+from .scene import INVISIBLE, OPAQUE
 
 
 class Block:
+    """An ``(H, W, C)`` tensor as voxels; see the module docstring for the axes.
+
+    ``group`` is the channels per group (gapped by ``gap`` world units),
+    ``pitch`` the (row, col) cell spacing in voxels, ``scale`` the voxel size.
+    """
+
     def __init__(self, shape, color=C.INPUT, group=None, gap=0.0, pitch=(1, 1), scale=1.0,
                  name=""):
         self.H, self.W, self.C = (int(v) for v in shape)
@@ -41,6 +48,7 @@ class Block:
 
     # -- per-frame state ------------------------------------------------------
     def reset(self):
+        """Back to fully present, opaque, unlit and undisplaced."""
         shp = (self.H, self.W, self.C)
         self.opacity = np.ones(shp, np.float32)
         self.white = np.zeros(shp, np.float32)
@@ -52,6 +60,7 @@ class Block:
     # -- geometry -----------------------------------------------------------
     @property
     def groups(self):
+        """Number of channel groups."""
         return (self.C + self.group - 1) // self.group
 
     def chan_y(self, k):
@@ -60,6 +69,7 @@ class Block:
         return (k + (k // self.group) * self.gap) * self.scale
 
     def col_x(self, j):
+        """World x (relative to origin) of the left face of column ``j``."""
         return np.asarray(j) * self.pitch[1] * self.scale
 
     def row_z(self, i):
@@ -68,12 +78,14 @@ class Block:
 
     @property
     def extent(self):
+        """World size of the block's bounding box ``(x, y, z)``."""
         s = self.scale
         return np.array([self.col_x(self.W - 1) + s, self.chan_y(self.C - 1) + s,
                          self.row_z(0) + s], np.float64)
 
     @property
     def center(self):
+        """World centre of the bounding box."""
         return self.origin + self.extent / 2.0
 
     def place(self, center):
@@ -82,6 +94,7 @@ class Block:
         return self
 
     def cell_center(self, i, j, k):
+        """World centre of cell ``[i, j, k]`` (ignoring ``offset``)."""
         h = 0.5 * self.scale
         return self.origin + np.array([self.col_x(j) + h, self.chan_y(k) + h,
                                        self.row_z(i) + h])
@@ -123,11 +136,13 @@ class Block:
         return hidden
 
     def emit(self, scene, view, mview=None):
-        """Append this block's voxels to ``scene``."""
-        vis = self.present & (self.opacity > 0.003)
+        """Append this block's voxels to ``scene``, culling the cells hidden
+        from the camera (``view``) and, if ``mview`` is given, from the floor
+        reflection's mirrored camera too."""
+        vis = self.present & (self.opacity > INVISIBLE)
         if not vis.any():
             return
-        solid = vis & (self.opacity >= 0.999)
+        solid = vis & (self.opacity >= OPAQUE)
         moved = None
         if self.offset is not None:
             moved = np.abs(self.offset).sum(-1) > 1e-9

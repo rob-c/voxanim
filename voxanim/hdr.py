@@ -36,6 +36,7 @@ LUMA_2020 = np.array([0.2627, 0.6780, 0.0593], np.float32)
 
 
 def srgb_to_linear(v):
+    """sRGB code values (0..1) to linear light (0..1), the IEC 61966-2-1 EOTF."""
     v = np.clip(v, 0.0, 1.0)
     return np.where(v <= 0.04045, v / 12.92, ((v + 0.055) / 1.055) ** 2.4).astype(np.float32)
 
@@ -55,11 +56,13 @@ _C1, _C2, _C3 = 3424 / 4096, 2413 / 4096 * 32, 2392 / 4096 * 32
 
 
 def pq_encode(nits):
+    """Absolute light (cd/m2) to a PQ signal in 0..1 (SMPTE ST 2084 inverse EOTF)."""
     y = np.clip(np.asarray(nits, np.float32) / 10000.0, 0.0, 1.0) ** _M1
     return ((_C1 + _C2 * y) / (1.0 + _C3 * y)) ** _M2
 
 
 def pq_decode(code):
+    """PQ signal in 0..1 back to cd/m2 (the ST 2084 EOTF)."""
     p = np.clip(np.asarray(code, np.float64), 0, 1) ** (1 / _M2)
     return 10000.0 * (np.maximum(p - _C1, 0) / (_C2 - _C3 * p)) ** (1 / _M1)
 
@@ -71,6 +74,7 @@ _GAMMA = 1.2                     # system gamma for a 1000 cd/m2 display
 
 
 def hlg_oetf(e):
+    """Normalised scene light (0..1) to an HLG signal (BT.2100 OETF)."""
     e = np.clip(np.asarray(e, np.float32), 0.0, 1.0)
     return np.where(e <= 1 / 12, np.sqrt(3 * e),
                     _A * np.log(np.maximum(12 * e - _B, 1e-12)) + _C).astype(np.float32)
@@ -98,6 +102,7 @@ def encode(rgb, emit, transfer):
 
 
 def to_uint16(code):
+    """Code values in 0..1 to full-range 16-bit integers."""
     return np.clip(np.round(np.asarray(code) * 65535.0), 0, 65535).astype(np.uint16)
 
 

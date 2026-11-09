@@ -16,7 +16,12 @@ import numpy as np
 
 
 def rgb(value):
-    """Accept '#rrggbb', (r, g, b) in 0..255, or (r, g, b) in 0..1."""
+    """A float32 RGB array in 0..1 from ``'#rrggbb'`` or an ``(r, g, b)``.
+
+    A triple is taken as 0..255 if any component exceeds 1, else as 0..1 --
+    a guess, so a very dark 0..255 colour such as ``(1, 1, 0)`` reads as
+    0..1; pass hex strings or 0..1 floats to be unambiguous.
+    """
     if isinstance(value, str):
         s = value.lstrip("#")
         return np.array([int(s[i:i + 2], 16) for i in (0, 2, 4)], np.float32) / 255.0
@@ -25,21 +30,19 @@ def rgb(value):
 
 
 def mix(a, b, t):
+    """Linear blend from colour ``a`` (t = 0) to ``b`` (t = 1)."""
     a, b = rgb(a), rgb(b)
     return a + (b - a) * np.float32(t)
 
 
 def lighten(c, t):
+    """``c`` moved a fraction ``t`` of the way to white."""
     return mix(c, (1.0, 1.0, 1.0), t)
 
 
 def darken(c, t):
+    """``c`` scaled towards black by a fraction ``t``."""
     return rgb(c) * np.float32(1.0 - t)
-
-
-def hex_of(c):
-    c = np.clip(np.round(rgb(c) * 255), 0, 255).astype(int)
-    return "#%02x%02x%02x" % tuple(c)
 
 
 def shift_lightness(c, amount):
@@ -113,12 +116,15 @@ GRAY_HI = rgb("#f3f3f1")
 
 
 def diverging(v, pos=POSITIVE, neg=NEGATIVE, neutral=NEUTRAL):
+    """Signed map of ``v`` in [-1, 1]: ``neutral`` at 0, towards ``pos`` or
+    ``neg`` with magnitude (``|v| ** 0.75`` lifts small values)."""
     v = float(np.clip(v, -1.0, 1.0))
     a = abs(v) ** 0.75
     return mix(neutral, pos if v >= 0 else neg, a)
 
 
 def gray(v):
+    """Grey level for an image value ``v`` in [0, 1]."""
     return mix(GRAY_LO, GRAY_HI, float(np.clip(v, 0.0, 1.0)))
 
 

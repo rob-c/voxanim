@@ -7,51 +7,57 @@
     compare  NAME -t 1.5 4                ours next to the original GIF frame
     sheet    NAME                         contact sheet of the whole animation
     render   NAME [NAME ...] | all        frames -> build/NAME/, then encode (web)
-    encode   NAME                         re-encode existing frames
+    encode   NAME [NAME ...] | all        re-encode existing frames
     master   NAME [NAME ...] | all        broadcast master, streamed (8K HDR by default)
     qa       [NAME ...]                   layout checks: clipped / colliding text, safe areas
 
 Common options: --quality draft|preview|final|max, --scale 2 or --res 4k|8k,
 --fps, --jobs.  ``render --install`` writes the encoded files into ../media
-(under the site's file names) instead of build/out/.  ``still --hdr pq`` writes
-the 16-bit PQ frame plus an SDR preview of the HDR grade.
+(under the site's file names) instead of build/out/; either way a JSON
+manifest of the render goes to build/out/.  ``still --hdr pq`` writes the
+16-bit PQ frame plus an SDR preview of the HDR grade.
 """
 
 from __future__ import annotations
 
 import argparse
 import os
+import sys
 import time
-from dataclasses import replace
 
 import numpy as np
 from PIL import Image
 
 from . import presets
+from .camera import REF_W
+from .fonts import FontNotFoundError
 from .raster import to_uint8
-from .render import BUILD, MEDIA, RESOLUTIONS, encode, master, render_frames
+from .render import (
+    BUILD,
+    MEDIA,
+    RESOLUTIONS,
+    FFmpegError,
+    encode,
+    master,
+    render_frames,
+    run_ffmpeg,
+    write_manifest,
+)
 from .scene import QUALITY, Renderer, Style
+
+THUMB = (480, 270)              # contact-sheet thumbnail size, px
+SHEET_COLS = 4
 
 
 def make_style(args):
+    """The :class:`Style` for ``--quality`` at ``--scale`` (or ``--res``)."""
     st = Style(**QUALITY[args.quality])
     scale = args.scale
     if getattr(args, "res", None):
-        scale = RESOLUTIONS[args.res][0] / 960.0
+        scale = RESOLUTIONS[args.res][0] / REF_W
     if scale != 1:
         st = st.at_scale(scale)
-    if getattr(args, "no_watermark", False):
-        st = replace(st, watermark=False)
     return st
-
-
-# ------------------------------------------------------------ commands
-
-
-def cmd_list(args):
-    for p in presets.REGISTRY.values():
-        anim = p.build()
-        print("%-30s %5.1fs  %s" % (p.name, anim.duration, p.about.splitlines()[0]))
 
 
 def opts(args):
@@ -59,7 +65,42 @@ def opts(args):
     return {k: getattr(args, k, None) for k in ("model", "digit", "preprocess", "text")}
 
 
+def _setup(args, subdir):
+    """Preset, animation, renderer and output directory (``--out`` or
+    ``build/<subdir>``) for a single-NAME command."""
+    p = presets.get(args.name)
+    anim = presets.build(args.name, **opts(args))
+    r = Renderer(anim.cam, make_style(args))
+    out = args.out or os.path.join(BUILD, subdir)
+    os.makedirs(out, exist_ok=True)
+    return p, anim, r, out
+
+
+def _out_path(args, out, tail):
+    """``out/<name><options suffix><tail>``."""
+    return os.path.join(out, "%s%s%s" % (args.name, presets.options_suffix(
+        args.name, **opts(args)), tail))
+
+
+def _targets(names):
+    """Preset names from the command line (``all`` means every preset)."""
+    if names == ["all"]:
+        return list(presets.REGISTRY)
+    return names
+
+
+# ------------------------------------------------------------ commands
+
+
+def cmd_list(args):
+    """Print every preset with its duration and one-line description."""
+    for p in presets.REGISTRY.values():
+        anim = p.build()
+        print("%-30s %5.1fs  %s" % (p.name, anim.duration, p.about.splitlines()[0]))
+
+
 def cmd_info(args):
+    """Print an animation's timeline (and, for convolutions, each stage)."""
     p = presets.get(args.name)
     anim = presets.build(args.name, **opts(args))
     print("%s: %.2fs total, done at %.2fs (hold %.1fs, reset %.1fs)"
@@ -77,15 +118,11 @@ def cmd_info(args):
 
 
 def cmd_still(args):
-    p = presets.get(args.name)
-    anim = presets.build(args.name, **opts(args))
-    r = Renderer(anim.cam, make_style(args))
-    out = args.out or os.path.join(BUILD, "stills")
-    os.makedirs(out, exist_ok=True)
+    """Render single frames at the times ``-t`` (SDR PNG, or ``--hdr`` 16-bit)."""
+    _p, anim, r, out = _setup(args, "stills")
     for t in args.t:
         t0 = time.time()
-        path = os.path.join(out, "%s%s_%06.2f.png" % (p.name, presets.options_suffix(
-            args.name, **opts(args)), t))
+        path = _out_path(args, out, "_%06.2f.png" % t)
         if args.hdr:
             from . import hdr
             rgb, emit = r.render_at(anim.scene, t, 1.0 / args.fps, hdr=True)
@@ -104,14 +141,14 @@ def cmd_still(args):
 
 def _save16(path, code):
     """16-bit RGB PNG via ffmpeg (Pillow cannot write 48-bit RGB)."""
-    import subprocess
     h, w = code.shape[:2]
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt",
-                    "rgb48le", "-s", "%dx%d" % (w, h), "-i", "-", "-frames:v", "1", path],
-                   input=code.astype("<u2").tobytes(), check=True)
+    run_ffmpeg(["-f", "rawvideo", "-pix_fmt", "rgb48le", "-s", "%dx%d" % (w, h), "-i", "-",
+                "-frames:v", "1", path], stdin=code.astype("<u2").tobytes())
 
 
 def reference_frame(p, t, fps=10):
+    """Frame of preset ``p``'s original GIF at ``t`` seconds (the originals run
+    at ``fps``), or ``None`` if it has none or the file is missing."""
     if not p.reference:
         return None
     path = os.path.join(MEDIA, p.reference)
@@ -124,11 +161,8 @@ def reference_frame(p, t, fps=10):
 
 
 def cmd_compare(args):
-    p = presets.get(args.name)
-    anim = presets.build(args.name, **opts(args))
-    r = Renderer(anim.cam, make_style(args))
-    out = args.out or os.path.join(BUILD, "compare")
-    os.makedirs(out, exist_ok=True)
+    """Our frame above (or ``--overlay``-blended with) the original GIF's."""
+    p, anim, r, out = _setup(args, "compare")
     for t in args.t:
         ours = Image.fromarray(to_uint8(r.render_at(anim.scene, t, 1.0 / args.fps)))
         ref = reference_frame(p, t if args.ref_t is None else args.ref_t)
@@ -141,70 +175,72 @@ def cmd_compare(args):
             sheet = Image.new("RGB", (ours.width, ours.height * 2), "white")
             sheet.paste(ours, (0, 0))
             sheet.paste(ref, (0, ours.height))
-        path = os.path.join(out, "%s%s_%06.2f.png" % (p.name, presets.options_suffix(
-            args.name, **opts(args)), t))
+        path = _out_path(args, out, "_%06.2f.png" % t)
         sheet.save(path)
         print(path)
 
 
 def cmd_sheet(args):
-    p = presets.get(args.name)
-    anim = presets.build(args.name, **opts(args))
-    r = Renderer(anim.cam, make_style(args))
+    """A contact sheet of ``--count`` evenly spaced frames."""
+    _p, anim, r, out = _setup(args, "sheets")
     n = args.count
+    tw, th = THUMB
     ts = np.linspace(0, anim.duration, n, endpoint=False)
     thumbs = []
     for t in ts:
         im = Image.fromarray(to_uint8(r.render_at(anim.scene, float(t), 1.0 / args.fps)))
-        thumbs.append(im.resize((480, 270), Image.LANCZOS))
-    cols = 4
-    rows = (n + cols - 1) // cols
-    sheet = Image.new("RGB", (480 * cols, 270 * rows), "white")
+        thumbs.append(im.resize(THUMB, Image.LANCZOS))
+    rows = (n + SHEET_COLS - 1) // SHEET_COLS
+    sheet = Image.new("RGB", (tw * SHEET_COLS, th * rows), "white")
     for k, im in enumerate(thumbs):
-        sheet.paste(im, ((k % cols) * 480, (k // cols) * 270))
-    out = args.out or os.path.join(BUILD, "sheets")
-    os.makedirs(out, exist_ok=True)
-    path = os.path.join(out, "%s%s.png" % (p.name, presets.options_suffix(args.name,
-                                                                            **opts(args))))
+        sheet.paste(im, ((k % SHEET_COLS) * tw, (k // SHEET_COLS) * th))
+    path = _out_path(args, out, ".png")
     sheet.save(path)
     print(path)
 
 
-def _targets(names):
-    if names == ["all"]:
-        return list(presets.REGISTRY)
-    return names
+def _encode(name, args, style):
+    """Encode ``build/<name><suffix>/`` frames into the web formats and write
+    the render's manifest to ``build/out/<media><suffix>.json``."""
+    p = presets.get(name)
+    suffix = presets.options_suffix(name, **opts(args))
+    frames = os.path.join(BUILD, name) + suffix
+    base = os.path.join(MEDIA if args.install else os.path.join(BUILD, "out"),
+                        p.media + suffix)
+    gif_width = style.width if args.gif_width is None else args.gif_width
+    formats = args.formats.split(",")
+    outputs = encode(frames, args.fps, base, formats, gif_fps=args.gif_fps,
+                     gif_width=gif_width)
+    write_manifest(os.path.join(BUILD, "out", p.media + suffix + ".json"), name, opts(args),
+                   style, args.fps, outputs, quality=args.quality, formats=formats,
+                   gif_fps=args.gif_fps, gif_width=gif_width)
 
 
 def cmd_render(args):
+    """Render frames to ``build/<name>/`` and encode them for the web."""
     style = make_style(args)
     for name in _targets(args.names):
-        p = presets.get(name)
-        frames = os.path.join(BUILD, name)
-        suffix = presets.options_suffix(name, **opts(args))
-        frames = frames + suffix
+        frames = os.path.join(BUILD, name) + presets.options_suffix(name, **opts(args))
         render_frames(name, style, args.fps, args.jobs, frames, opts=opts(args))
-        base = os.path.join(MEDIA if args.install else os.path.join(BUILD, "out"),
-                            p.media + suffix)
-        encode(frames, args.fps, base, args.formats.split(","), gif_fps=args.gif_fps,
-               gif_width=style.width if args.gif_width is None else args.gif_width)
+        _encode(name, args, style)
 
 
 def cmd_encode(args):
+    """Re-encode frames a previous ``render`` left in ``build/<name>/``."""
+    style = make_style(args)
     for name in _targets(args.names):
-        p = presets.get(name)
-        base = os.path.join(MEDIA if args.install else os.path.join(BUILD, "out"), p.media)
-        encode(os.path.join(BUILD, name), args.fps, base, args.formats.split(","),
-               gif_fps=args.gif_fps, gif_width=args.gif_width or 960)
+        _encode(name, args, style)
 
 
 def cmd_master(args):
+    """Stream each animation into a broadcast master."""
     for name in _targets(args.names):
         master(name, args.res, args.fps, args.hdr, args.codec, args.jobs, args.quality,
                args.out, args.seconds, opts(args))
 
 
 def cmd_qa(args):
+    """Layout checks; exits 1 if any animation has an issue."""
     from .qa import check
     names = _targets(args.names) if args.names else list(presets.REGISTRY)
     bad = 0
@@ -213,7 +249,8 @@ def cmd_qa(args):
     raise SystemExit(1 if bad else 0)
 
 
-def main(argv=None):
+def parser():
+    """The argument parser for every command."""
     ap = argparse.ArgumentParser(prog="voxanim", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -232,7 +269,6 @@ def main(argv=None):
         sp.add_argument("--scale", type=float, default=1.0)
         sp.add_argument("--res", choices=sorted(RESOLUTIONS))
         sp.add_argument("--fps", type=int, default=30)
-        sp.add_argument("--no-watermark", action="store_true")
         sp.add_argument("--out")
 
     sub.add_parser("list").set_defaults(fn=cmd_list)
@@ -278,14 +314,23 @@ def main(argv=None):
         sp.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 1))
         sp.add_argument("--formats", default="mp4,gif")
         sp.add_argument("--gif-fps", type=int, default=15)
-        sp.add_argument("--gif-width", type=int)
+        sp.add_argument("--gif-width", type=int, help="default: the render width")
         sp.add_argument("--install", action="store_true",
                         help="write into ../media under the site's names")
         common(sp)
         sp.set_defaults(fn=fn)
+    return ap
 
-    args = ap.parse_args(argv)
-    args.fn(args)
+
+def main(argv=None):
+    """Run the command line; expected failures (unknown preset, ffmpeg, fonts)
+    become a one-line error and exit status 2."""
+    args = parser().parse_args(argv)
+    try:
+        args.fn(args)
+    except (presets.UnknownPreset, FFmpegError, FontNotFoundError) as e:
+        print("voxanim: error: %s" % e, file=sys.stderr)
+        raise SystemExit(2) from None
 
 
 if __name__ == "__main__":

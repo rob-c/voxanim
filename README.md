@@ -7,9 +7,6 @@ dilation, transposed convolution, pooling, 1×1, conv3d, conv1d variants, and
 Sobel edge detection on an image). One renderer, one scene grammar, and one
 `ConvSpec` per animation.
 
-Renders carry no watermark. `Style(watermark=True)` puts the originals'
-"Animated AI" marks back.
-
 Pure Python: `numpy`, `Pillow`, and `ffmpeg` on the `PATH`. No Blender.
 
 ```bash
@@ -622,7 +619,7 @@ original style, use `ConvAnimation(ConvSpec(...))` directly.
   darkening and sheen.
 - **Palette:** `color.py`. These are each voxel's *right-face* colour,
   sampled from the original GIFs.
-- **Floor, blur and watermark:** `scene.Style`.
+- **Floor and blur:** `scene.Style`.
 - **Value colours:** `color.styled`. Positive, negative and neutral colours
   are `color.POSITIVE`, `NEGATIVE` and `NEUTRAL`.
 

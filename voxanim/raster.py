@@ -6,8 +6,9 @@ anything the sort gets wrong (moving kernels passing other objects, lines that
 run through a volume, ...).  Translucent primitives (ghost voxels, glass,
 lines) are depth-tested against the opaque layer but never write depth.
 
-Colours are premultiplied float32 in ``[0, 1]``.  ``coverage`` is only tracked
-for layers that are composited onto something else later (reflections).
+Colours are premultiplied float32 in ``[0, 1]``.  ``cov`` (accumulated alpha)
+is only tracked for layers that are composited over something else afterwards:
+the geometry layer over the floor plate, and the floor reflection into it.
 
 ``emit`` (optional) is a scalar layer of extra white *light*: glows, glints and
 the multiply/accumulate wave write to it.  It is occluded like everything else
@@ -22,13 +23,12 @@ from PIL import Image, ImageDraw
 
 
 class Framebuffer:
-    def __init__(self, width, height, background=None, track_coverage=False,
-                 track_emission=False):
+    """A transparent ``width x height`` layer: premultiplied ``rgb``, depth ``z``
+    (larger is nearer, ``-inf`` where empty) and optionally ``cov`` and ``emit``."""
+
+    def __init__(self, width, height, track_coverage=False, track_emission=False):
         self.w, self.h = int(width), int(height)
-        if background is None:
-            self.rgb = np.zeros((self.h, self.w, 3), np.float32)
-        else:
-            self.rgb = np.array(background, np.float32, copy=True)
+        self.rgb = np.zeros((self.h, self.w, 3), np.float32)
         self.z = np.full((self.h, self.w), -np.inf, np.float32)
         self.cov = np.zeros((self.h, self.w), np.float32) if track_coverage else None
         self.emit = np.zeros((self.h, self.w), np.float32) if track_emission else None
@@ -107,8 +107,10 @@ class Framebuffer:
     def quad(self, cam, p0, e1, e2, shader, bias=0.0):
         """Shaded parallelogram ``p0 + u e1 + v e2`` (u, v in [0, 1]).
 
-        ``shader(world_points) -> (rgb (..., 3), alpha (...))``.  The quad is
-        depth-tested but never writes depth.
+        ``shader(world_points) -> (rgb (..., 3), alpha (...)[, emit (...)])``:
+        the optional third output is the quad's highlight strength, written to
+        the emission layer (HDR only).  The quad is depth-tested but never
+        writes depth.
         """
         p0, e1, e2 = (np.asarray(v, np.float64) for v in (p0, e1, e2))
         s0 = cam.project(p0)
@@ -146,8 +148,11 @@ class Framebuffer:
         self._composite((fy, fx), premul, alpha, depth, bias=bias, emit=emit)
 
     # ------------------------------------------------------------ lines
-    def line(self, cam, p0, p1, width, color, opacity=1.0, bias=0.0, ztest=True):
-        """Anti-aliased, depth-tested segment between two world points."""
+    def line(self, cam, p0, p1, width, color, opacity=1.0, bias=0.0):
+        """Anti-aliased, depth-tested segment between two world points.
+
+        ``width`` is in this buffer's pixels; ``bias`` (world units, towards
+        the viewer) lets a line lying on a surface win the depth test."""
         a, b = cam.project(p0), cam.project(p1)
         za, zb = cam.depth(p0), cam.depth(p1)
         r = width / 2.0 + 1.0
@@ -167,62 +172,40 @@ class Framebuffer:
         alpha = np.clip(width / 2.0 + 0.5 - dist, 0.0, 1.0).astype(np.float32) * opacity
         if not alpha.any():
             return
-        depth = (za + s * (zb - za)).astype(np.float32) if ztest else None
+        depth = (za + s * (zb - za)).astype(np.float32)
         premul = alpha[..., None] * np.asarray(color, np.float32)
         self._composite((fy, fx), premul, alpha, depth, bias=bias)
 
-    # ------------------------------------------------------------ misc
-    def multiply(self, factor):
-        """Darken by a per-pixel factor (shadows)."""
-        self.rgb *= factor[..., None]
-
-    def over_layer(self, premul, alpha):
-        """Composite a full-frame premultiplied layer on top (no depth)."""
-        self.rgb = premul + self.rgb * (1.0 - alpha[..., None])
-
-    def under_layer(self, premul, alpha):
-        """Composite a full-frame layer *underneath* everything already drawn
-        where nothing opaque has been drawn yet -- used for reflections."""
-        self.rgb = self.rgb * (1.0 - alpha[..., None]) + premul
+    # ------------------------------------------------------------ resolve
+    def downsample(self, k):
+        """Colour layer box-filtered down by ``k`` (the supersampling resolve)."""
+        return box_downsample(self.rgb, k)
 
     def downsample_cov(self, k):
-        if k == 1:
-            return self.cov
-        h, w = self.h // k, self.w // k
-        src = self.cov[:h * k, :w * k]
-        out = np.zeros((h, w), np.float32)
-        for dy in range(k):
-            for dx in range(k):
-                out += src[dy::k, dx::k]
-        return out * np.float32(1.0 / (k * k))
+        """Coverage layer box-filtered down by ``k``."""
+        return box_downsample(self.cov, k)
 
     def downsample_emit(self, k):
-        if self.emit is None:
-            return None
-        if k == 1:
-            return self.emit
-        h, w = self.h // k, self.w // k
-        src = self.emit[:h * k, :w * k]
-        out = np.zeros((h, w), np.float32)
-        for dy in range(k):
-            for dx in range(k):
-                out += src[dy::k, dx::k]
-        return out * np.float32(1.0 / (k * k))
-
-    def downsample(self, k):
-        """Box-filter down by ``k`` (the supersampling resolve)."""
-        if k == 1:
-            return self.rgb
-        h, w = self.h // k, self.w // k
-        src = self.rgb[:h * k, :w * k]
-        out = np.zeros((h, w, 3), np.float32)
-        for dy in range(k):
-            for dx in range(k):
-                out += src[dy::k, dx::k]
-        return out * np.float32(1.0 / (k * k))
+        """Emission layer box-filtered down by ``k`` (``None`` if not tracked)."""
+        return None if self.emit is None else box_downsample(self.emit, k)
 
 
 # ---------------------------------------------------------------- utilities
+
+
+def box_downsample(a, k):
+    """Mean of each ``k x k`` block of an ``(h, w[, c])`` float32 array (rows
+    and columns beyond a multiple of ``k`` are dropped).  ``k == 1`` returns
+    ``a`` itself, not a copy."""
+    if k == 1:
+        return a
+    h, w = a.shape[0] // k, a.shape[1] // k
+    src = a[:h * k, :w * k]
+    out = np.zeros((h, w) + a.shape[2:], np.float32)
+    for dy in range(k):
+        for dx in range(k):
+            out += src[dy::k, dx::k]
+    return out * np.float32(1.0 / (k * k))
 
 
 def _box_pass(a, r, axis):
@@ -268,13 +251,15 @@ def gaussian_blur(arr, sigma):
     return out
 
 
-def polygon_mask(w, h, polys, scale=1.0):
-    """Rasterise ``[(points, value)]`` into a float mask (max-combined)."""
+def polygon_mask(w, h, polys):
+    """Rasterise ``[(points, value)]`` (points in px) into a ``(h, w)`` float
+    mask; where polygons overlap the largest value wins (drawn in ascending
+    order)."""
     im = Image.new("F", (w, h), 0.0)
     order = sorted(polys, key=lambda pv: pv[1])
     dr = ImageDraw.Draw(im)
     for pts, val in order:
-        dr.polygon([(float(x) * scale, float(y) * scale) for x, y in pts], fill=float(val))
+        dr.polygon([(float(x), float(y)) for x, y in pts], fill=float(val))
     return np.asarray(im, np.float32)
 
 
