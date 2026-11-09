@@ -5,7 +5,7 @@ the centre of the frame and the data streaming through it.
     (this batch)        loop     loop
                        Wx1  W12  Wy   (+ Wh1, Wh2 on the recurrent loops)
 
-                         loss curve over training steps (log scale)
+                         loss curve over training steps (log-log axes)
 
 Each batch has its own colour and each sequence in it a shade of that
 colour.  For every sequence, the values enter one time step at a time: x
@@ -29,14 +29,20 @@ from . import layout
 from .conv import Tempo
 from .easing import ease_in_out, remap, smoothstep, soft_band
 from .netanim import NetAnimation, amax, div_colors, particle
+from .recurrent import GHOST
 from .text import TIMES
 
+# Batches 1-3 and the last take the first four; the fast-forward cycles the rest.
 BATCH_COLORS = [C.FILTERS[5], C.FILTERS[0], C.FILTERS[3], C.FILTERS[6], C.FILTERS[1],
                 C.FILTERS[7], C.FILTERS[4], C.FILTERS[2]]
-GHOST = np.array([0.97, 0.97, 0.96], np.float32)
+LOSS_RANGE = (-2.8, -0.6)          # log10 of the loss at the bottom and top of the curve
 
 
 class RNNBatchTraining(NetAnimation):
+    """Batches streaming through a fixed 2-layer RNN; ``run`` is a
+    :class:`voxanim.sequence.TrainingRun` whose ``shown`` holds at least the
+    first four steps and the last."""
+
     PHASES = ("batch 1", "batch 2", "batch 3", "fast-forward", "last batch")
 
     def __init__(self, run):
@@ -95,9 +101,11 @@ class RNNBatchTraining(NetAnimation):
 
     # ------------------------------------------------------------------ helpers
     def batch_color(self, bi):
+        """Colour of shown batch ``bi`` (0..3)."""
         return BATCH_COLORS[bi % len(BATCH_COLORS)]
 
     def entry_color(self, bi, e):
+        """Colour of sequence ``e`` of shown batch ``bi``: a shade of the batch's."""
         return C.shades(self.batch_color(bi), self.B, -0.14, 0.12)[e]
 
     def fr(self, fx, fy):
@@ -107,6 +115,7 @@ class RNNBatchTraining(NetAnimation):
         return 0.5 + (fx - 0.5) * k, 0.5 + (fy - 0.5) * k
 
     def _pt(self, fx, fy, dz=0.0):
+        """World point at layout fraction ``(fx, fy)``, raised by ``dz``."""
         p = self.cam.frac(fx, fy)
         return p + np.array([0.0, 0.0, dz])
 
@@ -120,15 +129,20 @@ class RNNBatchTraining(NetAnimation):
     def loss_xy(self, step, loss):
         """Loss-curve point (log-log) as a frame fraction."""
         fx = 0.12 + 0.76 * np.log10(step) / np.log10(self.steps)
-        lo, hi = -2.8, -0.6
+        lo, hi = LOSS_RANGE
         fy = 0.885 - 0.15 * (np.clip(np.log10(loss), lo, hi) - lo) / (hi - lo)
         return fx, fy
 
     def which(self, t):
+        """The tick at time ``t``, ``((start, dur, batch, entry, step), index)``;
+        index -1 before the first tick (then the first tick is returned)."""
         n = bisect.bisect_right(self.tick_starts, t) - 1
         return self.ticks[max(n, 0)], n
 
     def step_of(self, t):
+        """Index into :attr:`PHASES` of the phase at time ``t``."""
+        # NOTE: never returns 3 ("fast-forward"): the loop finds batch 3's start
+        # first.  Kept as is for now (fixing it changes the step indicator).
         for bi, (b0, _u, _e) in reversed(list(enumerate(self.batch_t))):
             if t >= b0:
                 return 4 if bi == 3 else bi
@@ -138,6 +152,7 @@ class RNNBatchTraining(NetAnimation):
 
     # ------------------------------------------------------------------ frame
     def draw(self, sc, t, reset):
+        """Draw the frame at time ``t`` (``reset``: 0..1 through the loop's rewind)."""
         back = 1.0 - ease_in_out(remap(reset, 0.0, 0.7))
         (t0, dur, bi, e, s), n = self.which(t)
         in_ff = self.t_ff[0] <= t < self.t_ff[1]
@@ -150,7 +165,7 @@ class RNNBatchTraining(NetAnimation):
         ff = remap(t, *self.t_ff)
 
         ph = 0 if reset > 0 else self.step_of(t)
-        self.subtitle = [
+        subtitle = [
             "each batch: %d sequences, one time step at a time, then one weight update"
             % self.B,
             "batch 2: new sequences, slightly better weights",
@@ -161,7 +176,7 @@ class RNNBatchTraining(NetAnimation):
         if t < b0 and not in_ff and bi == 0:
             s, e, u_tick = -1, 0, 0.0          # before the first value arrives
 
-        self._weights(sc, t, bi, updating, u0, b1, ff, in_ff, back, reset)
+        self.subtitle = self._weights(sc, t, bi, updating, u0, b1, ff, in_ff, reset) or subtitle
         if not in_ff:
             self._streams(sc, t, bi, e, s, u_tick, rec, updating, back)
         self._model(sc, bi, e, s, u_tick, rec, in_ff, back)
@@ -170,6 +185,11 @@ class RNNBatchTraining(NetAnimation):
 
     # -- input queue and predictions ----------------------------------------------------
     def _streams(self, sc, t, bi, e_now, s_now, u, rec, updating, back):
+        """Batch ``bi``'s input queue, targets and predictions, with labels.
+
+        ``e_now``, ``s_now``: the sequence and time step being read (``-1``:
+        none yet); ``u``: progress through that tick.
+        """
         B, T = self.B, self.T
         appear = smoothstep(self.batch_t[bi][0] - 0.8, self.batch_t[bi][0] - 0.1, t) \
             if bi else smoothstep(0.2, 0.9, t)
@@ -203,7 +223,7 @@ class RNNBatchTraining(NetAnimation):
         # labels, in layout fractions like the strips
         txt = self.fr
         sc.text(*txt(0.152, 0.245), "input: batch %d, %d sequences"
-                % (self._label_batch(bi), B), 0.029, "regular", layout.CAPTION_INK,
+                % (self.detail[bi].step, B), 0.029, "regular", layout.CAPTION_INK,
                 op * self._cap, "mb")
         sc.text(*txt(0.847, 0.245), "prediction vs target (white)", 0.029, "regular",
                 layout.CAPTION_INK, op * self._cap, "mb")
@@ -215,11 +235,9 @@ class RNNBatchTraining(NetAnimation):
             sc.text(*txt(0.847, 0.665), "batch loss = %.3f" % rec.loss, 0.031, "regular",
                     layout.STRONG_INK, op * self._cap, "mt")
 
-    def _label_batch(self, bi):
-        return self.detail[bi].step
-
     # -- the model -------------------------------------------------------------------------
     def _model(self, sc, bi, e, s, u, rec, in_ff, back):
+        """The model's state for sequence ``e``, step ``s``, and the signal through it."""
         f = rec.f
         col = self.entry_color(bi, max(e, 0))
         valid = s >= 0 and not in_ff
@@ -269,7 +287,11 @@ class RNNBatchTraining(NetAnimation):
         self.caption(sc, self.hy, "y_t")
 
     # -- weights ------------------------------------------------------------------------------
-    def _weights(self, sc, t, bi, updating, u0, b1, ff, in_ff, back, reset):
+    def _weights(self, sc, t, bi, updating, u0, b1, ff, in_ff, reset):
+        """The five weight matrices, blending to each batch's update.
+
+        Returns the narration line during an update, else ``None``.
+        """
         if in_ff:                                                # step 4 .. the last step
             Pa, Pb, m = self.P_after[2], self.detail[3].P, ff
         else:
@@ -294,16 +316,19 @@ class RNNBatchTraining(NetAnimation):
                 glint = 0.35 * (0.5 + 0.5 * np.sin(ff * 60))
             sh.block.white[...] = 0.6 * glint
             self.caption(sc, sh, k, size=0.029)
-        if updating:
-            u = remap(t, u0, b1)
-            # the narration line says what is happening to the weights
-            self.subtitle = ("backward through time: gradients from all %d sequences are "
-                             "averaged" % self.B) if u < 0.45 else \
-                ("one update for the whole batch:  W = W - lr %s dW" % TIMES)
-            sc.probe(("upd",), (u * 30, 0, 0), tol=8.0)
+        if not updating:
+            return None
+        u = remap(t, u0, b1)
+        sc.probe(("upd",), (u * 30, 0, 0), tol=8.0)
+        # the narration line says what is happening to the weights
+        if u < 0.45:
+            return ("backward through time: gradients from all %d sequences are averaged"
+                    % self.B)
+        return "one update for the whole batch:  W = W - lr %s dW" % TIMES
 
     # -- loss curve -------------------------------------------------------------------------------
     def _loss_curve(self, sc, t, back):
+        """The loss of every step reported so far, on log-log axes."""
         losses = self.run.losses
         # which steps have reported their loss so far
         last = 0

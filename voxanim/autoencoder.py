@@ -5,40 +5,62 @@ Dense:  784 -> 256 -> 64 -> L -> 64 -> 256 -> 784        (ReLU, sigmoid output)
 Conv:   28x28x1 -> conv 3x3 s2 -> 14x14x8 -> conv 3x3 s2 -> 7x7x16 -> dense -> L
         L -> dense -> 7x7x16 -> up x2, conv 3x3 -> 14x14x8 -> up x2, conv 3x3 -> 28x28x1
 
-Loss: mean squared error between the input and its reconstruction.  Training
-is seeded (Adam) and cached in ``build/.cache`` like the other models.
+The latent layer is linear.  Loss: mean squared error between the input and
+its reconstruction.  Training is seeded (Adam, :class:`voxanim.optim.Adam`)
+and cached by :func:`voxanim.cache.cached_npz`.
+
+The dense layers are numbered ``0 .. 5`` (parameters ``W0, b0 .. W5, b5``);
+:func:`dense_layers` and :func:`dense_backward` run any consecutive range of
+them, so :mod:`voxanim.deep_models` reuses the same encoder and decoder.
 """
 
 from __future__ import annotations
 
 import itertools
-import os
 from dataclasses import dataclass
 
 import numpy as np
 
+from .cache import DEFAULT_CACHE, cached_npz
+from .minibatch import batched, chunk_mean, minibatches
 from .mnist import load
-from .scene import DEFAULT_CACHE
+from .optim import Adam
 from .strided import _windows
 
 DENSE = (784, 256, 64)                       # encoder widths before the latent
+LATENT_LAYER = len(DENSE) - 1                # the dense layer producing the code: linear
+N_DENSE = 2 * len(DENSE)                     # dense layers in all; the last is a sigmoid
+ENCODER = range(0, len(DENSE))               # dense layer indices of the encoder ...
+DECODER = range(len(DENSE), N_DENSE)         # ... and the decoder
 
 
-def _sig(z):
+def sigmoid(z):
+    """Logistic sigmoid, with ``z`` clipped to [-30, 30] so ``exp`` cannot overflow."""
     return 1.0 / (1.0 + np.exp(-np.clip(z, -30, 30)))
+
+
+def dense_init(P, name, a, b, rng):
+    """Add He-initialised ``W<name>`` ``(a, b)`` and a zero ``b<name>`` to ``P``."""
+    P["W" + name] = rng.normal(0, np.sqrt(2.0 / a), (a, b))
+    P["b" + name] = np.zeros(b)
 
 
 # ------------------------------------------------------------------ convolution helpers
 
 
 def conv(x, W, b, stride, pad):
-    """``(N, H, W, C)`` -> conv with zero ``pad`` and ``stride``; returns (z, cols, padded shape)."""
+    """Convolve ``(N, H, W, C)`` with zero ``pad`` and ``stride``.
+
+    Returns ``(z, cols, padded shape)``: the output, the im2col windows and
+    the padded input's shape (both needed by :func:`conv_back`).
+    """
     xp = np.pad(x, ((0, 0), (pad, pad), (pad, pad), (0, 0)))
     cols = _windows(xp, W.shape[0], stride)
     return cols @ W.reshape(-1, W.shape[-1]) + b, cols, xp.shape
 
 
 def conv_back(dz, cols, W, xp_shape, stride, pad):
+    """Gradients of :func:`conv`: ``(dW, db, dx)`` for the output gradient ``dz``."""
     k, _, c, f = W.shape
     dW = cols.reshape(-1, cols.shape[-1]).T @ dz.reshape(-1, f)
     db = dz.sum((0, 1, 2))
@@ -54,23 +76,70 @@ def conv_back(dz, cols, W, xp_shape, stride, pad):
 
 
 def up2(x):
+    """Nearest-neighbour upsampling x2 of ``(N, H, W, C)``."""
     return x.repeat(2, axis=1).repeat(2, axis=2)
 
 
 def up2_back(d):
+    """Gradient of :func:`up2`: each 2x2 block summed."""
     n, h, w, c = d.shape
     return d.reshape(n, h // 2, 2, w // 2, 2, c).sum((2, 4))
+
+
+# ------------------------------------------------------------------ dense layers
+
+
+def dense_layers(P, a, layers):
+    """Run dense ``layers`` (consecutive indices) on ``a`` ``(N, width)``.
+
+    ReLU everywhere except the latent layer (linear) and the last layer
+    (sigmoid).  Returns ``(acts, pre)``: ``acts[i]`` is the input of
+    ``layers[i]`` (``acts[-1]`` the output) and ``pre[i]`` its pre-activation.
+    """
+    acts, pre = [a], []
+    for k in layers:
+        zk = a @ P["W%d" % k] + P["b%d" % k]
+        pre.append(zk)
+        if k == N_DENSE - 1:
+            a = sigmoid(zk)
+        elif k == LATENT_LAYER:
+            a = zk
+        else:
+            a = np.maximum(zk, 0)
+        acts.append(a)
+    return acts, pre
+
+
+def dense_backward(P, acts, d, layers, g):
+    """Backpropagate ``d`` (the gradient at the pre-activation of the last of
+    ``layers``) through ``layers``, given their ``acts`` from :func:`dense_layers`.
+
+    Writes the ``W`` / ``b`` gradients into ``g`` and returns the gradient at
+    ``acts[0]`` (``None`` when the range starts at layer 0, the image).
+    """
+    for i in reversed(range(len(layers))):
+        k = layers[i]
+        g["W%d" % k] = acts[i].T @ d
+        g["b%d" % k] = d.sum(0)
+        if k == 0:
+            return None
+        d = d @ P["W%d" % k].T
+        if k - 1 != LATENT_LAYER:                    # back through the ReLU
+            d = d * (acts[i] > 0)
+    return d
+
+
+def recon_grad(r, x):
+    """Gradient of ``mean((r - x)^2)`` at the pre-sigmoid of the output ``r``."""
+    return 2.0 * (r - x) / r.size * r * (1 - r)
 
 
 # ------------------------------------------------------------------ models
 
 
 def init(kind, latent, rng):
+    """Random parameters for a ``"dense"`` or ``"conv"`` autoencoder."""
     P = {}
-
-    def dense(name, a, b):
-        P["W" + name] = rng.normal(0, np.sqrt(2.0 / a), (a, b))
-        P["b" + name] = np.zeros(b)
 
     def convw(name, k, c, f):
         P["W" + name] = rng.normal(0, np.sqrt(2.0 / (k * k * c)), (k, k, c, f))
@@ -79,34 +148,31 @@ def init(kind, latent, rng):
     if kind == "dense":
         widths = list(DENSE) + [latent] + list(DENSE[::-1])
         for n, (a, b) in enumerate(itertools.pairwise(widths)):
-            dense(str(n), a, b)
+            dense_init(P, str(n), a, b, rng)
     else:
         convw("e0", 3, 1, 8)
         convw("e1", 3, 8, 16)
-        dense("z", 7 * 7 * 16, latent)
-        dense("d", latent, 7 * 7 * 16)
+        dense_init(P, "z", 7 * 7 * 16, latent, rng)
+        dense_init(P, "d", latent, 7 * 7 * 16, rng)
         convw("d0", 3, 16, 8)
         convw("d1", 3, 8, 1)
     return P
 
 
 def forward(kind, P, x):
-    """Every intermediate, plus ``recon`` and ``z`` (the latent code)."""
+    """Encode and decode ``x`` ``(N, 784)``.
+
+    Returns every intermediate; for both kinds ``z`` (the latent code,
+    ``(N, L)``), ``recon`` ``(N, 784)`` and ``acts``, the seven tensors of the
+    chain (input, two encoder layers, code, two decoder layers, output).
+    Dense also has ``pre`` (pre-activations); conv the per-layer
+    pre-activations ``z0 .. z5``, im2col windows ``c*`` and padded shapes ``s*``.
+    """
     n = len(x)
-    f = {}
     if kind == "dense":
-        L = len([k for k in P if k.startswith("W")])
-        a = x.reshape(n, -1)
-        acts, pre = [a], []
-        for k in range(L):
-            zk = a @ P["W%d" % k] + P["b%d" % k]
-            pre.append(zk)
-            last = k == L - 1
-            mid = k == len(DENSE) - 1                      # the latent layer: linear
-            a = _sig(zk) if last else (zk if mid else np.maximum(zk, 0))
-            acts.append(a)
-        f.update(acts=acts, pre=pre, z=acts[len(DENSE)], recon=acts[-1])
-        return f
+        enc, pre_e = dense_layers(P, x.reshape(n, -1), ENCODER)
+        dec, pre_d = dense_layers(P, enc[-1], DECODER)
+        return dict(acts=enc + dec[1:], pre=pre_e + pre_d, z=enc[-1], recon=dec[-1])
     a0 = x.reshape(n, 28, 28, 1)
     z0, c0, s0 = conv(a0, P["We0"], P["be0"], 2, 1)          # 14x14x8
     a1 = np.maximum(z0, 0)
@@ -120,28 +186,19 @@ def forward(kind, P, x):
     a4 = np.maximum(z4, 0)
     u4 = up2(a4)
     z5, c5, s5 = conv(u4, P["Wd1"], P["bd1"], 1, 1)          # 28x28x1
-    out = _sig(z5)
-    f.update(a0=a0, z0=z0, c0=c0, s0=s0, a1=a1, z1=z1, c1=c1, s1=s1, a2=a2, z=lat, zd=zd,
-             a3=a3, u3=u3, z4=z4, c4=c4, s4=s4, a4=a4, u4=u4, z5=z5, c5=c5, s5=s5,
-             recon=out.reshape(n, -1),
-             acts=[a0, a1, a2, lat, a3, a4, out])
-    return f
+    out = sigmoid(z5)
+    return dict(a0=a0, z0=z0, c0=c0, s0=s0, a1=a1, z1=z1, c1=c1, s1=s1, a2=a2, z=lat, zd=zd,
+                a3=a3, u3=u3, z4=z4, c4=c4, s4=s4, a4=a4, u4=u4, z5=z5, c5=c5, s5=s5,
+                recon=out.reshape(n, -1), acts=[a0, a1, a2, lat, a3, a4, out])
 
 
 def backward(kind, P, f, x):
+    """Gradients of :func:`loss` with respect to every parameter."""
     n = len(x)
     g = {}
-    r = f["recon"]
-    d = 2.0 * (r - x.reshape(n, -1)) / r.size * r * (1 - r)   # through the sigmoid
+    d = recon_grad(f["recon"], x.reshape(n, -1))
     if kind == "dense":
-        acts, pre = f["acts"], f["pre"]
-        L = len(pre)
-        for k in range(L - 1, -1, -1):
-            g["W%d" % k] = acts[k].T @ d
-            g["b%d" % k] = d.sum(0)
-            if k:
-                da = d @ P["W%d" % k].T
-                d = da if k == len(DENSE) else da * (pre[k - 1] > 0)
+        dense_backward(P, f["acts"], d, range(N_DENSE), g)
         return g
     d5 = d.reshape(n, 28, 28, 1)
     g["Wd1"], g["bd1"], du4 = conv_back(d5, f["c5"], P["Wd1"], f["s5"], 1, 1)
@@ -159,85 +216,87 @@ def backward(kind, P, f, x):
 
 
 def loss(f, x):
+    """Mean squared reconstruction error of the forward pass ``f`` of ``x``."""
     return float(np.mean((f["recon"] - x.reshape(len(x), -1)) ** 2))
 
 
 EPOCHS = {"dense": 12, "conv": 4}
 
 
+def train_settings(kind="dense", latent=3, epochs=None, batch=128, lr=1e-3, seed=0):
+    """Every setting that determines :func:`train`'s weights (its cache key)."""
+    epochs = EPOCHS[kind] if epochs is None else epochs
+    return dict(kind=kind, latent=latent, dense=DENSE, epochs=epochs, batch=batch, lr=lr,
+                seed=seed)
+
+
 def train(kind="dense", latent=3, epochs=None, batch=128, lr=1e-3, seed=0,
           cache_dir=DEFAULT_CACHE):
-    epochs = EPOCHS[kind] if epochs is None else epochs
-    path = os.path.join(cache_dir, "ae_%s_l%d_e%d_s%d.npz" % (kind, latent, epochs, seed))
-    if os.path.exists(path):
-        with np.load(path, allow_pickle=False) as d:
-            return {k: d[k] for k in d.files if k != "loss"}, float(d["loss"])
-    xtr, _ytr, xte, _yte = load(cache_dir)
-    rng = np.random.default_rng(seed)
-    P = init(kind, latent, rng)
-    m = {k: np.zeros_like(v) for k, v in P.items()}
-    v = {k: np.zeros_like(a) for k, a in P.items()}
-    step = 0
-    for _ in range(epochs):
-        order = rng.permutation(len(xtr))
-        for s in range(0, len(order), batch):
-            x = xtr[order[s:s + batch]]
-            g = backward(kind, P, forward(kind, P, x), x)
-            step += 1
-            for k in P:
-                m[k] = 0.9 * m[k] + 0.1 * g[k]
-                v[k] = 0.999 * v[k] + 0.001 * g[k] ** 2
-                P[k] = P[k] - lr * (m[k] / (1 - 0.9 ** step)) / (
-                    np.sqrt(v[k] / (1 - 0.999 ** step)) + 1e-8)
-    test = float(np.mean([loss(forward(kind, P, xte[s:s + 1000]), xte[s:s + 1000])
-                          for s in range(0, 10000, 1000)]))
-    os.makedirs(cache_dir, exist_ok=True)
-    np.savez(path, loss=test, **P)
-    return P, test
+    """Train with Adam (or load the cache): ``(params, mean test reconstruction error)``."""
+    settings = train_settings(kind, latent, epochs, batch, lr, seed)
+
+    def build():
+        xtr, _ytr, xte, _yte = load(cache_dir)
+        rng = np.random.default_rng(seed)
+        P = init(kind, latent, rng)
+        opt = Adam(P, lr)
+        for idx in minibatches(rng, len(xtr), settings["epochs"], batch):
+            x = xtr[idx]
+            opt.step(P, backward(kind, P, forward(kind, P, x), x))
+        test = chunk_mean(lambda s: loss(forward(kind, P, xte[s]), xte[s]), len(xte))
+        return dict(P, loss=np.array(test))
+
+    d = cached_npz("ae_%s" % kind, settings, build, cache_dir)
+    return {k: v for k, v in d.items() if k != "loss"}, float(d["loss"])
 
 
 @dataclass
 class AETrace:
+    """Digits through a trained autoencoder, plus a cloud of test codes."""
+
     kind: str
     latent: int
     P: dict
     images: np.ndarray            # (k, 784) the digits evaluated
-    labels: np.ndarray
+    labels: np.ndarray            # (k,)
     fwd: list                     # forward dict per image (batch removed)
     cloud: np.ndarray             # (m, latent) test codes for the scatter
-    cloud_labels: np.ndarray
-    test_loss: float
+    cloud_labels: np.ndarray      # (m,)
 
     def decode(self, z):
-        """Decoder only: latent ``z`` -> (activations, 784 image)."""
+        """Decoder only: latent ``z`` ``(L,)`` -> (the decoder's tensors, 784 image).
+
+        The tensors are the code and the decoder's layers, batch removed (for
+        conv in HWC shape).
+        """
         P, z = self.P, np.asarray(z, np.float64)[None]
         if self.kind == "dense":
-            L = len([k for k in P if k.startswith("W")])
-            a, acts = z, [z[0]]
-            for k in range(len(DENSE), L):
-                zk = a @ P["W%d" % k] + P["b%d" % k]
-                a = _sig(zk) if k == L - 1 else np.maximum(zk, 0)
-                acts.append(a[0])
-            return acts, a[0]
+            acts, _pre = dense_layers(P, z, DECODER)
+            return [a[0] for a in acts], acts[-1][0]
         a3 = np.maximum(z @ P["Wd"] + P["bd"], 0).reshape(1, 7, 7, 16)
         a4 = np.maximum(conv(up2(a3), P["Wd0"], P["bd0"], 1, 1)[0], 0)
-        out = _sig(conv(up2(a4), P["Wd1"], P["bd1"], 1, 1)[0])
+        out = sigmoid(conv(up2(a4), P["Wd1"], P["bd1"], 1, 1)[0])
         return [z[0], a3[0], a4[0], out[0]], out[0].reshape(-1)
 
 
-def trace(kind="dense", latent=3, digits=(3, 2, 1), cloud=600) -> AETrace:
+CLOUD_START = 2000                # the scatter's test digits: CLOUD_START, CLOUD_START + 1, ...
+
+
+def _unbatch(f):
+    """A single-image forward dict without its batch dimension."""
+    out = {k: (v[0] if isinstance(v, np.ndarray) and v.ndim and len(v) == 1 else v)
+           for k, v in f.items() if k not in ("acts", "pre")}
+    return out | {"acts": [a[0] for a in f["acts"]]}
+
+
+def trace(kind="dense", latent=3, digits=(3, 2, 1), cloud=600,
+          cache_dir=DEFAULT_CACHE) -> AETrace:
     """Evaluate test images ``digits`` (indices); also encode ``cloud`` test
-    images for the latent-space scatter."""
-    P, test = train(kind, latent)
-    _a, _b, xte, yte = load()
+    images (from :data:`CLOUD_START`) for the latent-space scatter."""
+    P, _test = train(kind, latent, cache_dir=cache_dir)
+    _xtr, _ytr, xte, yte = load(cache_dir)
     imgs = xte[list(digits)]
-    fw = []
-    for x in imgs:
-        f = forward(kind, P, x[None])
-        fw.append({k: (v[0] if isinstance(v, np.ndarray) and v.ndim and len(v) == 1 else v)
-                   for k, v in f.items() if k not in ("acts", "pre")} |
-                  {"acts": [a[0] for a in f["acts"]]})
-    sel = np.arange(2000, 2000 + cloud)
-    codes = np.concatenate([forward(kind, P, xte[s:s + 200])["z"]
-                            for s in range(sel[0], sel[-1] + 1, 200)])[:cloud]
-    return AETrace(kind, latent, P, imgs, yte[list(digits)], fw, codes, yte[sel], test)
+    fw = [_unbatch(forward(kind, P, x[None])) for x in imgs]
+    sel = np.arange(CLOUD_START, CLOUD_START + cloud)
+    codes = batched(lambda xs: forward(kind, P, xs)["z"], xte[sel], 200)
+    return AETrace(kind, latent, P, imgs, yte[list(digits)], fw, codes, yte[sel])

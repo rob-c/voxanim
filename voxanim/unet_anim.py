@@ -21,8 +21,11 @@ from __future__ import annotations
 import numpy as np
 
 from . import color as C
-from . import deep_models as D
+from . import deep_models
+from .ae_anim import strongest_inputs
+from .cache import DEFAULT_CACHE
 from .easing import ease_in_out, remap, smoothstep
+from .mnist import load
 from .netanim import (
     ACT_HI,
     ACT_LO,
@@ -35,6 +38,8 @@ from .netanim import (
     particle,
 )
 
+NOISE_SEED = 4              # the noise added to the animated digits
+# Per sheet: layout position, shape (rows, columns) and cell scale.
 AT = dict(x=(0.12, 0.31), e1=(0.235, 0.50), e2=(0.345, 0.665), b=(0.50, 0.78),
           d2=(0.655, 0.665), d1=(0.765, 0.50), out=(0.88, 0.31), clean=(0.50, 0.31),
           plain=(0.88, 0.70))
@@ -42,23 +47,31 @@ SHAPES = dict(x=(28, 28), e1=(16, 16), e2=(8, 8), b=(4, 4), d2=(8, 8), d1=(16, 1
               out=(28, 28), clean=(28, 28), plain=(28, 28))
 SCALE = dict(x=0.32, e1=0.55, e2=0.95, b=1.5, d2=0.95, d1=0.55, out=0.32, clean=0.32,
              plain=0.32)
+LAYERS = ("e1", "e2", "b", "d2", "d1", "out")       # the layers computed, in order
+# Per layer: its source sheet, the skip copy concatenated to it (or None), the
+# encoder layer that copy holds, and the weights.
+INPUTS = dict(e1=("x", None, None, "We1"), e2=("e1", None, None, "We2"),
+              b=("e2", None, None, "Wb"), d2=("b", "copy2", "e2", "Wd2"),
+              d1=("d2", "copy1", "e1", "Wd1"), out=("d1", None, None, "Wo"))
 
 
 class UNetAnimation(NetAnimation):
+    """Digits ``digits`` (test indices) noised and denoised by the dense U-Net,
+    then the same through the copy trained without skips."""
+
     PHASES = ("add noise", "encode", "bottleneck", "decode + skips", "without skips")
 
-    def __init__(self, digits=(3, 18), seed=4):
+    def __init__(self, digits=(3, 18), seed=NOISE_SEED, cache_dir=DEFAULT_CACHE):
         super().__init__("Dense U-Net: denoising", "", 9.0)
-        from .mnist import load
-        self.P, self.loss = D.unet_train(True)
-        self.Pp, self.loss_plain = D.unet_train(False)
-        _a, _b, xte, _yte = load()
+        self.P, self.loss = deep_models.unet_train(True, cache_dir=cache_dir)
+        self.Pp, self.loss_plain = deep_models.unet_train(False, cache_dir=cache_dir)
+        _xtr, _ytr, xte, _yte = load(cache_dir)
         rng = np.random.default_rng(seed)
         self.clean = [xte[i] for i in digits]
-        self.noisy = [D.noisy(x[None], rng)[0] for x in self.clean]
-        self.f = [D.unet_forward(self.P, n[None], True) for n in self.noisy]
-        self.fp = [D.unet_forward(self.Pp, n[None], False) for n in self.noisy]
-        self.S = {k: self.sheet(SHAPES[k], AT[k], SCALE[k], k) for k in AT}
+        self.noisy = [deep_models.noisy(x[None], rng)[0] for x in self.clean]
+        self.f = [deep_models.unet_forward(self.P, n[None], True) for n in self.noisy]
+        self.fp = [deep_models.unet_forward(self.Pp, n[None], False) for n in self.noisy]
+        self.layer = {k: self.sheet(SHAPES[k], AT[k], SCALE[k], k) for k in AT}
         # ghost copies that travel along the skip bridges and sit by the decoder
         self.copy1 = self.sheet(SHAPES["e1"], AT["e1"], SCALE["e1"], "copy1")
         self.copy2 = self.sheet(SHAPES["e2"], AT["e2"], SCALE["e2"], "copy2")
@@ -87,36 +100,25 @@ class UNetAnimation(NetAnimation):
 
     # ------------------------------------------------------------------ data
     def _vals(self, f):
+        """The single-image activations of a forward pass, by sheet name."""
         return dict(x=f["x"][0], e1=f["e1"][0], e2=f["e2"][0], b=f["b"][0], d2=f["d2"][0],
                     d1=f["d1"][0], out=f["out"][0])
 
     def _particles(self, f):
-        """Strongest weighted inputs per layer: (source sheet, index, dst sheet, index)."""
+        """Per layer: its strongest weighted inputs,
+        ``[(source sheet name, source index, destination index, value, start)]``."""
         v = self._vals(f)
-        P = self.P
-        layers = [("x", None, "e1", "We1"), ("e1", None, "e2", "We2"), ("e2", None, "b", "Wb"),
-                  ("b", "copy2", "d2", "Wd2"), ("d2", "copy1", "d1", "Wd1"),
-                  ("d1", None, "out", "Wo")]
         out = {}
-        for src, skip, dst, w in layers:
-            a = v[src] if skip is None else np.concatenate(
-                [v[src], v["e2" if skip == "copy2" else "e1"]])
-            c = a[:, None] * P[w]
-            K = min(70, int((np.abs(c) > 0).sum()))
-            idx = np.argpartition(-np.abs(c).ravel(), K - 1)[:K]
-            cmax = amax(c)
+        for dst, (src, skip, held, w) in INPUTS.items():
+            a = v[src] if skip is None else np.concatenate([v[src], v[held]])
             n_src = len(v[src])
-            lst = []
-            for m in idx:
-                i, j = divmod(int(m), P[w].shape[1])
-                sheet = src if i < n_src else skip
-                ii = i if i < n_src else i - n_src
-                lst.append((sheet, ii, j, c.ravel()[m] / cmax,
-                            0.5 * ((m * 2654435761) % 997) / 997))
-            out[dst] = lst
+            out[dst] = [(src, i, j, val, start) if i < n_src else
+                        (skip, i - n_src, j, val, start)
+                        for (i, j), val, start in strongest_inputs(a, self.P[w])]
         return out
 
     def step_of(self, t):
+        """Index into :attr:`PHASES` of the phase at time ``t``."""
         if t >= self.Tm["plain"][0]:
             return 4
         for d in range(len(self.digit_t) - 1, -1, -1):
@@ -131,18 +133,17 @@ class UNetAnimation(NetAnimation):
 
     # ------------------------------------------------------------------ frame
     def draw(self, sc, t, reset):
+        """Draw the frame at time ``t`` (``reset``: 0..1 through the loop's rewind)."""
         back = 1.0 - ease_in_out(remap(reset, 0.0, 0.7))
         ph = 0 if reset > 0 else self.step_of(t)
-        d = 0
+        d = 0                      # the last digit to have started (also in "plain")
         for i, seg in enumerate(self.digit_t):
             if t >= seg["noise"][0]:
                 d = i
-        if t >= self.Tm["plain"][0]:
-            d = len(self.digit_t) - 1
         seg = self.digit_t[d]
         p = {k: remap(t, *v) for k, v in seg.items()}
         v = self._vals(self.f[d])
-        S = self.S
+        S = self.layer
         ink = lambda a: lit_colors(a, 1.0, INK_LO, INK_HI)          # noqa: E731
         act = lambda a: lit_colors(a, amax(a), ACT_LO, ACT_HI)       # noqa: E731
 
@@ -158,7 +159,7 @@ class UNetAnimation(NetAnimation):
         S["x"].fill(gray_colors(x))
         for k in ("x", "clean"):
             S[k].cage = 1.0
-        for name in ("e1", "e2", "b", "d2", "d1", "out"):
+        for name in LAYERS:
             sh = S[name]
             u = p[name]
             sh.fill(gray_colors(v[name]) if name == "out" else act(v[name]))
@@ -183,7 +184,7 @@ class UNetAnimation(NetAnimation):
             ca, cb = S[src].center, S[dst].center
             sc.line(ca, cb, width=1.2, color=(0.55, 0.57, 0.59), opacity=0.5, bias=0.0)  # always
         # flows
-        for dst in ("e1", "e2", "b", "d2", "d1", "out"):
+        for dst in LAYERS:
             u = p[dst]
             if not 0 < u < 1:
                 continue
@@ -204,7 +205,7 @@ class UNetAnimation(NetAnimation):
         mse_p = float(np.mean((self.fp[d]["out"][0] - self.clean[d]) ** 2))
         self.subtitle = [
             "a clean digit plus Gaussian noise (std %.2f) goes in; the clean digit is the "
-            "target" % D.NOISE,
+            "target" % deep_models.NOISE,
             "encoder: squeeze the noisy digit down, layer by layer",
             "the bottleneck: only 16 numbers describe the digit",
             "skip connections copy each encoder layer across the U and concatenate it with "

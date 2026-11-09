@@ -43,11 +43,12 @@ from .netanim import (
     particle,
 )
 from .text import TIMES
-from .vit import DH, HEADS, N_TOK
+from .vit import DH, GRID, HEADS, HIDDEN, N_TOK, PATCH
+from .vit import D as D_MODEL
 
-BAND_Y = (0.33, 0.555, 0.78)
-COL = dict(Q=0.255, K=0.305, V=0.355, A=0.445, O=0.53, map=0.597)
-GRID = 4
+BAND_Y = (0.33, 0.555, 0.78)                     # layout y of each head's band
+COL = dict(Q=0.255, K=0.305, V=0.355, A=0.445, O=0.53, map=0.597)   # layout x per part
+FRAME = (0.96, 0.96, 0.96)                       # the white frames marking what is read
 
 
 def _weights_lit(a):
@@ -56,6 +57,12 @@ def _weights_lit(a):
 
 
 class AttentionTrainingStep(NetAnimation):
+    """One training step of the tiny ViT on one image.
+
+    ``tr`` and ``tr_after`` are :class:`voxanim.vit.VitTrace` s before and
+    after one SGD step with learning rate ``lr``.
+    """
+
     PHASES = ("forward", "loss", "backward", "update", "forward again")
 
     def __init__(self, tr, tr_after, lr):
@@ -64,20 +71,20 @@ class AttentionTrainingStep(NetAnimation):
         self.hold = 2.5
         s06 = 0.6
         self.img = self.sheet((28, 28), (0.105, 0.37), 0.30, "image")
-        self.tok = self.sheet((N_TOK, 24), (0.11, 0.76), 0.45, "tokens")
+        self.tok = self.sheet((N_TOK, D_MODEL), (0.11, 0.76), 0.45, "tokens")
         self.heads = []
         for h, y in enumerate(BAND_Y):
             d = {}
             for key in "QKV":
                 d[key] = self.sheet((N_TOK, DH), (COL[key], y), s06, key + str(h))
-                d["W" + key] = self.sheet((24, DH), (COL[key], y), s06 * N_TOK / 24,
+                d["W" + key] = self.sheet((D_MODEL, DH), (COL[key], y), s06 * N_TOK / D_MODEL,
                                           "W%s%d" % (key, h))
             d["A"] = self.sheet((N_TOK, N_TOK), (COL["A"], y), s06, "A%d" % h)
             d["O"] = self.sheet((N_TOK, DH), (COL["O"], y), s06, "O%d" % h)
             d["map"] = self.sheet((GRID, GRID), (COL["map"], y), 1.4, "map%d" % h)
             self.heads.append(d)
-        self.ycls = self.sheet((4, 6), (0.675, 0.42), 0.8, "y")
-        self.u = self.sheet((4, 8), (0.855, 0.30), 0.8, "u")
+        self.ycls = self.sheet((4, D_MODEL // 4), (0.675, 0.42), 0.8, "y")
+        self.u = self.sheet((4, HIDDEN // 4), (0.855, 0.30), 0.8, "u")
         self.panel = OutputPanel(self, tr, (0.82, 0.67), 0.8)
 
         Tm, t = {}, 0.0
@@ -113,14 +120,14 @@ class AttentionTrainingStep(NetAnimation):
         self.finish(t)
         self.marks = [0.0, Tm["bars"][0], Tm["err"][0], Tm["update"][0], Tm["again"][0]]
 
-    def p(self, name, t):
-        return remap(t, *self.Tm[name])
 
     def step_of(self, t):
+        """Index into :attr:`PHASES` of the phase running at time ``t``."""
         return int(np.searchsorted(self.marks, t, side="right") - 1)
 
     # ------------------------------------------------------------------ frame
     def draw(self, sc, t, reset):
+        """Draw the frame at time ``t`` (``reset``: 0..1 through the loop's rewind)."""
         tr, tr2 = self.tr, self.tr2
         ph = self.step_of(t)
         label_ph = 0 if reset > 0 else ph
@@ -134,17 +141,18 @@ class AttentionTrainingStep(NetAnimation):
             "forward again: the heads attend a little differently: p(%d) rises from %.2f "
             "to %.2f" % (tr.label, tr.p[tr.label], tr2.p[tr.label]),
         ][label_ph]
-        self.back = 1.0 - ease_in_out(remap(reset, 0.0, 0.7))
-        self.again = self.p("again", t)
+        back = 1.0 - ease_in_out(remap(reset, 0.0, 0.7))
+        again = self.progress("again", t)
         self._image(sc, t, reset)
-        self._tokens(sc, t)
+        self._tokens(sc, t, back, again)
         for h in range(HEADS):
-            self._head(sc, t, h)
-        self._top(sc, t)
+            self._head(sc, t, h, back, again)
+        self._top(sc, t, back, again)
         self.step_indicator(sc, label_ph, self.PHASES)
 
     # -- image and patches ----------------------------------------------------
     def _image(self, sc, t, reset):
+        """The image, spreading apart into its patches."""
         x = self.tr.x
         rv = smoothstep(0.0, 0.9, t) * (1.0 - ease_in_out(remap(reset, 0.3, 1.0)))
         g = gray_colors(x)
@@ -153,67 +161,80 @@ class AttentionTrainingStep(NetAnimation):
         b = self.img.block
         if b.offset is None:
             b.offset = np.zeros(b.base.shape[:3] + (3,))
-        spread = ease_in_out(self.p("patch", t)) * (1.0 - ease_in_out(remap(reset, 0.2, 0.9)))
+        spread = ease_in_out(self.progress("patch", t)) * \
+            (1.0 - ease_in_out(remap(reset, 0.2, 0.9)))
         r, c = np.mgrid[0:28, 0:28]
         gap = 0.9 * spread
-        b.offset[:, :, 0, 0] += (c // 7 - 1.5) * gap
-        b.offset[:, :, 0, 2] -= (r // 7 - 1.5) * gap
+        mid = (GRID - 1) / 2
+        b.offset[:, :, 0, 0] += (c // PATCH - mid) * gap
+        b.offset[:, :, 0, 2] -= (r // PATCH - mid) * gap
         if 0 < spread < 1:
             sc.probe(("patch",), (spread * 20, 0, 0), tol=8.0)
-        self.caption(sc, self.img, "16 patches of 7%s7" % TIMES if spread > 0.5 else
-                     "image 28%s28" % TIMES)
+        self.caption(sc, self.img, "%d patches of %d%s%d" % (GRID * GRID, PATCH, TIMES, PATCH)
+                     if spread > 0.5 else "image 28%s28" % TIMES)
 
     def _patch_center(self, p):
+        """World centre of patch ``p`` (row-major), wherever the spread put it."""
         r, c = divmod(p, GRID)
-        return self.img.block.cell_center(r * 7 + 3, c * 7 + 3, 0) + \
-            self.img.block.offset[r * 7 + 3, c * 7 + 3, 0]
+        y, x = r * PATCH + PATCH // 2, c * PATCH + PATCH // 2
+        return self.img.block.cell_center(y, x, 0) + self.img.block.offset[y, x, 0]
 
     # -- tokens ------------------------------------------------------------------
-    def _tokens(self, sc, t):
+    def _tokens(self, sc, t, back, again):
+        """The token matrix filling row by row as the patches are embedded."""
         tr = self.tr
         T = tr.f["T"]
-        e = self.p("embed", t)
+        e = self.progress("embed", t)
         cols = div_colors(T.ravel(), amax(T))
-        rows = np.repeat(np.arange(N_TOK), 24)
+        rows = np.repeat(np.arange(N_TOK), D_MODEL)
         show = rows <= np.floor(e * (N_TOK + 2)) - 1
         if self.Tm["back_t"][0] <= t < self.Tm["again"][0]:
             dT = tr.d["dT"]
-            m = smoothstep(0.2, 0.9, self.p("back_t", t))
+            m = smoothstep(0.2, 0.9, self.progress("back_t", t))
             cols = cols + (div_colors(dT.ravel(), amax(dT)) - cols) * m
-        if self.again > 0:
+        if again > 0:
             T2 = self.tr2.f["T"]
             cols = div_colors(T2.ravel(), amax(T))
         self.tok.fill(cols)
         self.tok.show(show)
         self.tok.cage = 1.0
-        self.tok.fade(self.back)
+        self.tok.fade(back)
         glint = soft_band(e, 0.86, 1.0, 0.06)              # + position
         self.tok.block.white[...] = 0.5 * glint
         if 0 < e < 1:
-            for p in range(16):
+            for p in range(N_TOK - 1):
                 u = remap(e, 0.06 * (p + 1) * 0.9, 0.06 * (p + 1) * 0.9 + 0.2)
-                particle(sc, self._patch_center(p), self.tok.cell((p + 1) * 24 + 12), u,
-                         INK_HI, 0.6, lift=1.0)
+                particle(sc, self._patch_center(p),
+                         self.tok.cell((p + 1) * D_MODEL + D_MODEL // 2), u, INK_HI, 0.6,
+                         lift=1.0)
             sc.probe(("embed",), (e * 30, 0, 0), tol=8.0)
         if t >= self.Tm["back_t"][0] + 0.3 and t < self.Tm["again"][0]:
             text = "gradient at the tokens"
         elif e > 0.9:
-            text = "tokens: CLS + 16 patches"
+            text = "tokens: CLS + %d patches" % (N_TOK - 1)
         else:
-            text = "tokens (17 %s 24)" % TIMES
+            text = "tokens (%d %s %d)" % (N_TOK, TIMES, D_MODEL)
         self.caption(sc, self.tok, text)
 
     # -- one head band -----------------------------------------------------------
-    def _head(self, sc, t, h):
+    def _head(self, sc, t, h, back, again):
+        """Head ``h``'s band: Q K V, the attention matrix, A V and the CLS map."""
+        H = self.heads[h]
+        self._qkv(sc, t, h, H, back, again)
+        weights = self._scores(sc, t, h, H, back, again)
+        self._output(sc, t, h, H, weights, back, again)
+        self._cls_map(sc, t, h, H, back, again)
+
+    def _qkv(self, sc, t, h, H, back, again):
+        """Q, K and V of head ``h`` (their weights during the update)."""
         tr, tr2 = self.tr, self.tr2
         f, d = tr.f, tr.d
-        H = self.heads[h]
-        back, again = self.back, self.again
         sl = slice(h * DH, (h + 1) * DH)
-        qkv = self.p("qkv", t)
-        bwd_a = self.p("back_a", t)
-        upd = self.p("update", t)
+        qkv = self.progress("qkv", t)
+        bwd_a = self.progress("back_a", t)
+        upd = self.progress("update", t)
         in_update = self.Tm["update"][0] <= t < self.Tm["update"][1]
+        rows = np.repeat(np.arange(N_TOK), DH)
         for key in "QKV":
             s = H[key]
             M = f[key][:, sl]
@@ -228,7 +249,6 @@ class AttentionTrainingStep(NetAnimation):
                 M2 = tr2.f[key][:, sl]
                 col = col + (div_colors(M2.ravel(), amax(M)) - col) * smoothstep(0.0, 0.2, again)
             s.fill(col)
-            rows = np.repeat(np.arange(N_TOK), DH)
             s.show(rows < qkv * (N_TOK + 3) - 2)
             s.cage = 1.0
             s.visible = not in_update
@@ -236,10 +256,11 @@ class AttentionTrainingStep(NetAnimation):
             # its weights during the update
             w = H["W" + key]
             w.visible = in_update
+            name = "W" + key.lower()
             if in_update:
-                W = tr.P["W" + key.lower()][:, sl]
-                dW = tr.g["W" + key.lower()][:, sl]
-                W2 = tr2.P["W" + key.lower()][:, sl]
+                W = tr.P[name][:, sl]
+                dW = tr.g[name][:, sl]
+                W2 = tr2.P[name][:, sl]
                 ch = -self.lr * dW
                 c = div_colors(W.ravel(), amax(W))
                 c = c + (div_colors(ch.ravel(), amax(ch)) - c) * smoothstep(0.15, 0.35, upd)
@@ -249,28 +270,33 @@ class AttentionTrainingStep(NetAnimation):
                 w.block.white[...] = 0.7 * soft_band(upd, 0.68, 0.86, 0.05)
             if h == 0:
                 if in_update:
-                    text = "W" + key.lower()
+                    text = name
                 else:
                     text = key if bwd_a <= 0.55 or t >= self.Tm["again"][0] else "d" + key
                 self.caption(sc, w if in_update else s, text, size=0.026, above=True)
-        if qkv > 0 and qkv < 1:
+        if 0 < qkv < 1:
             for key in "QKV":
                 particle(sc, self.tok.center, H[key].center, remap(qkv, 0.0, 0.5),
                          C.NEUTRAL, 0.7, lift=1.5)
             sc.probe(("qkv",), (qkv * 30, 0, 0), tol=8.0)
 
-        # ---- scores and weights ---------------------------------------------------
+    def _scores(self, sc, t, h, H, back, again):
+        """Scores turning into attention weights (head 1: built cell by cell).
+
+        Returns head ``h``'s attention weights ``A`` ``(N_TOK, N_TOK)``.
+        """
+        f, d = self.tr.f, self.tr.d
         A = H["A"]
-        S, W = f["S"][h], f["A"][h]
-        scol = div_colors(S.ravel(), amax(S))
-        wcol = np.concatenate([_weights_lit(W[i]) for i in range(N_TOK)])
-        sm = smoothstep(0.0, 1.0, self.p("softmax", t))
+        scores, weights = f["S"][h], f["A"][h]
+        scol = div_colors(scores.ravel(), amax(scores))
+        wcol = np.concatenate([_weights_lit(weights[i]) for i in range(N_TOK)])
+        sm = smoothstep(0.0, 1.0, self.progress("softmax", t))
         rows = np.repeat(np.arange(N_TOK), N_TOK)
         cols_ = np.tile(np.arange(N_TOK), N_TOK)
         row_wave = np.clip(sm * 1.6 - rows / N_TOK * 0.6, 0, 1)[:, None]
         col = scol + (wcol - scol) * row_wave
         if h == 0:
-            sp = self.p("score0", t)
+            sp = self.progress("score0", t)
             n0 = sp / 0.45 * N_TOK                           # CLS row, cell by cell
             nr = (sp - 0.45) / 0.55 * (N_TOK - 1)            # then the other rows
             show = ((rows == 0) & (cols_ < n0)) | ((rows >= 1) & (rows - 1 < nr))
@@ -278,21 +304,22 @@ class AttentionTrainingStep(NetAnimation):
                 j = int(min(N_TOK - 1, n0))
                 for key, r in (("Q", 0), ("K", j)):
                     lo, hi = H[key].block.box((r, r + 1), (0, DH), (0, 1))
-                    sc.wire_box(lo, hi, inflate=0.05, color=(0.96, 0.96, 0.96), width=1.3,
+                    sc.wire_box(lo, hi, inflate=0.05, color=FRAME, width=1.3,
                                 opacity=0.95, bias=0.1)
                 lo, hi = A.block.box((0, 1), (j, j + 1), (0, 1))
-                sc.wire_box(lo, hi, inflate=0.05, color=(0.96, 0.96, 0.96), width=1.3,
+                sc.wire_box(lo, hi, inflate=0.05, color=FRAME, width=1.3,
                             opacity=0.95, bias=0.1)
                 sc.probe(("score",), (n0 * 4, 0, 0), tol=8.0)
         else:
-            sp = self.p("score12", t)
+            sp = self.progress("score12", t)
             show = rows < sp * (N_TOK + 1)
-        if self.Tm["back_a"][0] <= t < self.Tm["again"][0]:
+        in_back = self.Tm["back_a"][0] <= t < self.Tm["again"][0]
+        if in_back:
             dA = d["dA"][h]
             gcol = div_colors(dA.ravel(), amax(dA), mask=(dA != 0).ravel())
-            col = col + (gcol - col) * smoothstep(0.0, 0.4, self.p("back_a", t))
+            col = col + (gcol - col) * smoothstep(0.0, 0.4, self.progress("back_a", t))
         if again > 0:
-            W2 = tr2.f["A"][h]
+            W2 = self.tr2.f["A"][h]
             w2col = np.concatenate([_weights_lit(W2[i]) for i in range(N_TOK)])
             col = col + (w2col - col) * smoothstep(0.15, 0.4, again)
         A.fill(col)
@@ -300,12 +327,12 @@ class AttentionTrainingStep(NetAnimation):
         A.cage = 1.0
         A.fade(back)
         if h == 0:
-            if self.Tm["back_a"][0] <= t < self.Tm["again"][0]:
+            if in_back:
                 text = "dA"
             elif sm > 0.5:
                 text = "softmax"
             else:
-                text = "Q·K / √8"
+                text = "Q·K / √%d" % DH
             self.caption(sc, A, text, size=0.026, above=True)
         self.caption_left(sc, H["Q"], "head %d" % (h + 1), size=0.028)
         if h == HEADS - 1 and self.Tm["back_o"][0] <= t < self.Tm["again"][0]:
@@ -313,41 +340,45 @@ class AttentionTrainingStep(NetAnimation):
             hi = H["O"].bbox()[1]
             self.caption(sc, (lo, hi), "only the CLS row is read, so only it gets gradient",
                          size=0.026)
+        return weights
 
-        # ---- weighted sum of the values ------------------------------------------------
+    def _output(self, sc, t, h, H, weights, back, again):
+        """O = A V for head ``h``: the CLS row's strongest values fly in."""
+        sl = slice(h * DH, (h + 1) * DH)
         O = H["O"]
-        Oh = f["Oh"][h]
-        at = self.p("attend", t)
+        Oh = self.tr.f["Oh"][h]
+        at = self.progress("attend", t)
         ocol = div_colors(Oh.ravel(), amax(Oh))
-        if self.Tm["back_o"][0] <= t < self.Tm["again"][0]:
-            dO = d["dO"][:, sl]
+        in_back = self.Tm["back_o"][0] <= t < self.Tm["again"][0]
+        if in_back:
+            dO = self.tr.d["dO"][:, sl]
             gcol = div_colors(dO.ravel(), amax(dO), mask=(dO != 0).ravel())
-            ocol = ocol + (gcol - ocol) * smoothstep(0.2, 0.7, self.p("back_o", t))
+            ocol = ocol + (gcol - ocol) * smoothstep(0.2, 0.7, self.progress("back_o", t))
         if again > 0:
-            O2 = tr2.f["Oh"][h]
+            O2 = self.tr2.f["Oh"][h]
             ocol = ocol + (div_colors(O2.ravel(), amax(Oh)) - ocol) * smoothstep(0.3, 0.5, again)
         O.fill(ocol)
         O.show(np.repeat(np.arange(N_TOK), DH) < at * (N_TOK + 2) - 1)
         O.cage = 1.0
         O.fade(back)
         if 0 < at < 0.5:
-            w = W[0]
+            w = weights[0]
             for j in np.argsort(-w)[:6]:
                 particle(sc, H["V"].cell(j * DH + DH // 2), O.cell(DH // 2), remap(at, 0.0, 0.45),
                          INK_HI, 0.5 + 0.5 * w[j] / w.max(), opacity=0.4 + 0.6 * w[j] / w.max(),
                          lift=1.0)
             sc.probe(("attend", h), (at * 30, 0, 0), tol=8.0)
         if h == 0:
-            text = "dO" if self.Tm["back_o"][0] <= t < self.Tm["again"][0] else "A·V"
-            self.caption(sc, O, text, size=0.026, above=True)
+            self.caption(sc, O, "dO" if in_back else "A·V", size=0.026, above=True)
 
-        # ---- where the CLS token looks ---------------------------------------------------
+    def _cls_map(self, sc, t, h, H, back, again):
+        """The CLS row of head ``h``'s weights, laid back on the patch grid."""
         mp = H["map"]
-        mshow = self.p("maps", t)
-        a = f["A"][h][0, 1:]
+        mshow = self.progress("maps", t)
+        a = self.tr.f["A"][h][0, 1:]
         mc = _weights_lit(a)
         if again > 0:
-            a2 = tr2.f["A"][h][0, 1:]
+            a2 = self.tr2.f["A"][h][0, 1:]
             mc = mc + (lit_colors(a2, amax(a)) - mc) * smoothstep(0.15, 0.4, again)
         mp.fill(mc)
         mp.light(a - 0.5 * a.max(), mshow)
@@ -357,21 +388,21 @@ class AttentionTrainingStep(NetAnimation):
             self.caption_side(sc, mp, "where CLS looks", mshow)
 
     # -- CLS output, MLP and the output panel ---------------------------------------------
-    def _top(self, sc, t):
+    def _top(self, sc, t, back, again):
+        """The CLS output, the MLP and the output panel."""
         tr, tr2 = self.tr, self.tr2
         f, d = tr.f, tr.d
-        back, again = self.back, self.again
         z = f["z"]
-        cl = self.p("cls", t)
+        cl = self.progress("cls", t)
         zcol = div_colors(z, amax(z))
         if self.Tm["back_mlp"][0] <= t < self.Tm["again"][0]:
             dz = d["dY"][0]
-            zcol = zcol + (div_colors(dz, amax(dz)) - zcol) * smoothstep(0.5, 0.9,
-                                                                         self.p("back_mlp", t))
+            k = smoothstep(0.5, 0.9, self.progress("back_mlp", t))
+            zcol = zcol + (div_colors(dz, amax(dz)) - zcol) * k
         if again > 0:
             zcol = zcol + (div_colors(tr2.f["z"], amax(z)) - zcol) * smoothstep(0.5, 0.65, again)
         self.ycls.fill(zcol)
-        self.ycls.show(np.arange(24) < cl * 26)
+        self.ycls.show(np.arange(D_MODEL) < cl * (D_MODEL + 2))
         self.ycls.cage = 1.0
         self.ycls.fade(back)
         if 0 < cl < 0.6:
@@ -383,13 +414,13 @@ class AttentionTrainingStep(NetAnimation):
             sc.probe(("cls",), (cl * 30, 0, 0), tol=8.0)
         self.caption(sc, self.ycls, "CLS output", size=0.026)
 
-        mlp = self.p("mlp", t)
+        mlp = self.progress("mlp", t)
         u = f["u"]
         ucol = lit_colors(u, amax(u))
         if self.Tm["back_mlp"][0] <= t < self.Tm["again"][0]:
             du = (d["dlog"] @ tr.P["W2"].T) * (f["pre1"] > 0)
             ucol = ucol + (div_colors(du, amax(du), mask=du != 0) - ucol) * \
-                smoothstep(0.0, 0.5, self.p("back_mlp", t))
+                smoothstep(0.0, 0.5, self.progress("back_mlp", t))
         if again > 0:
             u2 = tr2.f["u"]
             ucol = ucol + (lit_colors(u2, amax(u)) - ucol) * smoothstep(0.6, 0.75, again)
@@ -397,7 +428,7 @@ class AttentionTrainingStep(NetAnimation):
         elif not (self.Tm["back_mlp"][0] <= t):
             self.u.light(u, smoothstep(0.6, 1.0, mlp))
         self.u.fill(ucol)
-        self.u.show(np.arange(32) < mlp * 34)
+        self.u.show(np.arange(HIDDEN) < mlp * (HIDDEN + 2))
         self.u.cage = 1.0
         self.u.fade(back)
         self.caption(sc, self.u, "MLP (ReLU)", size=0.026)
@@ -406,19 +437,20 @@ class AttentionTrainingStep(NetAnimation):
                      lift=0.5)
 
         # output panel
-        lg = self.p("logits", t)
+        lg = self.progress("logits", t)
         mask = np.arange(10) < lg * 11
         logits = div_colors(f["logits"], amax(f["logits"]))
         err = div_colors(d["dlog"], amax(d["dlog"]))
-        col = logits + (err - logits) * ease_in_out(self.p("err", t))
+        col = logits + (err - logits) * ease_in_out(self.progress("err", t))
         if again > 0:
             col = col + (div_colors(tr2.f["logits"], amax(tr2.f["logits"])) - col) * \
                 smoothstep(0.7, 0.85, again)
         w = smoothstep(0.8, 1.0, again)
         self.panel.set_probs(tr.p + (tr2.p - tr.p) * w, tr.loss + (tr2.loss - tr.loss) * w)
-        tb = self.p("bars", t) * back
-        th = self.p("hot", t) * back
-        tl = (self.p("loss", t) * (1 - self.p("err", t)) + smoothstep(0.9, 1.0, again)) * back
+        tb = self.progress("bars", t) * back
+        th = self.progress("hot", t) * back
+        tl = (self.progress("loss", t) * (1 - self.progress("err", t)) +
+              smoothstep(0.9, 1.0, again)) * back
         self.panel.draw(sc, tb, th, tl, mask, col, fade=back)
         self.panel.emit(sc)
         self.panel.captions(sc, tb, th, tl, "error p - y" if t >= self.Tm["err"][0] and

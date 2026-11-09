@@ -8,33 +8,40 @@
     -> Y = T + O Wo                                     (residual)
     -> CLS row: ReLU(Y_0 W1 + b1) W2 + b2 -> softmax -> cross-entropy vs one-hot
 
-Training is seeded and cached in ``build/.cache`` like :mod:`voxanim.mnist`.
+Training is seeded (Adam, :class:`voxanim.optim.Adam`) and cached by
+:func:`voxanim.cache.cached_npz`.
+
+Shapes (``N`` images): tokens ``T`` ``(N, N_TOK, D)``; per-head ``Qh``, ``Kh``,
+``Vh``, ``Oh`` ``(N, HEADS, N_TOK, DH)``; scores ``S`` and weights ``A``
+``(N, HEADS, N_TOK, N_TOK)``.
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 
 import numpy as np
 
+from .cache import DEFAULT_CACHE, cached_npz
+from .minibatch import chunk_mean, minibatches
 from .mnist import load
-from .scene import DEFAULT_CACHE
+from .optim import Adam
 
-D, HEADS, PATCH, HIDDEN = 24, 3, 7, 32
-DH = D // HEADS
-N_TOK = (28 // PATCH) ** 2 + 1            # 16 patches + CLS
+D, HEADS, PATCH, HIDDEN = 24, 3, 7, 32    # model width, heads, patch side, MLP width
+DH = D // HEADS                           # width of one head
+GRID = 28 // PATCH                        # patches per side
+N_TOK = GRID ** 2 + 1                     # 16 patches + CLS
 NAMES = ("E", "bE", "cls", "pos", "Wq", "Wk", "Wv", "Wo", "W1", "b1", "W2", "b2")
 
 
 def patches(x):
     """``(N, 784)`` -> ``(N, 16, 49)``, patches in row-major order."""
-    g = 28 // PATCH
-    x = x.reshape(-1, g, PATCH, g, PATCH).transpose(0, 1, 3, 2, 4)
-    return x.reshape(-1, g * g, PATCH * PATCH)
+    x = x.reshape(-1, GRID, PATCH, GRID, PATCH).transpose(0, 1, 3, 2, 4)
+    return x.reshape(-1, GRID * GRID, PATCH * PATCH)
 
 
 def init(rng):
+    """Random parameters (keys :data:`NAMES`); He-style scale on ``W1``."""
     s = lambda a, *shape: rng.normal(0, np.sqrt(1.0 / a), shape)   # noqa: E731
     return dict(E=s(49, 49, D), bE=np.zeros(D), cls=s(D, D), pos=0.1 * s(1, N_TOK, D),
                 Wq=s(D, D, D), Wk=s(D, D, D), Wv=s(D, D, D), Wo=s(D, D, D),
@@ -48,10 +55,14 @@ def _heads(m):
 
 
 def _merge(m):
+    """``(N, H, T, DH)`` -> ``(N, T, D)``, the inverse of :func:`_heads`."""
     return m.transpose(0, 2, 1, 3).reshape(m.shape[0], m.shape[2], D)
 
 
 def forward(P, x):
+    """Classify ``x`` ``(N, 784)``; every intermediate, by the names in the
+    module docstring, plus ``z`` (the CLS row of ``Y``), ``pre1``, ``u``
+    (MLP), ``logits`` and ``p`` (softmax) ``(N, 10)``."""
     n = len(x)
     pt = patches(x)
     T = np.concatenate([np.broadcast_to(P["cls"], (n, 1, D)), pt @ P["E"] + P["bE"]], 1)
@@ -75,6 +86,12 @@ def forward(P, x):
 
 
 def backward(P, f, y_onehot):
+    """Cross-entropy gradients for the forward pass ``f``.
+
+    Returns ``(g, acts)``: parameter gradients (keys :data:`NAMES`) and the
+    activation gradients ``dlog``, ``dY``, ``dO``, ``dA``, ``dS``, ``dQ``,
+    ``dK``, ``dV``, ``dT`` (shaped like their forward counterparts).
+    """
     n = len(f["p"])
     g = {}
     dlog = (f["p"] - y_onehot) / n
@@ -106,49 +123,44 @@ def backward(P, f, y_onehot):
 
 
 def train(epochs=10, batch=128, lr=2e-3, seed=0, cache_dir=DEFAULT_CACHE):
-    path = os.path.join(cache_dir, "vit_d%d_h%d_e%d_s%d.npz" % (D, HEADS, epochs, seed))
-    if os.path.exists(path):
-        with np.load(path, allow_pickle=False) as d:
-            return {k: d[k] for k in NAMES}, float(d["acc"])
-    xtr, ytr, xte, yte = load(cache_dir)
-    rng = np.random.default_rng(seed)
-    P = init(rng)
-    m = {k: np.zeros_like(v) for k, v in P.items()}
-    v = {k: np.zeros_like(a) for k, a in P.items()}
-    eye = np.eye(10)
-    step = 0
-    for _ in range(epochs):
-        order = rng.permutation(len(xtr))
-        for s in range(0, len(order), batch):
-            idx = order[s:s + batch]
+    """Train with Adam (or load the cached weights): ``(params, test accuracy)``."""
+    settings = dict(D=D, heads=HEADS, patch=PATCH, hidden=HIDDEN, epochs=epochs, batch=batch,
+                    lr=lr, seed=seed)
+
+    def build():
+        xtr, ytr, xte, yte = load(cache_dir)
+        rng = np.random.default_rng(seed)
+        P = init(rng)
+        opt = Adam(P, lr)
+        eye = np.eye(10)
+        for idx in minibatches(rng, len(xtr), epochs, batch):
             g, _ = backward(P, forward(P, xtr[idx]), eye[ytr[idx]])
-            step += 1
-            for k in P:
-                m[k] = 0.9 * m[k] + 0.1 * g[k]
-                v[k] = 0.999 * v[k] + 0.001 * g[k] ** 2
-                P[k] = P[k] - lr * (m[k] / (1 - 0.9 ** step)) / (
-                    np.sqrt(v[k] / (1 - 0.999 ** step)) + 1e-8)
-    acc = float(np.mean([(forward(P, xte[s:s + 1000])["p"].argmax(1) == yte[s:s + 1000]).mean()
-                         for s in range(0, len(xte), 1000)]))
-    os.makedirs(cache_dir, exist_ok=True)
-    np.savez(path, acc=acc, **P)
-    return P, acc
+            opt.step(P, g)
+        acc = chunk_mean(lambda s: (forward(P, xte[s])["p"].argmax(1) == yte[s]).mean(),
+                         len(xte))
+        return dict(P, acc=np.array(acc))
+
+    d = cached_npz("vit", settings, build, cache_dir)
+    return {k: d[k] for k in NAMES}, float(d["acc"])
 
 
 @dataclass
 class VitTrace:
-    x: np.ndarray
+    """One image through the ViT: forward, loss and gradients."""
+
+    x: np.ndarray            # (784,) the image
     label: int
     P: dict
     f: dict                  # forward intermediates, batch dimension removed
     g: dict                  # parameter gradients
     d: dict                  # activation gradients, batch dimension removed
-    p: np.ndarray
-    loss: float
-    accuracy: float
+    p: np.ndarray            # (10,) softmax probabilities
+    loss: float              # cross-entropy -log p[label]
+    accuracy: float          # the model's test accuracy
 
     @property
     def prediction(self):
+        """The most probable digit."""
         return int(self.p.argmax())
 
 
@@ -161,12 +173,14 @@ def _trace(P, x, label, acc):
                     loss=float(-np.log(f1["p"][label] + 1e-12)), accuracy=acc)
 
 
-def trace(index, **kw) -> VitTrace:
-    P, acc = train(**kw)
-    _a, _b, xte, yte = load()
+def trace(index, cache_dir=DEFAULT_CACHE, **kw) -> VitTrace:
+    """Test image ``index`` through the trained model (``kw`` go to :func:`train`)."""
+    P, acc = train(cache_dir=cache_dir, **kw)
+    _xtr, _ytr, xte, yte = load(cache_dir)
     return _trace(P, xte[index], int(yte[index]), acc)
 
 
 def sgd_step(tr: VitTrace, lr) -> VitTrace:
+    """``tr`` again after one plain SGD step ``P - lr * g`` on its own gradient."""
     P = {k: tr.P[k] - lr * tr.g[k] for k in NAMES}
     return _trace(P, tr.x, tr.label, tr.accuracy)

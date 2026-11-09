@@ -33,11 +33,13 @@ from .easing import ease_in_out, remap, smoothstep, soft_band
 from .netanim import NetAnimation, amax, div_colors, particle
 from .text import TIMES
 
-PRED = C.FILTERS[0]
-GHOST = np.array([0.97, 0.97, 0.96], np.float32)
+PRED = C.FILTERS[0]                              # predictions
+GHOST = np.array([0.97, 0.97, 0.96], np.float32)  # targets: pale "ghost" voxels
 GATE_LO = C.rgb("#3a3f44")
 GATE_HI = C.rgb("#c9fff6")
 
+# Per network: pixels per unit, band cell scale, wave amplitude and gap
+# (world units), title, and the hidden bands (key, label, colour style).
 KIND = {
     "rnn": dict(ppu=15.5, scale=1.0, amp=2.4, gap=3.6, title="RNN: one training step",
                 bands=[("h", "hidden h", "signed")]),
@@ -46,10 +48,16 @@ KIND = {
                         ("o", "output gate o", "gate"), ("f", "forget gate f", "gate"),
                         ("i", "input gate i", "gate"), ("g", "candidate g", "signed")]),
 }
-GATE_IDX = dict(i=0, f=1, g=2, o=3)
+GATE_IDX = dict(i=0, f=1, g=2, o=3)               # gate order in sequence.lstm_forward
 
 
 class RecurrentTrainingStep(NetAnimation):
+    """One training step of an RNN or LSTM, unrolled through time.
+
+    ``tr`` and ``tr_after`` are :class:`voxanim.sequence.SeqTrace` s before
+    and after one SGD step with learning rate ``lr``.
+    """
+
     PHASES = ("forward", "loss", "backward (BPTT)", "update", "forward again")
 
     def __init__(self, tr, tr_after, lr):
@@ -81,20 +89,15 @@ class RecurrentTrainingStep(NetAnimation):
         self.xs = [first.block.cell_center(0, t, 0)[0] for t in range(self.T)]
 
         # ---- weights panel ----------------------------------------------------------
-        P = tr.P
         if tr.kind == "rnn":
-            mats = [("Wh", "Wh", P["Wh"]), ("Wx", "Wx", P["Wx"][:, None]),
-                    ("Wy", "Wy", P["Wy"][None, :])]
+            mats = [("Wh", "Wh"), ("Wx", "Wx"), ("Wy", "Wy")]
             where = [(0.80, 0.42), (0.91, 0.42), (0.84, 0.66)]
-            scales = [1.0, 1.0, 1.0]
         else:
-            mats = [("W", "W: [x, h] into 4 gates", P["W"]),
-                    ("Wy", "Wy", P["Wy"][None, :])]
+            mats = [("W", "W: [x, h] into 4 gates"), ("Wy", "Wy")]
             where = [(0.85, 0.44), (0.85, 0.80)]
-            scales = [1.0, 1.0]
-        self.wpanels = []
-        for (key, label, W), at, sc in zip(mats, where, scales):
-            s = self.sheet(W.shape, at, sc, "W" + key)
+        self.wpanels = []                                  # (key, label, sheet)
+        for (key, label), at in zip(mats, where):
+            s = self.sheet(self._weight(key, tr).shape, at, 1.0, "W" + key)
             self.wpanels.append((key, label, s))
 
         # ---- timeline ---------------------------------------------------------------
@@ -131,6 +134,7 @@ class RecurrentTrainingStep(NetAnimation):
 
     # -- data ------------------------------------------------------------------------
     def _band_values(self, tr):
+        """Per band key: the values drawn, ``(T, n)``."""
         f = tr.f
         out = {"h": f["h"][1:]}
         if tr.kind == "lstm":
@@ -140,6 +144,7 @@ class RecurrentTrainingStep(NetAnimation):
         return out
 
     def _band_grads(self, tr):
+        """Per band key: the gradient shown in the backward phase, ``(T, n)``."""
         d, n = tr.d, self.n
         out = {"h": d["dh"]}
         if tr.kind == "lstm":
@@ -149,6 +154,7 @@ class RecurrentTrainingStep(NetAnimation):
         return out
 
     def _contributions(self, tr):
+        """Per weight panel: each step's share of the weight gradient, ``(T,) + shape``."""
         f, d, x = tr.f, tr.d, tr.x
         hp, hn = f["h"][:-1], f["h"][1:]                  # h_{t-1}, h_t
         wy = d["dy"][:, None] * hn                         # (T, n)
@@ -159,12 +165,12 @@ class RecurrentTrainingStep(NetAnimation):
         return [np.einsum("ti,tj->tij", d["dz"], inp), wy[:, None, :]]
 
     def step_of(self, t):
+        """Index into :attr:`PHASES` of the phase running at time ``t``."""
         return int(np.searchsorted(self.marks, t, side="right") - 1)
 
-    def p(self, name, t):
-        return remap(t, *self.Tm[name])
 
-    def _colors(self, key, vals, style, vmax=None):
+    def _colors(self, vals, style, vmax=None):
+        """Colours of a band's ``(T, n)`` values: lit gates or the diverging scale."""
         v = vals.T.ravel()                                 # (n, T) row-major
         if style == "gate":
             return (GATE_LO[None] + (GATE_HI - GATE_LO)[None] *
@@ -176,6 +182,7 @@ class RecurrentTrainingStep(NetAnimation):
 
     # ------------------------------------------------------------------ frame
     def draw(self, sc, t, reset):
+        """Draw the frame at time ``t`` (``reset``: 0..1 through the loop's rewind)."""
         tr, tr2, T = self.tr, self.tr2, self.T
         ph = self.step_of(t)
         label_ph = 0 if reset > 0 else ph
@@ -193,7 +200,7 @@ class RecurrentTrainingStep(NetAnimation):
         ][label_ph]
         back = 1.0 - ease_in_out(remap(reset, 0.0, 0.7))
         appear = smoothstep(0.0, 0.8, t) * back
-        again = self.p("again", t)
+        again = self.progress("again", t)
 
         # where the forward sweep is: steps fully done, current step progress
         nf = int(np.searchsorted(self.f_starts, t, side="right") - 1)
@@ -207,14 +214,20 @@ class RecurrentTrainingStep(NetAnimation):
             nb, ub = T, 0.0
         n_again = again * (T + 2)                          # sweep position, in steps
 
-        self._waves(sc, t, done_f, nf, uf, nb, ub, n_again, appear, back)
+        self._waves(sc, t, done_f, nf, uf, nb, n_again, appear, back)
         self._bands(sc, t, done_f, nf, uf, nb, ub, n_again, back)
         self._weights(sc, t, nf, uf, nb, ub, reset)
         self._loss_text(sc, t, again, back)
         self.step_indicator(sc, label_ph, self.PHASES)
 
     # -- waves: input below, predictions vs targets above ------------------------------
-    def _waves(self, sc, t, done_f, nf, uf, nb, ub, n_again, appear, back):
+    def _waves(self, sc, t, done_f, nf, uf, nb, n_again, appear, back):
+        """Input wave, targets and predictions (with their errors and gradients).
+
+        ``done_f``: forward steps finished; ``nf``, ``uf``: the current forward
+        step and its progress; ``nb``: backward steps finished; ``n_again``:
+        the second forward sweep's position, in steps.
+        """
         tr, tr2, T = self.tr, self.tr2, self.T
         y_ = self.y_plot
         if appear <= 0.01:
@@ -222,7 +235,7 @@ class RecurrentTrainingStep(NetAnimation):
         for base in (self.z_in, self.z_pred):
             sc.line((self.xs[0] - 0.8, y_, base), (self.xs[-1] + 0.8, y_, base), width=1.0,
                     color=(0.55, 0.57, 0.59), opacity=0.5 * appear, bias=0.0)
-        loss_on = self.p("loss", t)
+        loss_on = self.progress("loss", t)
         for s in range(T):
             xin = np.array([self.xs[s], y_, self._z(self.z_in, tr.x[s])])
             reading = 1.0 if (s == nf and 0 <= uf < 0.4) else 0.0
@@ -265,6 +278,11 @@ class RecurrentTrainingStep(NetAnimation):
 
     # -- the bands of hidden state ----------------------------------------------------
     def _bands(self, sc, t, done_f, nf, uf, nb, ub, n_again, back):
+        """The hidden-state bands and what flows into, along and out of them.
+
+        Arguments as for :meth:`_waves`; ``ub`` is the current backward step's
+        progress.
+        """
         tr, T, n = self.tr, self.T, self.n
         lstm = tr.kind == "lstm"
         # sub-timing inside a forward step: gates, then c, then h
@@ -273,8 +291,8 @@ class RecurrentTrainingStep(NetAnimation):
         bwd_on = t >= self.Tm["bwd"][0]
         for key, (s, label, style) in self.bands.items():
             vals, vals2 = self.vals[key], self.vals2[key]
-            cols = self._colors(key, vals, style)
-            cols2 = self._colors(key, vals2, style, amax(vals) if style == "signed" else None)
+            cols = self._colors(vals, style)
+            cols2 = self._colors(vals2, style, amax(vals) if style == "signed" else None)
             g = self.grads[key]
             gcols = div_colors(g.T.ravel(), amax(g))
             col_t = np.tile(np.arange(T), n)               # column index of each cell
@@ -306,6 +324,7 @@ class RecurrentTrainingStep(NetAnimation):
         # the cell at the current step, and what flows
         anchor = self.bands["h"][0]
         bottom = self.bands[list(self.bands)[-1]][0]
+        carry = "c" if lstm else "h"                       # the state passed along in time
         y_ = self.y_plot
         if 0 <= nf < T and t < self.Tm["fwd"][1]:
             self._cell_frame(sc, nf)
@@ -313,13 +332,13 @@ class RecurrentTrainingStep(NetAnimation):
             particle(sc, xin, bottom.cell(n // 2 * T + nf), remap(uf, 0.0, 0.3), C.INPUT, 0.6,
                      lift=0.0)
             if nf > 0:
-                src = self.bands["c" if lstm else "h"][0]
+                src = self.bands[carry][0]
                 for r in range(n):
                     a = src.cell(r * T + nf - 1)
                     b = src.cell(r * T + nf)
                     op = 1.0 if not lstm else float(self.vals["f"][nf, r])
-                    col = div_colors(self.vals["c" if lstm else "h"][nf - 1, r:r + 1],
-                                     amax(self.vals["c" if lstm else "h"]))[0]
+                    col = div_colors(self.vals[carry][nf - 1, r:r + 1],
+                                     amax(self.vals[carry]))[0]
                     particle(sc, a, b, remap(uf, 0.05, 0.45), col, 0.55, opacity=op, lift=0.4)
             top = anchor.cell(nf)
             pred = np.array([self.xs[nf], y_, self._z(self.z_pred, tr.f["y"][nf])])
@@ -333,8 +352,8 @@ class RecurrentTrainingStep(NetAnimation):
             col = div_colors(dy[s_:s_ + 1], amax(dy))[0]
             particle(sc, pred, anchor.cell(s_), remap(ub, 0.0, 0.35), col, 0.6, lift=0.0)
             if s_ < T - 1:
-                src = self.bands["c" if lstm else "h"][0]
-                gk = self.grads["c" if lstm else "h"]
+                src = self.bands[carry][0]
+                gk = self.grads[carry]
                 for r in range(n):
                     gc = div_colors(gk[s_ + 1, r:r + 1], amax(gk))[0]
                     particle(sc, src.cell(r * T + s_ + 1), src.cell(r * T + s_),
@@ -342,6 +361,7 @@ class RecurrentTrainingStep(NetAnimation):
             sc.probe(("bwd",), (nb * 20 + ub * 20, 0, 0), tol=10.0)
 
     def _cell_frame(self, sc, col):
+        """A white frame around time step ``col`` in every band: the cell at work."""
         ss = [s for s, _l, _st in self.bands.values()]
         lo = np.min([s.block.box((0, s.h), (col, col + 1), (0, 1))[0] for s in ss], 0)
         hi = np.max([s.block.box((0, s.h), (col, col + 1), (0, 1))[1] for s in ss], 0)
@@ -349,6 +369,7 @@ class RecurrentTrainingStep(NetAnimation):
                     bias=0.1)
 
     def _band_label(self, sc, s, text):
+        """``text`` right-aligned just left of band sheet ``s``."""
         lo, hi = s.bbox()
         p = self.cam.project(np.array([lo[0], (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2]))
         sc.text(p[0] / self.cam.width - 0.012, p[1] / self.cam.height, text, 0.026,
@@ -356,9 +377,10 @@ class RecurrentTrainingStep(NetAnimation):
 
     # -- shared weights ----------------------------------------------------------------
     def _weights(self, sc, t, nf, uf, nb, ub, reset):
+        """The shared weights: values, accumulating gradients, the update."""
         T = self.T
         bwd = self.Tm["bwd"][0] <= t < self.Tm["update"][0]
-        up = self.p("update", t)
+        up = self.progress("update", t)
         for (key, label, s), contrib, total in zip(self.wpanels, self.contrib, self.total):
             W = self._weight(key, self.tr)
             W2 = self._weight(key, self.tr2)
@@ -409,7 +431,9 @@ class RecurrentTrainingStep(NetAnimation):
             self.caption(sc, self.wpanels[-1][2], "change = -lr %s gradient" % TIMES,
                          size=0.024, offset=0.035)
 
-    def _weight(self, key, tr):
+    @staticmethod
+    def _weight(key, tr):
+        """Weight ``key`` of ``tr`` as the 2-D matrix its panel shows."""
         P = tr.P
         if key == "Wx":
             return P["Wx"][:, None]
@@ -419,8 +443,9 @@ class RecurrentTrainingStep(NetAnimation):
 
     # -- loss text -------------------------------------------------------------------------
     def _loss_text(self, sc, t, again, back):
+        """The loss read-out beside the predictions and the input wave's label."""
         tr, tr2 = self.tr, self.tr2
-        op = self.p("loss", t) * back * self._cap
+        op = self.progress("loss", t) * back * self._cap
         if op <= 0.01:
             return
         w = smoothstep(0.75, 1.0, again)

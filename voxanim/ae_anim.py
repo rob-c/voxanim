@@ -46,24 +46,80 @@ from .text import TIMES
 # Ten distinguishable hues (categorical; no two neighbours alike).
 DIGIT_COLORS = [C.rgb(h) for h in ("#e6194b", "#f58231", "#ffd31a", "#3cb44b", "#42d4f4",
                                    "#4363d8", "#911eb4", "#f032e6", "#9a6324", "#469990")]
-CHAIN_Y = 0.70
-CHAIN_X = (0.075, 0.19, 0.305, 0.50, 0.695, 0.81, 0.925)
-WIDTH = (0.085, 0.085, 0.075, 0.0, 0.075, 0.085, 0.085)
+CHAIN_Y = 0.70                                              # layout y of the chain
+CHAIN_X = (0.075, 0.19, 0.305, 0.50, 0.695, 0.81, 0.925)    # layout x of each tensor
+WIDTH = (0.085, 0.085, 0.075, 0.0, 0.075, 0.085, 0.085)     # on-screen width (frame fraction)
+CODE = 3                                                    # chain index of the code z
+OUTPUT = 6                                                  # chain index of the output
+TOP_INPUTS = 70                     # weighted inputs drawn flying per dense transition
+FRAME = (0.96, 0.96, 0.96)          # white frames: the region being read, the landing point
+
+
+def corners(lo, hi):
+    """The 8 corners ``(8, 3)`` of the axis-aligned box ``lo .. hi``."""
+    return np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1])
+                     for z in (lo[2], hi[2])])
+
+
+def fmt_vec(v):
+    """``"0.12, -0.50"``: a short vector for a subtitle."""
+    return ", ".join("%.2f" % x for x in v)
+
+
+def chain_colors(k, v):
+    """Colours of chain tensor ``k``'s flat values ``v``.
+
+    The input is lit greyscale (its zeros are real zeros); the sigmoid output
+    is never exactly 0, so it is plain greyscale; every hidden layer is lit
+    on its own maximum.
+    """
+    if k == 0:
+        return lit_colors(v, 1.0, INK_LO, INK_HI)
+    if k == OUTPUT:
+        return gray_colors(v)
+    return lit_colors(v, amax(v), ACT_LO, ACT_HI)
+
+
+def strongest_inputs(a, W, n_top=TOP_INPUTS):
+    """The ``n_top`` largest contributions ``|a_i W_ij|`` of a dense layer.
+
+    Returns ``[((i, j), c_ij / max |c|, start), ...]`` (fewer if fewer are
+    non-zero); ``start`` in [0, 0.5) is a fixed per-pair jitter that staggers
+    the particles.
+    """
+    c = a[:, None] * W
+    n = min(n_top, int((np.abs(c) > 0).sum()))
+    idx = np.argpartition(-np.abs(c).ravel(), n - 1)[:n]
+    cmax = amax(c)
+    return [(divmod(int(m), W.shape[1]), c.ravel()[m] / cmax,
+             0.5 * ((m * 2654435761) % 997) / 997) for m in idx]
 
 
 def _shapes(kind):
+    """Shape (H, W, C) of each chain tensor as drawn (``None``: the code)."""
     if kind == "dense":
         return [(28, 28, 1), (16, 16, 1), (8, 8, 1), None, (8, 8, 1), (16, 16, 1), (28, 28, 1)]
     return [(28, 28, 1), (14, 14, 8), (7, 7, 16), None, (7, 7, 16), (14, 14, 8), (28, 28, 1)]
 
 
 def _ops(kind):
+    """What each of the six transitions is: dense, conv or upconv."""
     if kind == "dense":
         return ["dense"] * 6
     return ["conv", "conv", "dense", "dense", "upconv", "upconv"]
 
 
 class AutoencoderAnimation(NetAnimation):
+    """Three digits through an autoencoder, then a walk through its latent space.
+
+    ``tr`` is an :class:`voxanim.autoencoder.AETrace` (or a trace with the same
+    fields and ``decode``, like :class:`voxanim.vae_anim.VAETrace`).
+    """
+
+    WEIGHT_KEYS = None          # subclasses: transition -> parameter name
+    WALK_SUBTITLE = ("walking through latent space: the decoder draws every point between "
+                     "the digits")
+
     def __init__(self, tr, title=None):
         kind, L = tr.kind, tr.latent
         title = title or "%s autoencoder, %d-D latent" % ("Dense" if kind == "dense" else
@@ -86,14 +142,8 @@ class AutoencoderAnimation(NetAnimation):
 
         # ---- the latent space ------------------------------------------------------------
         cloud = tr.cloud
-        # Robust axes: centre on the median and compress the long tails, so
-        # the clusters spread over the space instead of one crowded corner.
-        self.med = np.median(cloud, axis=0)
-        self.mad = np.median(np.abs(cloud - self.med), axis=0) + 1e-9
-        w = self._warp(cloud)
-        self.lo, self.hi = np.percentile(w, 1, axis=0), np.percentile(w, 99, axis=0)
-        S = 21.0
-        self.S = S
+        self.lo, self.hi = self._axes(cloud)
+        S = 21.0                             # side of the latent box, world units
         c = cam.frac(0.45, 0.38)
         self.centre = c
         if L == 3:
@@ -135,25 +185,35 @@ class AutoencoderAnimation(NetAnimation):
         self.walk = [self.codes[0], self.codes[1], self.codes[2], self.codes[0]]
 
     # ------------------------------------------------------------------ setup helpers
+    def _axes(self, cloud):
+        """The latent box's range ``(lo, hi)``, in :meth:`_warp` coordinates.
+
+        Robust axes: centre on the median and compress the long tails, so
+        the clusters spread over the space instead of one crowded corner.
+        """
+        self.med = np.median(cloud, axis=0)
+        self.mad = np.median(np.abs(cloud - self.med), axis=0) + 1e-9
+        w = self._warp(cloud)
+        return np.percentile(w, 1, axis=0), np.percentile(w, 99, axis=0)
+
     def _fit_block(self, shp, fx, width, name):
         """A block whose on-screen width is ``width`` (a fraction of the frame).
         Multi-channel tensors get a gap between channels, so each feature map
         reads as its own slab."""
         gap = 1.2 if shp[2] > 1 else 0.0
         probe = Block(shp, scale=1.0, group=1, gap=gap)
-        lo, hi = probe.origin, probe.origin + probe.extent
-        c = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1])
-                      for z in (lo[2], hi[2])])
-        s = self.cam.project(c)
+        s = self.cam.project(corners(probe.origin, probe.origin + probe.extent))
         w = (s[:, 0].max() - s[:, 0].min()) / self.cam.width
         b = Block(shp, scale=width / w, group=1, gap=gap, name=name)
         b.place(self.cam.frac(fx, CHAIN_Y))
         return b
 
     def _warp(self, z):
+        """Latent ``z`` in the box's (arcsinh-compressed) coordinates."""
         return np.arcsinh((np.asarray(z) - self.med) / (2.0 * self.mad))
 
     def to_box(self, z):
+        """World position of latent code ``z`` inside the latent box (or plane)."""
         u = np.clip((self._warp(z) - self.lo) / (self.hi - self.lo), 0.02, 0.98)
         if self.L == 3:
             return self.box_lo + u * (self.box_hi - self.box_lo)
@@ -168,27 +228,18 @@ class AutoencoderAnimation(NetAnimation):
         return [np.asarray(v) for v in a]
 
     def _values(self, f):
-        acts = self._acts(f)
+        """Per chain tensor: ``(colours (H, W, C, 3), values (H, W, C))`` (code: None)."""
         out = []
-        for k, (a, shp) in enumerate(zip(acts, self.shapes)):
+        for k, (a, shp) in enumerate(zip(self._acts(f), self.shapes)):
             if shp is None:
                 out.append(None)
                 continue
-            v = a.reshape(-1)
-            if k == 0:
-                col = lit_colors(v, 1.0, INK_LO, INK_HI)    # the input's zeros are real zeros
-            elif k == 6:
-                col = gray_colors(v)       # a sigmoid output is never exactly 0: plain greyscale
-            else:
-                col = lit_colors(v, amax(v), ACT_LO, ACT_HI)
+            col = chain_colors(k, a.reshape(-1))
             out.append((col.reshape(shp + (3,)), a.reshape(shp)))
         return out
 
-    WEIGHT_KEYS = None          # subclasses: transition -> parameter name
-    WALK_SUBTITLE = ("walking through latent space: the decoder draws every point between "
-                     "the digits")
-
     def _weights(self, k):
+        """The weight matrix of dense transition ``k``."""
         P = self.tr.P
         if self.WEIGHT_KEYS:
             return P[self.WEIGHT_KEYS[k]]
@@ -197,32 +248,22 @@ class AutoencoderAnimation(NetAnimation):
         return {2: P["Wz"], 3: P["Wd"]}[k]
 
     def _particles(self, f):
-        """Per dense transition: the strongest weighted inputs (src, dst, sign)."""
+        """Per dense transition ``k``: its :func:`strongest_inputs`."""
         acts = self._acts(f)
-        parts = {}
-        for k, op in enumerate(self.ops):
-            if op != "dense":
-                continue
-            src = acts[k].reshape(-1)
-            W = self._weights(k)
-            c = src[:, None] * W
-            K = min(70, int((np.abs(c) > 0).sum()))
-            idx = np.argpartition(-np.abs(c).ravel(), K - 1)[:K]
-            cmax = amax(c)
-            parts[k] = [(divmod(int(m), W.shape[1]), c.ravel()[m] / cmax,
-                         0.5 * ((m * 2654435761) % 997) / 997) for m in idx]
-        return parts
+        return {k: strongest_inputs(acts[k].reshape(-1), self._weights(k))
+                for k, op in enumerate(self.ops) if op == "dense"}
 
     # ------------------------------------------------------------------ geometry helpers
     def node(self, k, flat):
         """World centre of flat index ``flat`` of chain tensor ``k``."""
-        if k == 3:
+        if k == CODE:
             return self.code.cell_center(0, int(flat), 0)
         b = self.blocks[k]
         r, c, ch = np.unravel_index(int(flat), (b.H, b.W, b.C))
         return b.cell_center(r, c, ch)
 
     def step_of(self, t):
+        """Phase at time ``t``: 0 latent space, 1..n the digits, n + 1 the walk."""
         for d in range(len(self.digit_t) - 1, -1, -1):
             if t >= self.digit_t[d][0][0]:
                 return d + 1 if t < self.Tm["walk"][0] else len(self.digit_t) + 1
@@ -230,28 +271,33 @@ class AutoencoderAnimation(NetAnimation):
 
     # ------------------------------------------------------------------ frame
     def draw(self, sc, t, reset):
+        """Draw the frame at time ``t`` (``reset``: 0..1 through the loop's rewind)."""
         back = 1.0 - ease_in_out(remap(reset, 0.0, 0.7))
         nd = len(self.digit_t)
         phases = ["latent space"] + ["digit %d" % (d + 1) for d in range(nd)] + ["latent walk"]
         ph = 0 if reset > 0 else self.step_of(t)
         walk = remap(t, *self.Tm["walk"])
-        self._landed = set()
+        landed, subtitle = set(), None
         if t >= self.Tm["walk"][0]:
             self._walk(sc, walk, back)
-            self.subtitle = self.WALK_SUBTITLE
+            subtitle = self.WALK_SUBTITLE
         else:
-            d = max(0, ph - 1)
-            self._digit(sc, t, d, back, active=ph >= 1)
-        self._cloud(sc, t, back)             # after the digits: the legend knows what landed
+            landed, subtitle = self._digit(sc, t, max(0, ph - 1), back, active=ph >= 1)
+        self._cloud(sc, t, back, landed)     # after the digits: the legend knows what landed
         if t < self.digit_t[0][0][0] or reset > 0:          # the loop returns to the opening
-            self.subtitle = ("%d test digits encoded to %d numbers each, coloured by their "
-                             "label (the autoencoder never sees labels)"
-                             % (len(self.tr.cloud), self.L))
+            subtitle = ("%d test digits encoded to %d numbers each, coloured by their "
+                        "label (the autoencoder never sees labels)"
+                        % (len(self.tr.cloud), self.L))
+        self.subtitle = subtitle
         self.step_indicator(sc, ph, phases)
         self._captions(sc, back)
 
     # -- the latent space ------------------------------------------------------------------
-    def _cloud(self, sc, t, back):
+    def _cloud(self, sc, t, back, landed):
+        """The latent box, the cloud of test codes, the legend and the axis names.
+
+        ``landed``: labels of the digits already put through (highlighted).
+        """
         fade = smoothstep(0.1, 1.4, t) * back
         if fade <= 0.01:
             return
@@ -270,7 +316,7 @@ class AutoencoderAnimation(NetAnimation):
         for dgt in range(10):
             fx, fy = 0.735, 0.20 + 0.041 * dgt
             p = self.cam.frac(fx, fy)
-            hit = dgt in self._landed          # a digit we just put through: highlighted
+            hit = dgt in landed
             sc.voxel(p, DIGIT_COLORS[dgt], fade, shadow=False, reflect=False,
                      size=1.1 if hit else 0.7, glow=0.3 if hit else 0.0)
             q = self.cam.project(p)
@@ -296,12 +342,17 @@ class AutoencoderAnimation(NetAnimation):
 
     # -- one digit through the chain -----------------------------------------------------------
     def _digit(self, sc, t, d, back, active):
+        """Digit ``d`` through the chain and into the latent space.
+
+        Returns ``(landed labels, subtitle)``; ``(set(), None)`` when not
+        ``active`` (before the first digit).
+        """
         if not active:
             for b in self.blocks:
                 if b is not None:
                     b.present[...] = False
             self.code.present[...] = False
-            return
+            return set(), None
         segs = self.digit_t[d]
         vals, parts = self.vals[d], self.parts[d]
         lab = int(self.tr.labels[d])
@@ -337,19 +388,20 @@ class AutoencoderAnimation(NetAnimation):
         # the code flies into the latent space and stays there
         fly = prog[3]
         dest = self.to_box(z)
+        landed = set()
         for dd in range(d + 1):
             if dd < d or fly >= 1:
                 pd = self.to_box(self.codes[dd])
                 lab_d = int(self.tr.labels[dd])
                 sc.voxel(pd, DIGIT_COLORS[lab_d], back, glow=0.35, shadow=False,
                          reflect=False, size=1.5)
-                self._landed.add(lab_d)
+                landed.add(lab_d)
         if 0 < fly < 1:
             particle(sc, self.code.center, dest, ease_out(fly), DIGIT_COLORS[lab], 1.3,
                      lift=3.0)
             sc.probe(("fly",), (fly * 30, 0, 0), tol=8.0)
         if fly >= 1:
-            sc.wire_box(dest - 1.0, dest + 1.0, color=(0.96, 0.96, 0.96), width=1.2,
+            sc.wire_box(dest - 1.0, dest + 1.0, color=FRAME, width=1.2,
                         opacity=0.9 * (1 - smoothstep(0.6, 1.0, prog[4])) * back, bias=0.1)
         # subtitle
         names = {"dense": "dense layer", "conv": "3%s3 conv, stride 2" % TIMES,
@@ -357,20 +409,16 @@ class AutoencoderAnimation(NetAnimation):
         cur = next((s for s in range(8) if 0 < prog[s] < 1), None)
         if cur is None:
             cur = 7 if prog[7] > 0 else 0
-        zs = ", ".join("%.2f" % v for v in z)
         if cur < 3:
-            k = cur
-            self.subtitle = "encoder: %s  (digit %d)" % (names[self.ops[k]], lab)
+            subtitle = "encoder: %s  (digit %d)" % (names[self.ops[cur]], lab)
         elif cur == 3:
-            self.subtitle = "the code z = (%s) is a point in the latent space" % zs
+            subtitle = "the code z = (%s) is a point in the latent space" % fmt_vec(z)
         elif cur < 7:
-            k = cur - 1
-            self.subtitle = "decoder: %s, rebuilding the image from z" % names[self.ops[k]]
+            subtitle = "decoder: %s, rebuilding the image from z" % names[self.ops[cur - 1]]
         else:
-            err = float(np.mean((vals[6][1].reshape(-1) - self.tr.images[d]) ** 2))
-            self.subtitle = "reconstruction error: mean (x - x%s)%s = %.4f" % (
-                "̂", "²", err)
-        self._err = prog[7]
+            err = float(np.mean((vals[OUTPUT][1].reshape(-1) - self.tr.images[d]) ** 2))
+            subtitle = "reconstruction error: mean (x - x%s)%s = %.4f" % ("̂", "²", err)
+        return landed, subtitle
 
     def _fill(self, k, val, p, back):
         """Tensor ``k`` appears as the transition producing it runs (row order)."""
@@ -379,11 +427,7 @@ class AutoencoderAnimation(NetAnimation):
         b.base[...] = cols
         rows = np.arange(b.H)[:, None, None] / b.H
         b.present[...] = (p * 1.12 - 0.1 > rows) & np.ones((1, b.W, b.C), bool)
-        if k in (0, 6):
-            on = a > 0
-        else:
-            on = a > 0
-        b.glow[...] = 0.06 * on * smoothstep(0.85, 1.0, p)
+        b.glow[...] = 0.06 * (a > 0) * smoothstep(0.85, 1.0, p)
         b.opacity *= back
 
     def _sweep(self, sc, k, u):
@@ -398,33 +442,29 @@ class AutoencoderAnimation(NetAnimation):
             s0 = max(0, 2 * r - 1)
             s1 = min(src.H, 2 * r + 2)
             lo, hi = src.box((s0, s1), (0, src.W), (0, src.C))
-        sc.wire_box(lo, hi, inflate=0.05, color=(0.96, 0.96, 0.96), width=1.2, opacity=0.9,
-                    bias=0.1)
+        sc.wire_box(lo, hi, inflate=0.05, color=FRAME, width=1.2, opacity=0.9, bias=0.1)
 
     # -- the latent walk --------------------------------------------------------------------------
+    def _show_decoded(self, z, zscale, back):
+        """The encoder side rests; the code shows ``z / zscale`` and the decoder
+        side what the decoder makes of ``z``."""
+        acts, _img = self.tr.decode(z)
+        for k in range(CODE):
+            self.blocks[k].present[...] = False
+        self.code.base[0, :, 0] = div_colors(z / zscale, 1.0)
+        self.code.opacity *= back
+        for k, a in zip(range(CODE + 1, OUTPUT + 1), acts[1:]):
+            col = chain_colors(k, np.asarray(a).reshape(-1))
+            b = self.blocks[k]
+            b.base[...] = col.reshape(self.shapes[k] + (3,))
+            b.opacity *= back
+
     def _walk(self, sc, u, back):
+        """The walk through the three digits' codes at progress ``u``, decoded."""
         seg = min(len(self.walk) - 2, int(u * (len(self.walk) - 1)))
         w = ease_in_out(u * (len(self.walk) - 1) - seg)
         z = self.walk[seg] + (self.walk[seg + 1] - self.walk[seg]) * w
-        acts, _img = self.tr.decode(z)
-        # the encoder side rests; the decoder side shows the walk
-        for k in (0, 1, 2):
-            b = self.blocks[k]
-            b.present[...] = False
-        self.code.base[0, :, 0] = div_colors(z / self.zmax, 1.0)
-        self.code.opacity *= back
-        dec = [None, None, None, None] + list(acts[1:])
-        for k in (4, 5, 6):
-            a = np.asarray(dec[k])
-            shp = self.shapes[k]
-            v = a.reshape(-1)
-            if k == 6:
-                col = gray_colors(v)
-            else:
-                col = lit_colors(v, amax(v), ACT_LO, ACT_HI)
-            b = self.blocks[k]
-            b.base[...] = col.reshape(shp + (3,))
-            b.opacity *= back
+        self._show_decoded(z, self.zmax, back)
         p = self.to_box(z)
         lab = int(self.tr.labels[min(seg + (w > 0.5), 2) % 3])
         sc.voxel(p, (1.0, 1.0, 1.0), back, glow=0.5, shadow=False, reflect=False, size=1.4)
@@ -437,14 +477,13 @@ class AutoencoderAnimation(NetAnimation):
             ww = ease_in_out(s * (len(self.walk) - 1) - sg)
             q = self.to_box(self.walk[sg] + (self.walk[sg + 1] - self.walk[sg]) * ww)
             if prev is not None:
-                sc.line(prev, q, width=1.4, color=(0.96, 0.96, 0.96), opacity=0.9 * back,
-                        bias=0.1)
+                sc.line(prev, q, width=1.4, color=FRAME, opacity=0.9 * back, bias=0.1)
             prev = q
         sc.probe(("walk",), p, tol=4.0)
-        self._err = 0.0
 
-    # -- captions -------------------------------------------------------------------------------------
+    # -- captions ---------------------------------------------------------------------
     def _captions(self, sc, back):
+        """Size captions under the chain's tensors and the code."""
         conv = self.kind == "conv"
         names = ["input\n28%s28" % TIMES,
                  "14%s14\n8 channels" % TIMES if conv else "256",
