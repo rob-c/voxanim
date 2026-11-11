@@ -108,12 +108,6 @@ class RNNBatchTraining(NetAnimation):
         """Colour of sequence ``e`` of shown batch ``bi``: a shade of the batch's."""
         return C.shades(self.batch_color(bi), self.B, -0.14, 0.12)[e]
 
-    def fr(self, fx, fy):
-        """Layout fraction -> frame fraction (the camera's safe-area zoom), so
-        text lines up with geometry placed at the same layout fraction."""
-        k = self.cam.zoom
-        return 0.5 + (fx - 0.5) * k, 0.5 + (fy - 0.5) * k
-
     def _pt(self, fx, fy, dz=0.0):
         """World point at layout fraction ``(fx, fy)``, raised by ``dz``."""
         p = self.cam.frac(fx, fy)

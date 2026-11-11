@@ -1,7 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
+- **New animation `autoencoder-training`:** a dense autoencoder learning its
+  2-D latent space: one digit through the untrained network, then the
+  recorded training run on a log time axis, the 600 test codes drifting and
+  sorting, three digits leaving trails, the output sharpening, a loss curve.
+  `autoencoder.training_run` snapshots a run that reproduces the cached
+  model byte for byte.
+- **`rnn-training-step`, `lstm-training-step`:** a sixth phase, "keep
+  training": 1000 more recorded steps (`sequence.continue_training`) until
+  the predictions follow the wave, with a loss curve. The step indicator
+  says "backward" instead of "backward (BPTT)" to make room.
 - **Website:** every animation on one page, built from the preset registry and
   the latest release's videos (`website/`), deployed to GitHub Pages.
 

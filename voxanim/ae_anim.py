@@ -156,7 +156,7 @@ class AutoencoderAnimation(NetAnimation):
             self.e2 = np.array([0.0, 0.0, 1.0]) * S
             self.box_lo = c - self.e1 / 2 - self.e2 / 2
             self.box_hi = c + self.e1 / 2 + self.e2 / 2
-        self.cloud_pts = np.array([self.to_box(z) for z in cloud])
+        self.cloud_pts = self.to_box(cloud)
 
         # ---- per-digit values (block colours and particles) ------------------------------
         self.vals = [self._values(f) for f in tr.fwd]
@@ -213,11 +213,12 @@ class AutoencoderAnimation(NetAnimation):
         return np.arcsinh((np.asarray(z) - self.med) / (2.0 * self.mad))
 
     def to_box(self, z):
-        """World position of latent code ``z`` inside the latent box (or plane)."""
+        """World position(s) of latent code(s) ``z`` (``(L,)`` or ``(m, L)``)
+        inside the latent box (or plane)."""
         u = np.clip((self._warp(z) - self.lo) / (self.hi - self.lo), 0.02, 0.98)
         if self.L == 3:
             return self.box_lo + u * (self.box_hi - self.box_lo)
-        return self.centre + (u[0] - 0.5) * self.e1 + (u[1] - 0.5) * self.e2
+        return self.centre + (u[..., :1] - 0.5) * self.e1 + (u[..., 1:] - 0.5) * self.e2
 
     def _acts(self, f):
         """The seven tensors of the chain as HWC arrays (code at index 3)."""

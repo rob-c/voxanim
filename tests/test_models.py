@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 
 import numpy as np
+import pytest
 from conftest import fd_check, needs_gpt2, needs_mnist
 
 from voxanim import presets
@@ -101,6 +102,48 @@ def test_recurrent_gradients_match_finite_differences():
                  g, list(P))
         tr = S.trace(kind)
         assert S.sgd_step(tr, S.STEP_LR[kind]).loss < tr.loss
+
+
+def test_continue_training_is_self_consistent():
+    """The recorded run agrees with itself: a step's stored weights reproduce
+    its stored predictions and loss; and training on does help."""
+    from voxanim import sequence as S
+    x, tgt = S.example()
+    for kind in ("rnn", "lstm"):
+        c = S.continue_training(kind)
+        M = S.MODELS[kind]
+        assert c.y.shape == (S.MORE_STEPS, S.T_STEPS)
+        for k in (0, 99, S.MORE_STEPS - 1):
+            P = {key: np.asarray(c.P[key][k], np.float64) for key in c.P}
+            y = M["fwd"](P, x[None])["y"][0]
+            assert np.allclose(y, c.y[k], atol=1e-4)
+            assert abs(S.mse_loss(y, tgt) - c.losses[k]) < 1e-4
+        tr2 = S.sgd_step(S.trace(kind), S.STEP_LR[kind])
+        assert c.losses[-1] < tr2.loss / 4
+
+
+def test_snapshot_steps():
+    from voxanim import autoencoder as A
+    assert A.snapshot_steps(20, 1.5).tolist() == [0, 1, 2, 3, 4, 6, 9, 13, 19, 20]
+    s = A.snapshot_steps(5628)
+    assert s[0] == 0 and s[-1] == 5628 and np.all(np.diff(s) > 0) and len(s) < 120
+
+
+@needs_mnist
+@pytest.mark.slow
+def test_autoencoder_training_run_matches_the_trained_model():
+    """The snapshotted run makes the same draws as train(): its last snapshot
+    is the cached model, byte for byte, and the cloud it encodes is the one
+    autoencoder-dense-2d shows."""
+    from voxanim import autoencoder as A
+    run = A.training_run("dense", 2)
+    P, _ = A.train("dense", 2)
+    assert all(np.array_equal(run.P[k], P[k]) for k in P)
+    # trace() encodes in chunks of 200, the run all 600 at once: BLAS sums differ in the last bits
+    assert np.allclose(run.cloud[-1], A.trace("dense", 2).cloud, rtol=0, atol=1e-9)
+    assert run.steps[0] == 0 and run.steps[-1] == A.EPOCHS["dense"] * run.steps_per_epoch
+    assert run.losses[-1] < run.losses[0] / 4
+    assert run.acts[0].shape == (len(run.steps), 3, 784)
 
 
 def test_autoencoder_and_rnn2_gradients():

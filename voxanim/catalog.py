@@ -132,13 +132,16 @@ def _seq_step(kind):
     from .recurrent import RecurrentTrainingStep
     tr = sequence.trace(kind)
     lr = sequence.STEP_LR[kind]
-    return RecurrentTrainingStep(tr, sequence.sgd_step(tr, lr), lr)
+    return RecurrentTrainingStep(tr, sequence.sgd_step(tr, lr), lr,
+                                 sequence.continue_training(kind))
 
 
 register("rnn-training-step", partial(_seq_step, "rnn"),
-         "RNN unrolled over 16 steps of a sine wave: forward, loss, BPTT, update, forward again.")
+         "RNN unrolled over 16 steps of a sine wave: forward, loss, BPTT, update, forward again, "
+         "then 1000 more steps until the predictions follow the wave.")
 register("lstm-training-step", partial(_seq_step, "lstm"),
-         "LSTM (gates and cell state) on a sine wave: forward, loss, BPTT, update, forward again.")
+         "LSTM (gates and cell state) on a sine wave: forward, loss, BPTT, update, forward again, "
+         "then 1000 more steps until the predictions follow the wave.")
 
 
 # ------------------------------------------------------------------ self-attention (tiny ViT)
@@ -256,6 +259,20 @@ for _kind in ("dense", "conv"):
 
 
 # ------------------------------------------------------------------ VAE, U-Net, DEC, IDEC
+
+
+def autoencoder_training():
+    """A dense autoencoder with a 2-D latent space learning: one digit through
+    the untrained network, then the 600 test codes drifting and sorting in the
+    latent space as the recorded training run plays."""
+    from . import autoencoder as A
+    from .ae_training import AutoencoderTraining
+    return AutoencoderTraining(A.training_run("dense", 2, SHOWCASE))
+
+
+register("autoencoder-training", autoencoder_training,
+         "An autoencoder learning its 2-D latent space: the untrained network, then 600 test "
+         "codes drifting and sorting as training runs and the reconstructions sharpen.")
 
 
 def vae(latent=3, digit=None):

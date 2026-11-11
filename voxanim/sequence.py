@@ -10,7 +10,9 @@ squared error over the sequence.  Both are trained with backprop through time
            c_t = f * c_{t-1} + i * g,   h_t = o * tanh(c_t),  y_t = Wy . h_t + by
 
 The animations show a network part-way through training (``CHECKPOINT``
-steps), so its predictions are visibly off and one more step visibly helps.
+steps), so its predictions are visibly off and one more step visibly helps;
+they end by training on (:func:`continue_training`) until the predictions
+follow the wave.
 
 A third model, a 2-layer RNN, is trained from scratch in small batches by
 :func:`rnn2_training`, which keeps the records :mod:`voxanim.rnn_batches`
@@ -203,6 +205,19 @@ MODELS = {
 }
 CHECKPOINT = {"rnn": 5, "lstm": 20}         # early: visibly wrong, one step visibly helps
 STEP_LR = {"rnn": 0.1, "lstm": 0.5}         # the animated SGD step's learning rate
+MORE_STEPS = 1000                           # "keep training": the loss has levelled off by then
+
+
+def _adam_steps(kind, P, rng, steps, batch, lr):
+    """``steps`` Adam updates of ``P`` in place on fresh batches from ``rng``;
+    a fresh optimiser.  Yields ``P`` after each update."""
+    M = MODELS[kind]
+    opt = Adam(P, lr)
+    for _ in range(steps):
+        x, tgt = sine_batch(rng, batch)
+        g, _ = M["bwd"](P, M["fwd"](P, x), tgt)
+        opt.step(P, g)
+        yield P
 
 
 def train(kind, steps=None, batch=32, lr=1e-2, seed=0, cache_dir=DEFAULT_CACHE):
@@ -219,14 +234,62 @@ def train(kind, steps=None, batch=32, lr=1e-2, seed=0, cache_dir=DEFAULT_CACHE):
     def build():
         rng = np.random.default_rng(seed)
         P = M["init"](rng, M["n"])
-        opt = Adam(P, lr)
-        for _ in range(steps):
-            x, tgt = sine_batch(rng, batch)
-            g, _ = M["bwd"](P, M["fwd"](P, x), tgt)
-            opt.step(P, g)
+        for _ in _adam_steps(kind, P, rng, steps, batch, lr):
+            pass
         return P
 
     return cached_npz(kind, settings, build, cache_dir)
+
+
+@dataclass
+class Continuation:
+    """What :data:`MORE_STEPS` further training steps do, recorded after every
+    step: the :func:`example`'s loss and predictions, its hidden states and
+    the weights.  Arrays are float32 and have the step as their first axis.
+    """
+
+    losses: np.ndarray        # (steps,)
+    y: np.ndarray             # (steps, T) predictions
+    states: dict              # key -> (steps, T, n): h; also c and gates (T, 4, n) for the LSTM
+    P: dict                   # key -> (steps,) + weight shape
+
+
+def continue_training(kind, steps=MORE_STEPS, batch=32, lr=1e-2, seed=0,
+                      cache_dir=DEFAULT_CACHE) -> Continuation:
+    """Train on from the animated step.
+
+    Rebuilds the checkpoint exactly as :func:`train` does, takes the animated
+    SGD step (:data:`STEP_LR`) on the example, then runs ``steps`` more Adam
+    updates with the same recipe (a fresh optimiser, batches drawn from the
+    same generator as it stands).  Cached by :func:`voxanim.cache.cached_npz`.
+    """
+    M = MODELS[kind]
+    settings = dict(kind=kind, n=M["n"], checkpoint=CHECKPOINT[kind], step_lr=STEP_LR[kind],
+                    steps=steps, batch=batch, lr=lr, seed=seed, T=T_STEPS, omega=OMEGA)
+    x, tgt = example()
+    keep = ("h",) if kind == "rnn" else ("h", "c", "gates")
+
+    def build():
+        rng = np.random.default_rng(seed)
+        P = M["init"](rng, M["n"])
+        for _ in _adam_steps(kind, P, rng, CHECKPOINT[kind], batch, lr):
+            pass
+        g, _ = M["bwd"](P, M["fwd"](P, x[None]), tgt[None])
+        P = {k: P[k] - STEP_LR[kind] * g[k] for k in P}
+        rec = {k: [] for k in ("loss", "y", *keep, *P)}
+        for _ in _adam_steps(kind, P, rng, steps, batch, lr):          # updates P in place
+            f = M["fwd"](P, x[None])
+            rec["loss"].append(mse_loss(f["y"][0], tgt))
+            rec["y"].append(f["y"][0])
+            for k in keep:
+                rec[k].append(f[k][0, 1:] if k in ("h", "c") else f[k][0])
+            for k in P:
+                rec[k].append(np.array(P[k]))
+        return {k: np.array(v, np.float32) for k, v in rec.items()}
+
+    d = cached_npz(kind + "_more", settings, build, cache_dir)
+    return Continuation(d["loss"], d["y"], {k: d[k] for k in keep},
+                        {k: d[k] for k in d if k not in ("loss", "y", *keep)})
 
 
 @dataclass

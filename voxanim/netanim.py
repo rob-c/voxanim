@@ -230,6 +230,13 @@ class NetAnimation:
         """Progress in [0, 1] of phase ``name`` of ``self.Tm`` at time ``t``."""
         return remap(t, *self.Tm[name])
 
+    def fr(self, fx, fy):
+        """Layout fraction -> frame fraction (the camera's safe-area zoom), so
+        text lines up with geometry placed by ``cam.frac`` at the same layout
+        fraction."""
+        k = self.cam.zoom
+        return 0.5 + (fx - 0.5) * k, 0.5 + (fy - 0.5) * k
+
     def caption(self, scene, sheet_or_box, text, opacity=1.0, size=0.029, above=False,
                 offset=0.0, max_width=0.30, ink=None):
         """Centred caption under (or ``above``) a sheet or a world box ``(lo, hi)``.

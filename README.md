@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 53 animations, from a 3×3 convolution to the inside of GPT-2, all from
+numpy. 54 animations, from a 3×3 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
 
@@ -25,7 +25,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 53 animations
+python3 -m voxanim list --names                   # the 54 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
@@ -188,14 +188,22 @@ The steps:
    time, while the weight gradients accumulate step by step.
 4. **Update:** the shared weights take a step.
 5. **Forward again:** the predictions move towards the targets.
+6. **Keep training:** 1000 more Adam steps on fresh waves
+   (`sequence.continue_training`, which records the example's predictions,
+   hidden states and weights after every step). They play on a log time
+   axis with a small loss curve; the screen shows the recorded state at each
+   step, until the predictions follow the wave.
 
 The networks are shown early in training (`sequence.CHECKPOINT`) so the
-errors are visible:
+errors are visible, and trained on until they are not:
 
-| animation | one step |
-| --- | --- |
-| `rnn-training-step` | loss 0.045 → 0.023 (lr 0.1) |
-| `lstm-training-step` | loss 0.091 → 0.058 (lr 0.5) |
+| animation | one step | 1000 more |
+| --- | --- | --- |
+| `rnn-training-step` | loss 0.045 → 0.023 (lr 0.1) | → 0.004 |
+| `lstm-training-step` | loss 0.091 → 0.058 (lr 0.5) | → 0.005 |
+
+The small networks (8 and 6 units) level off there; what remains is mostly
+the first step, predicted before anything has been seen.
 
 `tests/test_models.py` checks every gradient of every network
 against finite differences. It also checks that layer-1 weight gradients are exactly zero
@@ -302,6 +310,17 @@ trained with MSE (cached in `build/.cache`).
   ("14×14, 8 channels").
 - The axes are scaled robustly (median-centred, tails compressed), so
   clusters use the space.
+
+**`autoencoder-training`** (`ae_training.py`) shows the 2-D dense model
+learning. `autoencoder.training_run` trains it again with exactly the same
+draws, snapshotting the 600 test codes, the test loss and three digits'
+activations at steps 0, 1, 2, ... thinning out geometrically to the last
+(94 snapshots; the final weights are the cached model, byte for byte). A
+digit goes through the untrained network first, then the run plays on a log
+time axis: the codes drift and sort themselves (the box follows the cloud,
+its axis numbers show the scale growing fivefold), the three digits leave
+trails, the chain shows the live activations and the output sharpening, and
+a loss curve draws itself.
 
 ### VAE, U-Net, DEC and IDEC (`deep_models.py`)
 
@@ -637,7 +656,7 @@ voxanim/
     gpt2.py        GPT-2 small: safetensors reader, BPE tokenizer, forward pass
   animations
     mlp.py cnn.py attention.py recurrent.py rnn_batches.py dnn.py
-    ae_anim.py vae_anim.py unet_anim.py dec_anim.py
+    ae_anim.py ae_training.py vae_anim.py unet_anim.py dec_anim.py
     gpt2_anim.py (+ gpt2_panel.py, gpt2_camera.py, gpt2_layout.py)
     gd_anim.py mlp_graph.py dtree.py
   __main__.py      the command line

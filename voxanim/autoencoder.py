@@ -280,6 +280,93 @@ class AETrace:
 
 
 CLOUD_START = 2000                # the scatter's test digits: CLOUD_START, CLOUD_START + 1, ...
+SNAPSHOT_RATIO = 1.08             # a run's snapshot steps grow by 8% a time (equal time per decade)
+EVAL_TEST = 2000                  # test images a snapshot's loss is measured on
+
+
+def snapshot_steps(total, ratio=SNAPSHOT_RATIO):
+    """The steps a run is snapshotted at: 0 (untrained), 1, 2, ... then
+    thinning out geometrically (each about ``ratio`` times the last) to ``total``."""
+    steps, s = [0], 0
+    while s < total:
+        s = min(total, max(s + 1, int(s * ratio)))
+        steps.append(s)
+    return np.array(steps)
+
+
+@dataclass
+class AERun:
+    """Snapshots through one training run of :func:`train` (:func:`training_run`).
+
+    Arrays with a leading ``S`` axis have one entry per snapshot.
+    """
+
+    kind: str
+    latent: int
+    steps: np.ndarray             # (S,) the training step of each snapshot; 0 is untrained
+    steps_per_epoch: int
+    losses: np.ndarray            # (S,) mean reconstruction error on EVAL_TEST test images
+    cloud: np.ndarray             # (S, m, latent) codes of the cloud digits (as AETrace.cloud)
+    cloud_labels: np.ndarray      # (m,)
+    images: np.ndarray            # (k, 784) the digits followed through the chain
+    labels: np.ndarray            # (k,)
+    acts: list                    # per chain tensor: (S, k, values) float32, flattened
+    P0: dict                      # the untrained parameters
+    P: dict                       # the trained ones: the same bytes as train()'s
+
+
+def training_run(kind="dense", latent=2, digits=(3, 2, 1), cloud=600,
+                 cache_dir=DEFAULT_CACHE) -> AERun:
+    """:func:`train` again, keeping snapshots on the way (cached).
+
+    At every step of :func:`snapshot_steps` it records the codes of the
+    ``cloud`` test digits (from :data:`CLOUD_START`), the loss on the first
+    :data:`EVAL_TEST` test images and the chain activations of test images
+    ``digits``.  The random draws are exactly :func:`train`'s, so the final
+    weights are identical to its cache.
+    """
+    settings = dict(train_settings(kind, latent), snapshot_ratio=SNAPSHOT_RATIO,
+                    digits=list(digits), cloud=cloud, cloud_start=CLOUD_START,
+                    eval_test=EVAL_TEST)
+    seed, batch, lr, epochs = (settings[k] for k in ("seed", "batch", "lr", "epochs"))
+    xtr, _ytr, xte, yte = load(cache_dir)
+    sel = np.arange(CLOUD_START, CLOUD_START + cloud)
+    imgs = xte[list(digits)]
+
+    def build():
+        rng = np.random.default_rng(seed)
+        P = init(kind, latent, rng)
+        opt = Adam(P, lr)
+        per_epoch = -(-len(xtr) // batch)
+        marks = snapshot_steps(epochs * per_epoch)
+        rec = dict(losses=[], cloud=[], acts=[])
+
+        def snapshot():
+            rec["cloud"].append(forward(kind, P, xte[sel])["z"])
+            rec["losses"].append(chunk_mean(lambda s: loss(forward(kind, P, xte[s]), xte[s]),
+                                            EVAL_TEST))
+            rec["acts"].append([a.reshape(len(imgs), -1) for a in forward(kind, P, imgs)["acts"]])
+
+        snapshot()
+        want = set(marks.tolist())
+        for step, idx in enumerate(minibatches(rng, len(xtr), epochs, batch), 1):
+            x = xtr[idx]
+            opt.step(P, backward(kind, P, forward(kind, P, x), x))
+            if step in want:
+                snapshot()
+        out = dict(P, steps=marks, steps_per_epoch=np.array(per_epoch),
+                   losses=np.array(rec["losses"]), cloud=np.array(rec["cloud"]))
+        for j in range(len(rec["acts"][0])):
+            out["acts%d" % j] = np.array([a[j] for a in rec["acts"]], np.float32)
+        return out
+
+    d = cached_npz("ae_%s_run" % kind, settings, build, cache_dir)
+    meta = ("steps", "steps_per_epoch", "losses", "cloud")
+    acts = [d["acts%d" % j] for j in range(7)]
+    P = {k: v for k, v in d.items() if k not in meta and not k.startswith("acts")}
+    return AERun(kind, latent, d["steps"], int(d["steps_per_epoch"]), d["losses"], d["cloud"],
+                 yte[sel], imgs, yte[list(digits)], acts,
+                 init(kind, latent, np.random.default_rng(seed)), P)
 
 
 def _unbatch(f):
