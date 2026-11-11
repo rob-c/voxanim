@@ -554,7 +554,7 @@ Floating-point training can differ in the last bits on another CPU or BLAS
 library, and Adam can amplify that. A retrained model may then differ
 slightly from the cached one the release used. To reproduce a release
 exactly, use the reference environment, or unpack the release's trained
-weights (`voxanim-weights.tar.gz`, about 35 MB) into `build/.cache/` first.
+weights (`voxanim-weights.tar.gz`, about 29 MB) into `build/.cache/` first.
 The renders use exactly those weights.
 
 ## Development
