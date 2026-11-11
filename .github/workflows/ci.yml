@@ -19,7 +19,7 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-lock.txt
       - run: python -m pip install -r requirements-lock.txt
-      - run: ruff check voxanim tests
+      - run: ruff check voxanim tests website
       - run: python -m pytest tests -q
 
   full:

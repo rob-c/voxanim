@@ -7,7 +7,8 @@ numpy. 53 animations, from a 3×3 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
 
-The rendered MP4s and GIFs, with a SHA-256 manifest, are attached to the
+Watch them all on the [website](https://rob-c.github.io/voxanim/). The
+rendered MP4s and GIFs, with a SHA-256 manifest, are attached to the
 [GitHub releases](../../releases).
 
 - **Reproducible:** the same commit renders the same pixels and the same
@@ -561,7 +562,7 @@ The renders use exactly those weights.
 
 ```bash
 python3 -m pip install -r requirements-lock.txt
-ruff check voxanim tests                 # lint (configuration in pyproject.toml)
+ruff check voxanim tests website         # lint (configuration in pyproject.toml)
 python3 -m pytest tests                  # everything available offline
 python3 -m voxanim prepare && python3 -m pytest tests   # the full suite
 ```
@@ -577,11 +578,26 @@ The tests:
 - **`tests/test_render.py`:** culling, determinism, HDR and resolution
   independence.
 - **`tests/test_layout.py`:** no clipped or colliding text.
+- **`tests/test_website.py`:** the website lists every animation exactly
+  once, and the generated page is well formed.
 
 A test that needs MNIST or GPT-2 is skipped, with the reason, until
 `prepare` has run. CI (`.github/workflows/ci.yml`) runs the lint and the
 offline tests on every push, plus a job that prepares MNIST and runs
 everything except GPT-2.
+
+The website (`website/`) is one static page generated from the preset
+registry by `website/build_site.py`. `SECTIONS` there groups and titles the
+animations. The MP4s are not in git: the build takes them from the latest
+release, or from a local render:
+
+```bash
+python3 website/build_site.py _site --media build/out   # needs ffmpeg
+python3 -m http.server -d _site                          # http://localhost:8000
+```
+
+`.github/workflows/pages.yml` builds it and deploys it to GitHub Pages on
+every push to `main` and every published release.
 
 Before changing a module, render a few `draft` frames of the animations that
 use it and compare them afterwards. Every refactor in the history was checked
@@ -687,7 +703,9 @@ def five_by_five():
 ```
 
 `lesson()` (in `lessons.py`) adds a title and shape labels. For the bare
-original style, use `ConvAnimation(ConvSpec(...))` directly.
+original style, use `ConvAnimation(ConvSpec(...))` directly. Give every new
+animation a title in `SECTIONS` in `website/build_site.py`; a test fails
+until it has one.
 
 `ConvSpec` options:
 

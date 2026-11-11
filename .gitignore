@@ -10,3 +10,5 @@ __pycache__/
 .venv/
 .DS_Store
 *.part
+# the website as website/build_site.py writes it
+_site/

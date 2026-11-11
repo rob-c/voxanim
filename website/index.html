@@ -1,0 +1,94 @@
+<!doctype html>
+<!-- Template for website/build_site.py, which fills in the fields in double braces. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>voxanim: neural networks, animated</title>
+<meta name="description" content="{{count}} animations of convolutions, training, autoencoders and GPT-2, rendered from real trained models.">
+<meta property="og:title" content="voxanim">
+<meta property="og:description" content="{{count}} animations of convolutions, training, autoencoders and GPT-2, rendered from real trained models.">
+<meta property="og:image" content="media/{{hero}}.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1l6 3.5v7L8 15l-6-3.5v-7z' fill='%2337a8a0'/%3E%3Cpath d='M8 8l6-3.5v7L8 15z' fill='%23267a74'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<a class="skip" href="#convolutions">Skip to the animations</a>
+
+<header class="top">
+  <a class="brand" href="./">voxanim</a>
+  <nav aria-label="Project">
+    <a href="https://github.com/{{repo}}">Source code</a>
+    <a href="https://github.com/{{repo}}/releases/tag/{{tag}}">Release {{tag}}</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="hero-h">
+    <div class="hero-text">
+      <h1 id="hero-h">Watch the numbers move through a neural network</h1>
+      <p>{{count}} animations of convolutions, training, autoencoders and GPT-2.
+      Every weight, activation and gradient on screen comes from a model trained
+      or run for real, in plain numpy, and every frame can be rendered again from
+      the open code.</p>
+    </div>
+    <video class="hero-video" muted loop playsinline preload="metadata"
+           poster="media/{{hero}}.jpg" data-src="media/{{hero}}.mp4"
+           aria-label="A 3×3 convolution: eight filters sliding over a 7×7×8 input"></video>
+  </section>
+
+  <nav class="steps" aria-label="Sections">
+    <ol>
+{{index}}
+    </ol>
+  </nav>
+
+{{sections}}
+
+  <section class="make" aria-labelledby="make-h">
+    <h2 id="make-h">Render them yourself</h2>
+    <p>You need Python 3.11 or newer and ffmpeg. The first render of a network
+    animation downloads MNIST (or GPT-2) and trains the model, which is cached
+    afterwards.</p>
+<pre><code>git clone https://github.com/{{repo}}
+cd voxanim
+python3 -m pip install -r requirements-lock.txt
+python3 -m voxanim render gradient-descent</code></pre>
+    <p>The same commit renders the same pixels: the fonts are bundled, downloads
+    are checked against fixed checksums, and each render writes a manifest with
+    the SHA-256 of every file. The <a href="https://github.com/{{repo}}#readme">README</a>
+    explains how each animation is built.</p>
+  </section>
+</main>
+
+<footer>
+  <p>voxanim {{version}}, released under the MIT licence. The conv2d animations
+  follow the originals by <a href="https://animatedai.github.io">Animated AI</a>.</p>
+</footer>
+
+<dialog id="player" aria-labelledby="player-title">
+  <form method="dialog" class="player-bar"><button>Close</button></form>
+  <div class="player-media">
+    <video controls loop playsinline preload="auto"></video>
+  </div>
+  <div class="player-text">
+    <h2 id="player-title"></h2>
+    <p class="player-about"></p>
+    <p class="player-length"></p>
+    <ul class="player-files">
+      <li><a data-file="mp4" download>Download MP4</a></li>
+      <li><a data-file="gif">Download GIF</a></li>
+      <li><a data-file="manifest">Render manifest</a></li>
+    </ul>
+    <p class="player-cmd-label">Render it yourself</p>
+    <div class="player-cmd"><code></code><button type="button" class="copy">Copy</button></div>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Website:** every animation on one page, built from the preset registry and
+  the latest release's videos (`website/`), deployed to GitHub Pages.
+
 ## 1.0.0
 
 The first release as a standalone repository. Before this, the code lived in
