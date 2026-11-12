@@ -117,6 +117,8 @@ SECTIONS = [
       ("vae-dense-3d", "Variational autoencoder, 3-D codes"),
       ("vae-dense-2d", "Variational autoencoder, 2-D codes"),
       ("autoencoder-training", "An autoencoder learns its latent space"),
+      ("diffusion", "Diffusion: noise and back"),
+      ("pca-and-kmeans", "PCA and k-means"),
       ("unet-dense", "U-Net denoising"),
       ("dec-dense", "Deep embedded clustering"),
       ("idec-dense", "Improved deep embedded clustering")]),

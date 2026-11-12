@@ -618,3 +618,29 @@ register("gpt2-rotary-embeddings", _rope,
          "Rotary position embeddings: pairs of a query and a key rotated by position at "
          "different frequencies, the dot product depending on the relative position only, "
          "its decay with distance, against GPT-2's learned absolute positions.")
+# ------------------------------------------------------------------ diffusion, PCA and k-means
+
+
+def _diffusion():
+    from . import diffusion
+    from .diffusion_anim import DiffusionAnimation
+    return DiffusionAnimation(diffusion.trace())
+
+
+register("diffusion", _diffusion,
+         "A small denoising diffusion model on MNIST: digits dissolving into noise step by "
+         "step, the noise-prediction loss, new digits sampled back out of noise, the training "
+         "curve.")
+
+
+def _pca_kmeans():
+    from . import pca_kmeans
+    from .pca_anim import PCAKMeans
+    return PCAKMeans(pca_kmeans.trace())
+
+
+register("pca-and-kmeans", _pca_kmeans,
+         "PCA of MNIST (the mean digit, the principal components as images, the variance each "
+         "explains, test digits on the PC 1 / PC 2 plane, a digit rebuilt from 2, 10 and 50 "
+         "components), then k-means on the two coordinates and how well its clusters match "
+         "the labels.")
