@@ -364,3 +364,28 @@ def _dtree():
 register("decision-tree", _dtree,
          "A decision tree (CART, Gini) grown on a 2-D, 3-class dataset: the threshold search, "
          "the splits, the regions, then new points falling down the tree.")
+
+
+# ------------------------------------------------------------------ the maths, step by step
+
+
+def _autodiff():
+    from .autodiff_anim import AutodiffGraph
+    return AutodiffGraph()
+
+
+register("autodiff-graph", _autodiff,
+         "Automatic differentiation on the graph of one neuron, L = 1/2 (sigmoid(w1 x1 + w2 x2 + "
+         "b) - y)^2: build the graph, values forward, the chain rule back one edge at a time, "
+         "the parameter gradients and one update step.")
+
+
+def _softmax():
+    from .softmax_anim import SoftmaxCrossEntropy
+    return SoftmaxCrossEntropy()
+
+
+register("gpt2-softmax-cross-entropy", _softmax,
+         "Softmax and cross-entropy on real logits, side by side: the MNIST MLP on a 3 and GPT-2 "
+         "on the next word after 'The capital of France is'. Logits, exp, normalise, the one-hot "
+         "target, the loss -log p, the gradient p - y on the bars, then temperature 2 and 0.5.")
