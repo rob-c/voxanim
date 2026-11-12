@@ -412,3 +412,15 @@ register("gp-hyperparameters", _gp_hyper,
          "columns over (lengthscale, noise), gradient ascent walking up it with the posterior "
          "changing in step, and the data-fit and complexity terms as bars: the optimum is a "
          "trade-off.")
+
+
+def _gp_bayesopt():
+    from .gp_bayesopt import BayesOptAnimation
+    return BayesOptAnimation()
+
+
+register("gp-bayesian-optimisation", _gp_bayesopt,
+         "Bayesian optimisation of a hidden 1-D function: from 2 evaluations, 8 rounds of "
+         "expected improvement (drawn under the plot, its maximum marked), each evaluation flying "
+         "up to the function and the posterior updating; explore and exploit by turns, the true "
+         "maximum revealed at the end.")
