@@ -400,3 +400,15 @@ register("gp-kernels", _gp_kernels,
          "Kernels are assumptions: the same 7 points fitted with RBF, Matérn 3/2, periodic, "
          "linear and periodic + RBF kernels (hyperparameters fitted by maximising the marginal "
          "likelihood): the posterior of each, how it extrapolates, and log p(y) as a read-out.")
+
+
+def _gp_hyper():
+    from .gp_hyper import HyperAnimation
+    return HyperAnimation()
+
+
+register("gp-hyperparameters", _gp_hyper,
+         "Learning a GP's hyperparameters: the log marginal likelihood as a landscape of voxel "
+         "columns over (lengthscale, noise), gradient ascent walking up it with the posterior "
+         "changing in step, and the data-fit and complexity terms as bars: the optimum is a "
+         "trade-off.")
