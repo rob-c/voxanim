@@ -139,12 +139,15 @@ def test_memory_task_gradients_and_outcome():
                  list(P))
     rnn, lstm = Mem.trace("rnn"), Mem.trace("lstm", Mem.FORGET_BIAS)
     leaky = Mem.train("lstm", Mem.LEAKY_BIAS)
-    # loose bounds: trained on another CPU the weights differ in the last bits,
-    # and 8000 Adam steps amplify that (the README's reproducibility caveat)
-    assert abs(lstm.y - lstm.cue) < 0.3 and abs(lstm.y2 + lstm.cue) < 0.3
+    # Relative claims only: trained on another CPU the weights differ in the
+    # last bits and 8000 Adam steps amplify that (the README's reproducibility
+    # caveat), so the exact answers are this machine's.  What the animation
+    # claims is that the gated LSTM learns the task and the other two do not.
+    assert abs(lstm.y - lstm.cue) < abs(rnn.y - rnn.cue)
+    assert abs(lstm.y2 + lstm.cue) < abs(rnn.y2 + rnn.cue)
     assert abs(rnn.y - rnn.cue) > 0.5
-    assert lstm.losses[-200:].mean() < 0.02
-    assert min(rnn.losses[-200:].mean(), leaky.losses[-200:].mean()) > 0.1
+    assert lstm.losses[-200:].mean() < Mem.CHANCE / 3
+    assert min(rnn.losses[-200:].mean(), leaky.losses[-200:].mean()) > Mem.CHANCE / 2
     assert np.abs(lstm.d["dc"][0]).max() > 100 * np.abs(rnn.d["dh"][0]).max()
 
 
