@@ -364,3 +364,36 @@ def _dtree():
 register("decision-tree", _dtree,
          "A decision tree (CART, Gini) grown on a 2-D, 3-class dataset: the threshold search, "
          "the splits, the regions, then new points falling down the tree.")
+
+
+# ------------------------------------------------------------------ behaviour (GPT-2)
+
+
+def _hallucination():
+    from .halluc_anim import Hallucination
+    return Hallucination()
+
+
+register("gpt2-hallucination", _hallucination,
+         "GPT-2 small on a real and an invented country: the next-token distributions, sampled "
+         "answers that agree or disagree, and why 'unknown' is never likely.")
+
+
+def _conditioning():
+    from .condition_anim import Conditioning
+    return Conditioning()
+
+
+register("gpt2-conditioning", _conditioning,
+         "GPT-2 small's next-token distribution reshaped by an instruction and few-shot examples, "
+         "sent elsewhere by different examples, and the last layer's attention to the context.")
+
+
+def _calibration():
+    from .calib_anim import Calibration
+    return Calibration()
+
+
+register("gpt2-calibration", _calibration,
+         "GPT-2 small on 40 capital cities: its confidence against whether it is right, as a "
+         "reliability diagram with the expected calibration error.")
