@@ -37,6 +37,6 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build/.cache
-          key: voxanim-cache-${{ hashFiles('voxanim/cache.py', 'voxanim/mnist.py', 'voxanim/strided.py', 'voxanim/sequence.py', 'voxanim/vit.py', 'voxanim/autoencoder.py', 'voxanim/deep_models.py', 'voxanim/optim.py', 'voxanim/minibatch.py') }}
+          key: voxanim-cache-${{ hashFiles('voxanim/cache.py', 'voxanim/mnist.py', 'voxanim/strided.py', 'voxanim/sequence.py', 'voxanim/memory.py', 'voxanim/vit.py', 'voxanim/autoencoder.py', 'voxanim/deep_models.py', 'voxanim/optim.py', 'voxanim/minibatch.py') }}
       - run: python -m voxanim prepare $(python -m voxanim list --names | grep -v '^gpt2-')
       - run: python -m pytest tests -q
