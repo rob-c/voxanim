@@ -364,3 +364,64 @@ def _dtree():
 register("decision-tree", _dtree,
          "A decision tree (CART, Gini) grown on a 2-D, 3-class dataset: the threshold search, "
          "the splits, the regions, then new points falling down the tree.")
+
+
+# ------------------------------------------------------------------ optimisation
+#
+# Walks on a real two-parameter loss landscape (voxanim.landscape) and two
+# MNIST MLP training comparisons.
+
+
+def _landscape_descent():
+    from .optim_anim import LossLandscape
+    return LossLandscape()
+
+
+register("loss-landscape-descent", _landscape_descent,
+         "The loss landscape of two-weight logistic regression on the MNIST zeros and ones, "
+         "as a field of voxel columns; then full-batch gradient descent walks down it, the "
+         "gradient arrow and the step at every move, the loss falling.")
+
+
+def _drunken_walk():
+    from .optim_anim import DrunkenWalk
+    return DrunkenWalk()
+
+
+register("drunken-walk", _drunken_walk,
+         "Minibatch SGD on the same landscape: walkers with 1, 8 and 64 examples a step "
+         "against the full-batch path, the spread the gradient variance predicts drawn as an "
+         "ellipse, then a learning rate too high and one too low.")
+
+
+def _optimisers():
+    from .optim_anim import Optimisers
+    return Optimisers()
+
+
+register("optimisers", _optimisers,
+         "SGD, momentum, RMSProp, Adam and AdamW from one start on an ill-conditioned "
+         "landscape (a narrow valley): momentum's overshoot, the adaptive optimisers' "
+         "per-weight rescaling as two arrows and moment bars, who arrives in how many steps.")
+
+
+def _adamw_vs_l2():
+    from .adamw_anim import AdamWvsL2
+    return AdamWvsL2()
+
+
+register("adamw-vs-l2", _adamw_vs_l2,
+         "Adam with L2 in the loss against AdamW on a real weight matrix of the MNIST MLP: "
+         "the per-weight effective decay as a sheet, the two update rules, the weight norms "
+         "over training.")
+
+
+def _lr_schedule():
+    from .schedule_anim import LearningRateSchedules
+    return LearningRateSchedules()
+
+
+register("learning-rate-schedule", _lr_schedule,
+         "Constant, step decay, cosine with warmup and one-cycle schedules training the MNIST "
+         "MLP: the schedules, the loss curves, the same schedules on the two-weight landscape, "
+         "and why warmup tames Adam's first steps.")
