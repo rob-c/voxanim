@@ -501,3 +501,61 @@ register("q-learning", _qlearning,
          "Tabular Q-learning in a 6x8 gridworld with walls, a goal and a trap: the first "
          "episodes move by move with the update rule, the Q-table rising as a height-field over "
          "the grid, epsilon decaying, the greedy policy and its shortest path.")
+# ------------------------------------------------------------------ Gaussian processes
+
+
+def _gp_prior():
+    from .gp_prior import PriorAnimation
+    return PriorAnimation()
+
+
+register("gp-prior", _gp_prior,
+         "A Gaussian process prior: the RBF kernel, its matrix over a grid, sample functions "
+         "drawn from it, then the lengthscale and the variance changing with the samples and the "
+         "matrix updating together.")
+
+
+def _gp_posterior():
+    from .gp_posterior import PosteriorAnimation
+    return PosteriorAnimation()
+
+
+register("gp-posterior", _gp_posterior,
+         "Conditioning a GP on data: six observations of a stated function arrive one at a time "
+         "and the posterior mean and band update exactly; the matrices K, k*, k** and the formula "
+         "light up piece by piece; then the same with observation noise.")
+
+
+def _gp_kernels():
+    from .gp_kernels import KernelsAnimation
+    return KernelsAnimation()
+
+
+register("gp-kernels", _gp_kernels,
+         "Kernels are assumptions: the same 7 points fitted with RBF, Matérn 3/2, periodic, "
+         "linear and periodic + RBF kernels (hyperparameters fitted by maximising the marginal "
+         "likelihood): the posterior of each, how it extrapolates, and log p(y) as a read-out.")
+
+
+def _gp_hyper():
+    from .gp_hyper import HyperAnimation
+    return HyperAnimation()
+
+
+register("gp-hyperparameters", _gp_hyper,
+         "Learning a GP's hyperparameters: the log marginal likelihood as a landscape of voxel "
+         "columns over (lengthscale, noise), gradient ascent walking up it with the posterior "
+         "changing in step, and the data-fit and complexity terms as bars: the optimum is a "
+         "trade-off.")
+
+
+def _gp_bayesopt():
+    from .gp_bayesopt import BayesOptAnimation
+    return BayesOptAnimation()
+
+
+register("gp-bayesian-optimisation", _gp_bayesopt,
+         "Bayesian optimisation of a hidden 1-D function: from 2 evaluations, 8 rounds of "
+         "expected improvement (drawn under the plot, its maximum marked), each evaluation flying "
+         "up to the function and the posterior updating; explore and exploit by turns, the true "
+         "maximum revealed at the end.")
