@@ -363,7 +363,7 @@ class Calibration(Diagram):
                        dx=4, dy=-6, opacity=on * gather, ink=layout.NOTE_INK)
             sc.line(self._chart_pt(0, 0) + self.view * 0.3, self._chart_pt(1, 1) + self.view * 0.3,
                     width=1.2, color=DIAGONAL, opacity=0.7 * on * gather, bias=0.3)
-            self.label(sc, self._chart_pt(0.86, 0.86), "calibrated", layout.MIN_TEXT, anchor="rb",
+            self.label(sc, self._chart_pt(0.74, 0.74), "calibrated", layout.MIN_TEXT, anchor="rb",
                        dx=-4, dy=-2, opacity=on * gather, ink=layout.NOTE_INK)
         if rel > 0:
             for k in range(N_BINS):
@@ -462,7 +462,7 @@ class Calibration(Diagram):
                        "right" if it.right else "wrong, %s" % it.capital))
         if t < T["ece"][0]:
             return ("reliability diagram: %d bins of confidence; the bar is how often the model "
-                    "was right in that bin, the tick its mean confidence" % N_BINS)
+                    "was right in that bin, the grey dot its mean confidence" % N_BINS)
         if t < T["pair"][0]:
             k = int(np.argmax(self.count))
             above = int(np.sum((self.acc > self.mean_conf) & (self.count > 0)))
