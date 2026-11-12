@@ -366,7 +366,19 @@ register("decision-tree", _dtree,
          "the splits, the regions, then new points falling down the tree.")
 
 
-# ------------------------------------------------------------------ PCA and k-means
+# ------------------------------------------------------------------ diffusion, PCA and k-means
+
+
+def _diffusion():
+    from . import diffusion
+    from .diffusion_anim import DiffusionAnimation
+    return DiffusionAnimation(diffusion.trace())
+
+
+register("diffusion", _diffusion,
+         "A small denoising diffusion model on MNIST: digits dissolving into noise step by "
+         "step, the noise-prediction loss, new digits sampled back out of noise, the training "
+         "curve.")
 
 
 def _pca_kmeans():

@@ -95,11 +95,13 @@ def inertia(z, c, lab):
 def kmeans(z, k, rng, max_iters=MAX_ITERS):
     """Lloyd's k-means on ``z`` ``(n, d)`` from ``k`` random points of ``z``.
 
-    Returns ``(centroids, labels, inertias)``: ``centroids`` ``(I + 1, k, d)``
-    before every iteration and after the last, ``labels`` ``(I, n)`` the
-    assignment made in each iteration and ``inertias`` ``(I,)`` the inertia of
-    that assignment.  It stops when an assignment repeats (converged).  An
-    empty cluster keeps its centroid.
+    Returns ``(centroids, labels, inertias)``, one row per iteration ``I``:
+    the centroids ``(I, k, d)`` the iteration assigned points to, the
+    assignment ``labels`` ``(I, n)`` it made and the ``inertias`` ``(I,)`` of
+    that assignment.  Iteration ``i + 1``'s centroids are the means of
+    iteration ``i``'s clusters.  It stops when an assignment repeats
+    (converged: the means, and so the centroids, would not change again).
+    An empty cluster keeps its centroid.
     """
     c = z[rng.choice(len(z), k, replace=False)]
     cs, labs, costs = [c], [], []
@@ -137,7 +139,7 @@ class PCATrace:
     digit_label: int
     digit_z: np.ndarray         # (2,) its first two coordinates
     recons: np.ndarray          # (len(RECON_K), 784) rebuilt from RECON_K components
-    centroids: np.ndarray       # (I + 1, K, 2) before each k-means iteration, and after the last
+    centroids: np.ndarray       # (I, K, 2) the centroids each k-means iteration assigned to
     assignments: np.ndarray     # (I, CLOUD)
     inertias: np.ndarray        # (I,)
 
