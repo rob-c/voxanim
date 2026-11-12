@@ -389,3 +389,15 @@ register("gpt2-softmax-cross-entropy", _softmax,
          "Softmax and cross-entropy on real logits, side by side: the MNIST MLP on a 3 and GPT-2 "
          "on the next word after 'The capital of France is'. Logits, exp, normalise, the one-hot "
          "target, the loss -log p, the gradient p - y on the bars, then temperature 2 and 0.5.")
+
+
+def _activations():
+    from .activations_anim import Activations
+    return Activations()
+
+
+register("activations", _activations,
+         "Activation functions: sigmoid, tanh, ReLU and GELU with their derivatives; a real "
+         "layer's 64 pre-activations through each (saturation, sparsity); then dead ReLUs: a "
+         "784-128-10 network trained with too large a learning rate, the units that stop firing "
+         "going dark for good, and the gradient through a dead unit exactly 0.")
