@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.2.0
+
+Thirty-three new animations in nine families, for a year of lectures. Every
+one is built from a model run or trained in plain numpy, with its numbers
+tested; the 55 existing animations are pixel-identical to 1.1.0.
+
+- **Optimisation** (`landscape.py`: logistic regression on two real MNIST
+  features as a walkable loss surface): `loss-landscape-descent`,
+  `drunken-walk`, `optimisers`, `adamw-vs-l2`, `learning-rate-schedule`.
+  `optim.py` gains `SGD`, `Momentum`, `RMSProp` and `AdamW` (`Adam` unchanged).
+- **The maths, step by step:** `autodiff-graph`, `gpt2-softmax-cross-entropy`,
+  `activations`.
+- **Training deep networks** (`deepnet.py`): `overfitting`, `initialisation`,
+  `skip-connections`, `normalisation`.
+- **GPT-2, tokens to sampling:** `gpt2-tokenizer`, `gpt2-embeddings`,
+  `gpt2-transformer-block`, `gpt2-sampling` (`gpt2.py` gains `bpe_trace`,
+  `block_states` and `logit_lens`, all additive).
+- **What language models know, and don't:** `gpt2-hallucination`,
+  `gpt2-conditioning`, `gpt2-calibration` (`gpt2_probe.py`).
+- **Attention between two sequences:** `seq2seq-attention`.
+- **Gaussian processes** (`gp.py`): `gp-prior`, `gp-posterior`, `gp-kernels`,
+  `gp-hyperparameters`, `gp-bayesian-optimisation`.
+- **Modern sequence models:** `ssm-recurrence`, `mamba-selective-scan`,
+  `context-cost`, `mixture-of-experts`, `gpt2-rotary-embeddings`.
+- **Diffusion, PCA and k-means:** `diffusion`, `pca-and-kmeans`.
+- **Reinforcement learning:** `q-learning`.
+- Website sections for every family; a README section per family with the
+  numbers and the settings each was chosen on.
+
 ## 1.1.0
 
 - **New animation `autoencoder-training`:** a dense autoencoder learning its

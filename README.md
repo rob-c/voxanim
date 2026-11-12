@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 55 animations, from a 3×3 convolution to the inside of GPT-2, all from
+numpy. 88 animations, from a 3×3 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
 
@@ -25,7 +25,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 55 animations
+python3 -m voxanim list --names                   # the 88 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
@@ -247,6 +247,22 @@ not kept; the numbers are, below). Mean loss of the last 200 steps after
 
 With Adam, the plain RNN learns gaps of 19 to 31 steps in most seeds, so
 shorter gaps would not have separated the cells.
+
+### Optimisation: a loss landscape and the optimisers on it (`landscape.py`, `optim_anim.py`, `mlp_runs.py`, `adamw_anim.py`, `schedule_anim.py`)
+
+A loss surface you can walk on, made of real numbers: logistic regression with two weights and no intercept on all 12,665 MNIST training zeros and ones, `p(one) = σ(w₁·ink + w₂·width)`, with *ink* the mean pixel value and *width* the fraction of columns containing ink, both standardised. The mean log-loss is a function of two numbers, so it is evaluated on a 40 × 40 grid and drawn as a field of voxel columns, each as many voxels tall as the loss there (terraces of equal loss, like contour lines). It is a genuine, slightly curved bowl: minimum at w = (−4.29, −1.77), loss 0.137 (94.7% right), condition number 2.4. Multiplying ink by 10 turns the same data into a narrow valley (condition 42 at the minimum, 284 at the origin). Walkers float at their true loss above the surface and trail their path; a loss-against-step read-out runs beside them. Every walk is a recorded run (`landscape.descend`), cached with its settings; the gradients are checked against finite differences.
+
+**`loss-landscape-descent`** (about 44 s): the landscape rises, the axes and the minimum are named, then full-batch gradient descent (η = 3) walks down from (2.5, −2.0): the gradient arrow and the step −η∂L/∂w at every move, the step shrinking from 2.06 to 0.018 as the floor flattens, the loss falling from 1.15 to 0.139 (0.002 above the minimum, within 0.01 of it from step 34).
+
+**`drunken-walk`** (about 59 s): minibatch SGD from the same start, same η: walkers whose gradients come from 1, 8 and 64 random examples a step against the full-batch path. A minibatch gradient is the full gradient plus noise with covariance Σ/B, so the one-sigma ellipse of a step, η√(Σ/B), is drawn live around each walker: (0.25, 0.39) for B = 1, √8 tighter each time B grows eightfold, and the paths stagger by exactly that much. Then η = 8 (the first step is 8 long and the walker never settles: its steps stay twice as long around the minimum) and η = 0.3 (still at loss 0.22, 3.7 from the minimum, after 80 steps).
+
+**`optimisers`** (about 54 s): SGD, momentum, RMSProp, Adam and AdamW from one start on the valley's steep wall (curvature 19 across, 0.07 along). SGD, at nine tenths of its stability limit 2/19, crosses the valley in one step and then creeps; momentum (β = 0.9) runs down to loss 0.21, up the far wall to 0.43, and arrives at step 109; RMSProp and Adam divide each weight's step by the running size of its gradient (Adam's moments drawn as bars), so both weights move about η at once: RMSProp arrives at step 34, AdamW at 56 (its decay holds it 0.5 short), Adam at 64; SGD is still 2.0 away after 150 steps.
+
+**`adamw-vs-l2`** (about 52 s): Adam, Adam + L2 (λ = 10⁻³) and AdamW (wd = 0.1) train the MNIST MLP (784-64-32-10) for 3 epochs. The 64 × 32 middle matrix as sheets: the weights, Adam's √v per weight (a factor of thousands across the matrix), then each weight's *effective decay per step*. Adam + L2 divides the decay λw by √v like everything else, so it is 0.6× AdamW's uniform η·wd where the gradient is large and 1200× where it has died (orange/blue sheet); AdamW's sheet is flat. The weight norms over training show the consequence: ‖W₀‖ ends at 16.6, 9.3 and 15.3 and ‖W₁‖ at 9.6, 7.9 and 8.7 (Adam, Adam + L2, AdamW), at 96.0, 95.9 and 96.0% test accuracy.
+
+**`learning-rate-schedule`** (about 56 s): constant, step decay (÷10 after each third), cosine with a 5% warmup and one cycle (up to 3·10⁻³ by 30%) train the MLP, their loss curves drawn in step with Adam walking the landscape under the same four schedules: one cycle 0.084 (97.0%), constant 0.117 (96.0%), cosine 0.153 (95.4%), step decay 0.179 (94.8%) — dividing by 10 after a third was too early — and the walkers finish in the same order. Then warmup: Adam's first step is exactly η in every weight whatever the gradient (m/√v = ±1 at step 1), so at η = 0.3 it leaps (−0.30, −0.30); warmed up it starts at (−0.04, −0.04). On the MLP at 3·10⁻³ the weights move 0.74 in norm in the first 20 steps without warmup and 0.02 with.
+
+Tests check the model's gradients and Hessian against finite differences, the optimisers' update rules against hand-computed steps (AdamW with no decay is Adam bit for bit), the Σ/B law against 4000 sampled minibatch gradients, and every number the subtitles quote.
 
 ### Training deep networks (`deepnet.py`; `overfit_anim.py`, `init_anim.py`, `residual_anim.py`, `norm_anim.py`)
 
@@ -838,6 +854,12 @@ The tests:
 - **`tests/test_layout.py`:** no clipped or colliding text.
 - **`tests/test_website.py`:** the website lists every animation exactly
   once, and the generated page is well formed.
+- **`tests/test_landscape.py`, `test_maths_anims.py`, `test_deepnet.py`,
+  `test_gpt2_anims.py`, `test_behaviour.py`, `test_seq2seq.py`,
+  `test_gridworld.py`, `test_gp.py`, `test_modern.py`, `test_diffusion.py`,
+  `test_pca.py`:** one file per family added in 1.2.0: every new gradient
+  against finite differences, the update rules and formulas against hand
+  computations, and every number the subtitles quote.
 
 A test that needs MNIST or GPT-2 is skipped, with the reason, until
 `prepare` has run. CI (`.github/workflows/ci.yml`) runs the lint and the
@@ -904,6 +926,8 @@ voxanim/
     optim.py minibatch.py   the shared Adam and minibatch loop
     mnist.py       MNIST, the dense and convolutional classifiers
     strided.py vit.py sequence.py memory.py autoencoder.py deep_models.py   the other models
+    landscape.py mlp_runs.py autodiff.py deepnet.py gpt2_probe.py seq2seq.py gridworld.py
+    gp.py ssm.py mamba.py moe.py diffusion.py pca_kmeans.py                  (1.2.0)
     model_io.py    load / save dense models (.npz, PyTorch, Keras, JSON)
     gpt2.py        GPT-2 small: safetensors reader, BPE tokenizer, forward pass
   animations
@@ -911,6 +935,16 @@ voxanim/
     ae_anim.py ae_training.py vae_anim.py unet_anim.py dec_anim.py
     gpt2_anim.py (+ gpt2_panel.py, gpt2_camera.py, gpt2_layout.py)
     gd_anim.py mlp_graph.py dtree.py
+    optim_anim.py adamw_anim.py schedule_anim.py          optimisation
+    autodiff_anim.py softmax_anim.py activations_anim.py  the maths, step by step
+    overfit_anim.py init_anim.py residual_anim.py norm_anim.py   training deep networks
+    bpe_anim.py embed_anim.py block_anim.py sampling_anim.py     GPT-2, tokens to sampling
+    halluc_anim.py condition_anim.py calib_anim.py        what language models know
+    seq2seq_anim.py qlearning_anim.py
+    gp_anim.py gp_prior.py gp_posterior.py gp_kernels.py gp_hyper.py gp_bayesopt.py
+    ssm_anim.py mamba_anim.py cost_anim.py moe_anim.py rope_anim.py   modern sequence models
+    diffusion_anim.py pca_anim.py
+    losschart.py sweep.py prob_bars.py                    shared drawing helpers
   __main__.py      the command line
 ```
 
