@@ -42,6 +42,7 @@ FILES = {
 N_LAYER, N_HEAD, D_MODEL, D_HEAD = 12, 12, 768, 64
 D_MLP = 4 * D_MODEL              # 3072: the MLP's hidden width
 N_VOCAB = 50257                  # 256 bytes + 50,000 merges + <|endoftext|>
+N_CTX = 1024                     # positions: the context length (rows of wpe)
 
 
 def fetch(timeout=60):
@@ -153,6 +154,37 @@ class Tokenizer:
             parts[i:i + 2] = [parts[i] + parts[i + 1]]
         return parts
 
+    # -- the merges step by step (for the tokenizer animation) -------------------------------
+    def pieces(self, text):
+        """The pre-tokenizer's split of ``text`` (:attr:`PAT`): words keep their
+        leading space, so ``"a cat"`` -> ``["a", " cat"]``."""
+        return self.PAT.findall(text)
+
+    def units(self, piece):
+        """``piece``'s UTF-8 bytes mapped to GPT-2's printable characters (a
+        space becomes ``Ġ``): the string :meth:`_bpe` starts from."""
+        return "".join(self.b2u[b] for b in piece.encode("utf-8"))
+
+    def bpe_trace(self, word):
+        """The merges :meth:`_bpe` applies to ``word`` (already through
+        :meth:`units`), in the order it applies them.
+
+        Returns ``(steps, parts)``: ``steps`` is ``[(rank, i, left, right)]``,
+        each merge joining parts ``i`` and ``i + 1`` (``left`` and ``right``)
+        of the parts as they stand before it; ``parts`` is the result, equal
+        to ``_bpe(word)``.
+        """
+        parts, steps = list(word), []
+        while len(parts) > 1:
+            pairs = [(self.ranks.get((a, b), 1e9), i) for i, (a, b) in
+                     enumerate(itertools.pairwise(parts))]
+            r, i = min(pairs)
+            if r == 1e9:
+                break
+            steps.append((int(r), i, parts[i], parts[i + 1]))
+            parts[i:i + 2] = [parts[i] + parts[i + 1]]
+        return steps, parts
+
     def encode(self, text):
         """Token ids (list of int) for ``text``."""
         ids = []
@@ -255,3 +287,64 @@ def run(text="The cat sat on the"):
     top = [(tok.decode([int(i)]), float(pr[i])) for i in np.argsort(-pr)[:5]]
     return GPT2Trace(text, ids, [tok.decode([i]) for i in ids], emb, pos, resid,
                      **{k: np.array(v) for k, v in rec.items()}, logits=logits, top=top)
+
+
+# ------------------------------------------------------------------ reading the stream
+
+
+def softmax(logits):
+    """Probabilities from ``logits`` along the last axis (stable: the maximum is subtracted)."""
+    z = np.asarray(logits, np.float64)
+    p = np.exp(z - z.max(-1, keepdims=True))
+    return p / p.sum(-1, keepdims=True)
+
+
+def unembed(x):
+    """The model's read-out of residual-stream vector(s) ``x`` (..., 768): the
+    final LayerNorm, then ``@ wte^T``, giving (..., N_VOCAB) logits.
+
+    Applied to the stream after the last layer this *is* the model's output;
+    applied after an earlier layer it is the "logit lens": what the model
+    would predict if it stopped there.
+    """
+    W = weights()
+    return layer_norm(np.asarray(x, np.float64), W["ln_f.weight"], W["ln_f.bias"]) \
+        @ W["wte.weight"].T.astype(np.float64)
+
+
+def block_states(trace, pos=-1):
+    """Every intermediate of position ``pos`` on its way through the 12 blocks.
+
+    ``{name: (L, width)}`` from a :class:`GPT2Trace`: ``x_in`` (768, the
+    stream entering the layer), ``ln1`` (768), ``attn`` (768, the attention
+    branch's output), ``x_mid`` (768, ``x_in + attn``), ``ln2`` (768),
+    ``hidden`` (3072, after GELU), ``mlp`` (768, the MLP branch's output) and
+    ``x_out`` (768, ``x_mid + mlp``, the stream leaving the layer).  ``ln2`` is
+    recomputed from the layers' weights (:func:`run` does not keep it); the
+    rest is taken from the trace, so the numbers are the forward pass's own.
+    """
+    W = weights()
+    L = N_LAYER
+    x_in = np.array([trace.resid[l][pos] for l in range(L)])
+    attn = trace.attn_out[:, pos]
+    x_mid = x_in + attn
+    ln2 = np.array([layer_norm(x_mid[l], W["h.%d.ln_2.weight" % l], W["h.%d.ln_2.bias" % l])
+                    for l in range(L)])
+    return dict(x_in=x_in, ln1=trace.ln1[:, pos], attn=attn, x_mid=x_mid, ln2=ln2,
+                hidden=trace.mlp_hidden[:, pos], mlp=trace.mlp_out[:, pos],
+                x_out=np.array([trace.resid[l + 1][pos] for l in range(L)]))
+
+
+def logit_lens(trace, pos=-1):
+    """The logit lens at position ``pos``: next-token probabilities read from
+    the residual stream at every point of the forward pass.
+
+    Returns ``(2 * N_LAYER + 1, N_VOCAB)``: row 0 is the embedding, row
+    ``2 l + 1`` the stream after layer ``l + 1``'s attention, row ``2 l + 2``
+    after its MLP; the last row equals ``softmax(trace.logits[pos])``.
+    """
+    st = block_states(trace, pos)
+    xs = [trace.resid[0][pos]]
+    for l in range(N_LAYER):
+        xs += [st["x_mid"][l], st["x_out"][l]]
+    return softmax(unembed(np.array(xs)))

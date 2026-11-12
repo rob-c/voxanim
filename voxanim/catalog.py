@@ -397,3 +397,45 @@ def _calibration():
 register("gpt2-calibration", _calibration,
          "GPT-2 small on 40 capital cities: its confidence against whether it is right, as a "
          "reliability diagram with the expected calibration error.")
+
+# ------------------------------------------------------------------ GPT-2: tokens to sampling
+
+
+def _bpe():
+    from .bpe_anim import BPEAnimation
+    return BPEAnimation()
+
+
+register("gpt2-tokenizer", _bpe,
+         "Byte-pair encoding: GPT-2's tokenizer splitting a sentence into bytes and merging them "
+         "by rank into tokens, their ids and embedding rows; why \" four\" and \"four\" differ.")
+
+
+def _embed():
+    from .embed_anim import EmbeddingAnimation
+    return EmbeddingAnimation()
+
+
+register("gpt2-embeddings", _embed,
+         "What GPT-2's embeddings know: a token's vector, its nearest neighbours by cosine, "
+         "king - man + woman, and the 1024 position embeddings and how alike nearby ones are.")
+
+
+def _block():
+    from .block_anim import TransformerBlockAnimation
+    return TransformerBlockAnimation()
+
+
+register("gpt2-transformer-block", _block,
+         "Through the transformer: the last token's residual stream through all 12 layers "
+         "(LayerNorm, attention, LayerNorm, MLP), read by the logit lens at every layer.")
+
+
+def _sampling():
+    from .sampling_anim import SamplingAnimation
+    return SamplingAnimation()
+
+
+register("gpt2-sampling", _sampling,
+         "Sampling the next token from GPT-2's real distribution: greedy, temperature, top-k, "
+         "nucleus (top-p), a short generation, and the KV cache.")
