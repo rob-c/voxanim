@@ -890,7 +890,11 @@ gh release create v1.1.0 --title "voxanim 1.1.0" --notes-file NOTES.md /tmp/rele
 
 `release_assets.py` refuses to run while any animation lacks a render or a
 render disagrees with its manifest; the weights archive is deterministic.
-The website redeploys itself when the release is published.
+The website redeploys itself when the release is published, provided the
+`github-pages` environment allows tags `v*` to deploy (that run's ref is the
+tag; Settings → Environments → github-pages → deployment branches and tags).
+Otherwise the deploy job fails without a log, and
+`gh workflow run pages.yml --ref main` deploys the same site by hand.
 
 Before changing a module, render a few `draft` frames of the animations that
 use it and compare them afterwards. Every refactor in the history was checked
