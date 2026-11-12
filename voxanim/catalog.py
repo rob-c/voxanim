@@ -377,3 +377,14 @@ def _initialisation():
 register("initialisation", _initialisation,
          "A 20-layer tanh MLP under three weight scales: activation std and gradient per layer "
          "(vanishing, exploding, Xavier), one layer's histogram, then which one learns.")
+
+
+def _skip_connections():
+    from . import residual_anim
+    return residual_anim.SkipConnections(*residual_anim.runs())
+
+
+register("skip-connections", _skip_connections,
+         "A 30-layer plain ReLU MLP against the same with a skip every two layers: the "
+         "activations fading forward, the gradient shrinking back layer by layer (log scale) "
+         "or arriving intact along the skips, then the training curves.")
