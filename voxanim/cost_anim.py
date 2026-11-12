@@ -124,6 +124,8 @@ class ContextCost(NetAnimation):
         done, nk, uk = self._arrivals(t, "grow", self.t_starts, self.t_durs, N_TOKENS)
         n = min(N_TOKENS, done + (1 if nk < N_TOKENS and uk > 0.3 else 0))   # tokens in context
         whole = self.progress("whole", t)
+        if reset > 0:                      # the reset returns to the empty opening panels
+            n, nk, uk, whole = 0, -1, 0.0, 0.0
         # the first panels leave before the memory panels arrive (no half-opaque overlap)
         t_mem = self.Tm["memory"][0]
         first_out = smoothstep(t_mem - 1.3, t_mem - 0.7, t)
@@ -139,7 +141,7 @@ class ContextCost(NetAnimation):
             "%d tokens: GPT-2 small's KV cache holds %s numbers, Mamba-130M's state %s at any "
             "length" % (m, thousands(KV_PER_TOKEN * m), thousands(MAMBA_STATE)),
         ][ph]
-        first = (1.0 - first_out) * back
+        first = (1.0 - first_out) * back if reset == 0 else 1.0 - back
         self._attention(sc, n, nk, uk, first)
         self._recurrence(sc, n, nk, uk, whole, first)
         self._scan(sc, n, nk, uk, whole, first)
@@ -262,7 +264,7 @@ class ContextCost(NetAnimation):
                  "steps that must wait for each other: 1, %d, log₂ %d = %d"
                  % (N_TOKENS, N_TOKENS, depth["ssm"]))
         sc.text(0.5, y, label, 0.027, "regular", layout.CAPTION_INK,
-                op * abs(1 - 2 * mix), "mt")
+                op * abs(1 - 2 * mix) * self._cap, "mt")
 
     # -- memory --------------------------------------------------------------------------
     def _memory(self, sc, m, mk, um, op):

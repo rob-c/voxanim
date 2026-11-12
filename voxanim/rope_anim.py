@@ -149,7 +149,7 @@ class RotaryEmbeddings(Diagram):
         back = 1.0 - ease_in_out(remap(reset, 0.0, 0.7))
         ops = self._phase_ops(t, back)
         turn = self.progress("turn", t)
-        pos = ease_in_out(turn) * (N_POSITIONS - 1)
+        pos = ease_in_out(turn) * (N_POSITIONS - 1) if reset == 0 else 0.0
         rel = self.progress("relative", t)
         dist = self.progress("distance", t)
         g2 = self.progress("gpt2", t)

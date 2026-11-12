@@ -170,8 +170,8 @@ class MambaSelection(NetAnimation):
             "written at the cue is kept" % (self.dt_cue, self.dt_noise),
             "scan: the same recurrence as a prefix scan, %d levels for %d steps; the states agree "
             "to %s" % (len(self.levels), self.T, "%.0e" % self.scan_diff),
-            "training: the LSTM and the Mamba block learn the task, the RNN stays at chance "
-            "(%.2f); %d and %d steps" % (CHANCE, len(self.lstm.losses), len(tr.losses)),
+            "training: the LSTM and Mamba learn the task (%d and %d steps), the RNN stays at "
+            "chance (%.2f)" % (len(self.lstm.losses), len(tr.losses), CHANCE),
         ][ph]
         in_scan = t >= self.Tm["scan_in"][0] and t < self.Tm["train"][0] - 0.3
         self._input(sc, t, task, nf, uf, back)

@@ -116,6 +116,8 @@ class MixtureOfExperts(Diagram):
         util = self.progress("util", t)
         count = self.progress("count", t)
         route_op = (1.0 - smoothstep(self.Tm["util"][0] - 1.0, self.Tm["util"][0] - 0.4, t)) * back
+        if reset > 0:                      # the reset returns to the opening frame: token 0 due
+            k, u, route_op = 0, 0.0, 1.0 - back
         util_op = smoothstep(0.0, 0.08, util) * (1.0 - smoothstep(self.Tm["count"][0] - 0.8,
                                                                    self.Tm["count"][0] - 0.3, t))
         count_op = smoothstep(0.0, 0.1, count) * back

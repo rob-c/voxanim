@@ -245,7 +245,7 @@ class SSMRecurrence(NetAnimation):
         if done_c >= T:
             shown_c[:] = True
         sc_.show(shown_c)
-        sc_.cage = 1.0
+        sc_.cage = back                    # absent at the start, so it leaves with the reset
         sc_.fade(back * (1.0 if done_c > 0 or (0 <= nc < T) else 0.0))
         sc_.visible = done_c > 0 or 0 <= nc < T
         if sc_.visible:
