@@ -55,7 +55,8 @@ NO_DATA = set(CONV_PRESETS) | {"rnn-training-step", "lstm-training-step", "rnn-b
                                "gated-memory", "gradient-descent", "decision-tree",
                                "autodiff-graph", "seq2seq-attention", "q-learning",
                                "gp-prior", "gp-posterior", "gp-kernels", "gp-hyperparameters",
-                               "gp-bayesian-optimisation"}
+                               "gp-bayesian-optimisation", "ssm-recurrence",
+                               "mamba-selective-scan", "context-cost", "mixture-of-experts"}
 
 
 def data_marks(name):

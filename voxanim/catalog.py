@@ -559,3 +559,62 @@ register("gp-bayesian-optimisation", _gp_bayesopt,
          "expected improvement (drawn under the plot, its maximum marked), each evaluation flying "
          "up to the function and the posterior updating; explore and exploit by turns, the true "
          "maximum revealed at the end.")
+# ------------------------------------------------------------------ modern sequence models
+
+
+def _ssm():
+    from .ssm_anim import SSMRecurrence
+    return SSMRecurrence()
+
+
+register("ssm-recurrence", _ssm,
+         "A diagonal state space model on a sine wave with a step: the recurrence step by step, "
+         "the same output by convolution with the kernel K = C A^k B, then the step size changing "
+         "the kernel's length and the state's memory.")
+
+
+def _mamba():
+    from . import mamba, memory
+    from .mamba_anim import MambaSelection
+    return MambaSelection(mamba.trace(), memory.trace("rnn"),
+                          memory.trace("lstm", memory.FORGET_BIAS))
+
+
+register("mamba-selective-scan", _mamba,
+         "A minimal Mamba block on the memory task: the input-dependent step opening at the cue "
+         "and shutting on the noise, the state holding the cue across the gap, the parallel scan "
+         "in log2 n levels, and its training curve against the RNN's and the LSTM's.")
+
+
+def _cost():
+    from .cost_anim import ContextCost
+    return ContextCost()
+
+
+register("context-cost", _cost,
+         "What a growing context costs attention, a recurrence and an SSM: the n x n score "
+         "matrix against n sequential steps against a log2 n-level scan, operations per new "
+         "token, and GPT-2 small's KV cache growing against Mamba's fixed state.")
+
+
+def _moe():
+    from . import moe
+    from .moe_anim import MixtureOfExperts
+    return MixtureOfExperts(moe.train(moe.ALPHA), moe.train(0.0))
+
+
+register("mixture-of-experts", _moe,
+         "A tiny mixture of experts on a character language with regimes: tokens at the router, "
+         "the top-2 experts computing while the rest idle, outputs combined by the gate weights, "
+         "expert utilisation with and without the balancing loss.")
+
+
+def _rope():
+    from .rope_anim import RotaryEmbeddings
+    return RotaryEmbeddings()
+
+
+register("gpt2-rotary-embeddings", _rope,
+         "Rotary position embeddings: pairs of a query and a key rotated by position at "
+         "different frequencies, the dot product depending on the relative position only, "
+         "its decay with distance, against GPT-2's learned absolute positions.")
