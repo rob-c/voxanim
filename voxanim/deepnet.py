@@ -361,21 +361,27 @@ RECORDS = ("train_loss", "test_loss", "test_acc", "val_loss", "act_std", "grad_r
            "probe_z", "probe_y", "probe_a", "probe_m", "probe_g", "probe_beta", "field")
 
 
+PROBE_KEYS = ("z", "y", "a", "m")         # what a probe records, unless asked for less
+
+
 def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_layer=None,
-          grid=None, cache_dir=DEFAULT_CACHE, tag="deepnet") -> Run:
+          probe_keys=PROBE_KEYS, grid=None, cache_dir=DEFAULT_CACHE, tag="deepnet") -> Run:
     """Train ``spec`` on ``data`` for ``steps`` minibatch updates and record the
     run (cached under every setting).
 
     ``opt`` is ``"sgd"`` or ``"adam"``; the schedule of recorded steps is every
     ``every`` steps, or geometric (:data:`SNAPSHOT_RATIO`) when ``every`` is
     None.  ``probe_layer`` records that hidden layer's pre-activations, scaled
-    values and activations on each recorded step's minibatch; ``grid``
-    ``(G, inputs)`` records ``p(class 1)`` at those inputs.  Everything a
+    values, activations and dropout masks (``probe_keys`` picks fewer) on each
+    recorded step's minibatch; ``grid`` ``(G, inputs)`` records ``p(class 1)``
+    at those inputs.  Everything a
     recorded step shows is measured *before* that step's update.
     """
     settings = dict(spec.settings(), steps=steps, batch=batch, lr=lr, opt=opt, seed=seed,
                     every=every, probe_layer=probe_layer, data=data.settings(),
                     grid=None if grid is None else [list(grid.shape), float(np.abs(grid).sum())])
+    if tuple(probe_keys) != PROBE_KEYS:
+        settings["probe_keys"] = list(probe_keys)
     n = len(data.x_train)
     if every:
         marks = np.unique(np.concatenate([np.arange(0, steps, every), [steps]]))
@@ -409,7 +415,7 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
             for k, v in zip(("act_std", "grad_rms", "dz_rms"), layer_stats(spec, f, D)):
                 rec[k].append(v)
             if probe_layer is not None:
-                for k in ("z", "y", "a", "m"):
+                for k in probe_keys:
                     if f[k][probe_layer] is not None:
                         rec["probe_" + k].append(f[k][probe_layer])
                 if spec.norm:

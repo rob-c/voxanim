@@ -100,7 +100,7 @@ def runs(cache_dir=None):
     if cache_dir:
         kw["cache_dir"] = cache_dir
     return data, images, [train(spec, data, probe_layer=MASK_LAYER if spec.dropout else None,
-                                **kw) for _name, spec in RUNS]
+                                probe_keys=("m",), **kw) for _name, spec in RUNS]
 
 
 @dataclass
