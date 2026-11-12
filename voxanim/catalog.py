@@ -364,3 +364,16 @@ def _dtree():
 register("decision-tree", _dtree,
          "A decision tree (CART, Gini) grown on a 2-D, 3-class dataset: the threshold search, "
          "the splits, the regions, then new points falling down the tree.")
+
+
+# ------------------------------------------------------------------ training deep networks
+
+
+def _initialisation():
+    from . import init_anim
+    return init_anim.Initialisation(init_anim.runs())
+
+
+register("initialisation", _initialisation,
+         "A 20-layer tanh MLP under three weight scales: activation std and gradient per layer "
+         "(vanishing, exploding, Xavier), one layer's histogram, then which one learns.")
