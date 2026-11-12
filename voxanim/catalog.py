@@ -364,3 +364,17 @@ def _dtree():
 register("decision-tree", _dtree,
          "A decision tree (CART, Gini) grown on a 2-D, 3-class dataset: the threshold search, "
          "the splits, the regions, then new points falling down the tree.")
+
+
+# ------------------------------------------------------------------ Gaussian processes
+
+
+def _gp_prior():
+    from .gp_prior import PriorAnimation
+    return PriorAnimation()
+
+
+register("gp-prior", _gp_prior,
+         "A Gaussian process prior: the RBF kernel, its matrix over a grid, sample functions "
+         "drawn from it, then the lengthscale and the variance changing with the samples and the "
+         "matrix updating together.")
