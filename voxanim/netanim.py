@@ -318,6 +318,13 @@ class NetAnimation:
         raise NotImplementedError
 
 
+def column_pitch(cam, scale, px=14.0, least=1.75):
+    """Column pitch (in cells) at which a block's columns are at least ``px``
+    reference pixels apart on screen: room for a digit label under each."""
+    dx = abs(cam.M[0, 0]) * 960.0 / cam.width          # ref px per unit along x
+    return max(least, px / (dx * scale))
+
+
 # ------------------------------------------------------------------ output panel
 
 

@@ -364,3 +364,19 @@ def _dtree():
 register("decision-tree", _dtree,
          "A decision tree (CART, Gini) grown on a 2-D, 3-class dataset: the threshold search, "
          "the splits, the regions, then new points falling down the tree.")
+
+
+# ------------------------------------------------------------------ PCA and k-means
+
+
+def _pca_kmeans():
+    from . import pca_kmeans
+    from .pca_anim import PCAKMeans
+    return PCAKMeans(pca_kmeans.trace())
+
+
+register("pca-and-kmeans", _pca_kmeans,
+         "PCA of MNIST (the mean digit, the principal components as images, the variance each "
+         "explains, test digits on the PC 1 / PC 2 plane, a digit rebuilt from 2, 10 and 50 "
+         "components), then k-means on the two coordinates and how well its clusters match "
+         "the labels.")
