@@ -4,8 +4,9 @@
 
 - **Website:** light on weak machines and slow connections while every clip
   still animates: the grid plays thumbnails (the first half of each
-  animation at 480 px and 2 frames a second, a 2 s hold before the loop; 3 MB
-  for all 88 against 124 MB of full files), a hovered or focused clip plays
+  animation at 320 px and 12 frames a second, a 2 s hold before the loop;
+  about 5 MB for all 88 against 124 MB of full files), a hovered or focused
+  clip plays
   its full-rate 480 px preview, and the player plays the full file. Dark mode
   (system or button). The Pages workflow caches the release's media between
   builds.

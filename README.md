@@ -871,10 +871,10 @@ registry by `website/build_site.py`. `SECTIONS` there groups and titles the
 animations. The MP4s are not in git: the build takes them from the latest
 release, or from a local render, and makes three small files of each: a
 poster, a 480 px preview at full frame rate, and a thumbnail (the first half
-of the animation at 480 px and 2 frames a second, holding its last frame for
-2 s before it loops; 35 KB on average). The grid plays the thumbnails all
-the time, which costs a weak machine almost nothing; pointing at or focusing
-a clip plays its full-rate preview; opening it plays the full file. Under
+of the animation at 320 px and 12 frames a second, holding its last frame
+for 2 s before it loops; under 100 KB). The grid plays the thumbnails all
+the time, which costs a weak machine little; pointing at or focusing a clip
+plays its sharper full-rate preview; opening it plays the full file. Under
 reduced motion the thumbnails stay still. Dark mode follows the system or
 the "Dark mode" button (remembered per browser).
 

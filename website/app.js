@@ -2,8 +2,8 @@
 //
 // * A clip's frame holds its poster <img>.  While the clip is near the screen
 //   a <video> plays on top: the thumbnail (the first half of the animation at
-//   480 px and 2 frames a second, with a 2 s hold before it loops), a few
-//   tens of kilobytes and almost no decoding.  Off screen, the element goes.
+//   320 px and 12 frames a second, with a 2 s hold before it loops), under
+//   100 KB and cheap to decode.  Off screen, the element goes.
 // * While a clip is hovered or focused it plays its full-rate 480 px preview
 //   instead; clicking opens the player with the full 960×540 file.
 // * Under prefers-reduced-motion the thumbnails stay still (hover still

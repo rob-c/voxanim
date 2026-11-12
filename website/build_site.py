@@ -13,9 +13,9 @@ section naming one that does not exist, stops the build.
 animation ``media/<file>.mp4`` (the full render, for the player and the
 download), ``media/<file>-480.mp4`` (a 480 px preview at full frame rate,
 played while a clip is hovered or focused), ``media/<file>-thumb.mp4`` (what
-the grid plays all the time: the first half of the animation at 480 px and 2
-frames a second, holding its last frame for 2 s before it loops; a few tens
-of kilobytes) and a poster frame ``media/<file>.jpg``.  The MP4s are not
+the grid plays all the time: the first half of the animation at 320 px and
+12 frames a second, holding its last frame for 2 s before it loops; under
+100 KB) and a poster frame ``media/<file>.jpg``.  The MP4s are not
 committed to git: they come from a GitHub release (``gh release download``)
 or from a local ``build/out``; previews, thumbnails and posters that already
 exist in ``OUT`` are kept, so a cached ``media/`` makes a rebuild cheap.
@@ -47,7 +47,7 @@ POSTER_AT = 0.4          # poster frame, as a fraction of the animation's length
 POSTER_QUALITY = 4       # ffmpeg -q:v for the JPEG posters (2 best .. 31 worst)
 PREVIEW = dict(width=480, crf=28, preset="medium")   # full-rate preview, on hover
 PREVIEW_SUFFIX = "-480"
-THUMB = dict(width=480, fps=2, crf=30, half=True, hold=2.0)   # what the grid plays all the time
+THUMB = dict(width=320, fps=12, crf=30, half=True, hold=2.0)  # what the grid plays all the time
 THUMB_SUFFIX = "-thumb"
 
 # (anchor, heading, one-line introduction, [(preset name, title), ...]).
