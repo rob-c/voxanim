@@ -174,7 +174,9 @@ class QLearning(NetAnimation):
         stands), ``episode`` (1-based, shown in the counter), ``pos`` (the
         agent's world point, or None), ``path`` (cells of the episode so far),
         ``step`` (the last :class:`~voxanim.gridworld.Step` applied, or None),
-        ``eps`` and ``fresh`` (0..1: how recently the last update landed)."""
+        ``eps``, ``fresh`` (0..1: how recently the last update landed),
+        ``trail`` (the path's opacity) and ``numbers`` (the per-move numbers'
+        opacity: they go when the episodes get too fast to read)."""
         run, w = self.run, self.w
         st = dict(Q=run.Q[0], episode=1, pos=None, path=[], step=None, eps=epsilon(0), fresh=0.0,
                   trail=1.0, numbers=1.0)
