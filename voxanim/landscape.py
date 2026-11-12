@@ -254,6 +254,12 @@ LIFT = 0.55                        # how far above the surface walkers and lines
 CHART_INK = (0.5, 0.52, 0.54)
 
 
+def tick(v):
+    """An axis value as text: whole numbers plain, halves with one decimal."""
+    v = float(v)
+    return _num(v, 0) if abs(v - round(v)) < 1e-9 else _num(v, 1)
+
+
 def surface_colors(h):
     """Column colours for heights ``h`` in [0, 1] (low teal, high sand)."""
     a = np.clip(np.asarray(h, np.float64), 0.0, 1.0)[:, None] ** 0.8
@@ -370,9 +376,9 @@ class Landscape:
         for u, v in ((0.0, self.lo), (0.5, (self.lo + self.hi) / 2), (1.0, self.hi)):
             # w1 ticks under the lower edge; the first sits right of the corner,
             # out of the way of w2's last tick
-            put(p0 + (p1 - p0) * u, _num(v[0], 0), "lt" if u == 0 else "mt", dy=0.008,
+            put(p0 + (p1 - p0) * u, tick(v[0]), "lt" if u == 0 else "mt", dy=0.008,
                 ink=layout.NOTE_INK)
-            put(q0 + (q1 - q0) * u, _num(v[1], 0), "rm", dx=-0.008, ink=layout.NOTE_INK)
+            put(q0 + (q1 - q0) * u, tick(v[1]), "rm", dx=-0.008, ink=layout.NOTE_INK)
         put((p0 + p1) / 2, "w%s (%s)" % (_sub(1), FEATURE_NAMES[0]), "mt", dy=0.045)
         put((q0 + q1) / 2, "w%s (%s)" % (_sub(2), FEATURE_NAMES[1]), "rm", dx=-0.04)
 

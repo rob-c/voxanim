@@ -25,13 +25,16 @@ Then the learning rate too high (the walker never settles: its steps stay
 long around the minimum) and too low (it stops short in the steps given).
 
 **``optimisers``** -- *Optimisers on a narrow valley.*  The ill-conditioned
-landscape (ink times 8): SGD, momentum, RMSProp, Adam and AdamW from the
-same start.  SGD crosses the valley in one step, then crawls along it;
-momentum builds speed and overshoots; RMSProp and Adam divide each weight's
-step by the running size of its gradient (the raw gradient and the rescaled
-step are drawn as two arrows, the running moments as bars), so both weights
-move about ``eta`` a step and they reach the floor first; AdamW's decay
-holds it short of the minimum.  Who arrives in how many steps is counted.
+landscape (ink times 10): SGD, momentum, RMSProp, Adam and AdamW from the
+same start on the valley's steep wall, where the curvature across the
+valley is 19 and along it 0.07.  SGD, with the largest learning rate that is
+stable there (nine tenths of ``2 / 19``), crosses the valley in one step
+and then crawls along it; momentum builds speed, overshoots up the far wall
+and arrives late; RMSProp and Adam divide each weight's step by the running
+size of its gradient (each walker's step is drawn as an arrow, Adam's
+moments as bars), so both weights move about ``eta`` a step and they reach
+the floor first; AdamW's decay holds it short of the minimum.  Who arrives in
+how many steps is counted.
 """
 
 from __future__ import annotations
@@ -59,17 +62,19 @@ SGD_LR, SGD_STEPS = 3.0, 80         # the drunken walkers
 BATCHES = (1, 8, 64)
 LR_HIGH, LR_LOW = 8.0, 0.3          # the learning rate too high / too low
 SEEDS = {"b1": 11, "b8": 12, "b64": 13, "high": 14, "low": 15}   # one generator per walker
-ILL_LO, ILL_HI = (-5.0, -5.0), (3.0, 3.0)     # the drawn box of the narrow valley
-ILL_CAP = 4.0
-ILL_START = (0.3, 2.0)
+ILL_LO, ILL_HI = (-3.5, -5.0), (2.5, 3.0)     # the drawn box of the narrow valley
+ILL_CAP = 2.0
+ILL_START = (0.0, 1.0)              # on the steep wall: curvature 19 across, 0.07 along
 ILL_STEPS = 150
 ARRIVED = 0.01                      # "at the minimum": loss within this of the minimum
-# optimiser name -> (class, keyword arguments); the learning rates were chosen
-# so plain SGD is just stable across the valley (1.8 / largest curvature at
-# the origin) and the adaptive ones take steps of about 0.1 a weight
+# optimiser name -> (class, keyword arguments).  SGD takes nine tenths of its
+# stability limit 2 / 19.0 at the start (the steepest curvature on its path,
+# a test checks); momentum half of that (its steps build up to ten times the
+# gradient); the adaptive ones move about 0.1 a weight a step.
+SGD_STABLE = 0.9
 OPTIMISERS = {
-    "SGD": (SGD, dict(lr=0.11)),
-    "momentum": (Momentum, dict(lr=0.03, beta=0.9)),
+    "SGD": (SGD, dict(lr=0.095)),
+    "momentum": (Momentum, dict(lr=0.047, beta=0.9)),
     "RMSProp": (RMSProp, dict(lr=0.1)),
     "Adam": (Adam, dict(lr=0.1)),
     "AdamW": (AdamW, dict(lr=0.1, weight_decay=0.1)),
@@ -222,7 +227,7 @@ class LandscapeAnimation(NetAnimation):
             self.chart.label(sc, 0, self.Lmin, "min %.3f" % self.Lmin, layout.NOTE_INK, op,
                              dx=-0.006, anchor="rm", size=0.024)
 
-    def readout(self, sc, lines, op, y=READ_Y, dy=0.045, ink=None):
+    def readout(self, sc, lines, op, y=READ_Y, dy=0.045, ink=None, x=READ_X):
         """Lines of text under the chart (the first in strong ink)."""
         op *= self._cap
         if op <= 0.01:
@@ -231,7 +236,7 @@ class LandscapeAnimation(NetAnimation):
             if not line:
                 continue
             col = ink or (layout.STRONG_INK if n == 0 else layout.CAPTION_INK)
-            sc.text(READ_X, y + n * dy, line, 0.03 if n == 0 else 0.027, "regular", col, op, "lm")
+            sc.text(x, y + n * dy, line, 0.03 if n == 0 else 0.027, "regular", col, op, "lm")
 
 
 # ------------------------------------------------------------------ 1. gradient descent
@@ -404,17 +409,17 @@ class DrunkenWalk(LandscapeAnimation):
         d = self.sweep("full", SGD_STEPS, Tempo(slow=0.2, fast=0.03, ramp_in=3.0, ramp_out=1.0))
         Tm["full"] = (t, t + d)
         t += d + 1.2
-        d = self.sweep("walk", SGD_STEPS, Tempo(slow=1.0, fast=0.18, ramp_in=4.0, ramp_out=3.0))
+        d = self.sweep("walk", SGD_STEPS, Tempo(slow=1.0, fast=0.15, ramp_in=4.0, ramp_out=3.0))
         Tm["walk"] = (t, t + d)
         t += d + 0.4
-        Tm["spread"] = (t, t + 7.0)
-        t += 7.0 + 0.4
-        d = self.sweep("high", SGD_STEPS, Tempo(slow=0.6, fast=0.1, ramp_in=4.0, ramp_out=3.0))
+        Tm["spread"] = (t, t + 6.0)
+        t += 6.0 + 0.4
+        d = self.sweep("high", SGD_STEPS, Tempo(slow=0.6, fast=0.08, ramp_in=4.0, ramp_out=3.0))
         Tm["high"] = (t, t + d)
-        t += d + 2.0
-        d = self.sweep("low", SGD_STEPS, Tempo(slow=0.5, fast=0.08, ramp_in=4.0, ramp_out=3.0))
+        t += d + 1.5
+        d = self.sweep("low", SGD_STEPS, Tempo(slow=0.5, fast=0.06, ramp_in=4.0, ramp_out=3.0))
         Tm["low"] = (t, t + d)
-        t += d + 2.5
+        t += d + 2.0
         self.Tm = Tm
         self.finish(t)
         self.marks = [0.0, Tm["walk"][0], Tm["spread"][0], Tm["high"][0] - 0.4, Tm["low"][0] - 1.2]
@@ -446,7 +451,7 @@ class DrunkenWalk(LandscapeAnimation):
         if walkers:
             self.minibatch_walkers(sc, pos, spread, back)
         else:
-            self.rate_walkers(sc, high, low, back)
+            self.rate_walkers(sc, high, low, t >= self.marks[4], back)
         self.subtitle = self.words(t, ph, pos, spread, high, low)
         self.step_indicator(sc, ph, self.PHASES)
 
@@ -479,17 +484,18 @@ class DrunkenWalk(LandscapeAnimation):
                 sc.text(READ_X + 0.07, y + n * 0.04, "step σ = (%.2f, %.2f)" % (s1, s2),
                         0.026, "regular", _ink(BATCH_COLORS[b]), op, "lm")
 
-    def rate_walkers(self, sc, high, low, back):
-        """The too-high and too-low walkers, in turn, against the full path."""
+    def rate_walkers(self, sc, high, low, low_phase, back):
+        """The too-high and too-low walkers, in turn, against the full path;
+        ``low_phase`` once the read-out should follow the slow one."""
         runs = self.runs
         for key, pos, col, lr in (("high", high, HIGH_INK, LR_HIGH), ("low", low, LOW_INK, LR_LOW)):
-            if pos <= 0 and key == "low":
+            if not low_phase and key == "low":
                 continue
-            on = back * (1.0 if key == "low" or low <= 0 else 0.45)
+            on = back * (1.0 if key == "low" or not low_phase else 0.45)
             w, _L = self.walker(sc, runs[key], pos, col, on, (key,))
             self.chart.curve(sc, runs[key].loss, pos, col, on, width=1.3)
             k = min(int(round(pos)), SGD_STEPS)
-            if (key == "high" and low <= 0) or key == "low":
+            if (key == "high") != low_phase:
                 self.readout(sc, ["η = %g, B = 8" % lr, "step %d of %d" % (k, SGD_STEPS),
                                   "loss %.3f" % runs[key].loss[k],
                                   "|w %s w*| = %.2f" % (MINUS, np.linalg.norm(w - self.wmin))],
@@ -555,10 +561,12 @@ class Optimisers(LandscapeAnimation):
         prob = LS.problem().scaled(LS.ILL_SCALE)
         self.runs = optimiser_runs()
         super().__init__("Optimisers on a narrow valley", prob, ILL_LO, ILL_HI, ILL_CAP, ILL_STEPS,
-                         1.2)
+                         1.35)
         self.names = list(OPTIMISERS)
         self.arrival = {k: self.runs[k].first_within(self.Lmin, ARRIVED) for k in self.names}
         self.curv = np.linalg.eigvalsh(prob.hessian(ILL_START))
+        # the steepest curvature SGD meets on its way (at the start, in fact)
+        self.curv_max = max(np.linalg.eigvalsh(prob.hessian(w))[1] for w in self.runs["SGD"].w)
         # momentum's overshoot: the first dip, then the rise after it
         L = self.runs["momentum"].loss
         rise = np.nonzero(np.diff(L) > 0)[0]
@@ -644,7 +652,8 @@ class Optimisers(LandscapeAnimation):
     def moments(self, sc, k, op):
         """Adam's running moments for the two weights as bars: the raw gradient
         ``|g|``, the first moment ``|m|`` and the root second moment ``sqrt(v)``
-        (both bias-corrected), and the step they make."""
+        (both bias-corrected), and the step they make.  The bars are scaled to
+        the largest of the six each frame: what they show is their ratios."""
         op *= self._cap
         if op <= 0.01:
             return
@@ -656,11 +665,11 @@ class Optimisers(LandscapeAnimation):
         vh = np.sqrt(run.v[j] / (1 - 0.999 ** t))
         cam = self.cam
         x0, x1 = READ_X + 0.03, 0.945
-        scale = float(np.abs(run.g).max())            # the longest bar: the largest gradient
-        rows = (("gradient g", g, LS.ARROW_GRAD), ("m̂", mh, (0.42, 0.44, 0.47)),
-                ("√v̂", vh, (0.66, 0.68, 0.71)))
-        sc.text(READ_X, self.TABLE_Y, "Adam's moments, step %d" % t, 0.027, "regular",
-                layout.STRONG_INK, op, "lm")
+        scale = max(g.max(), mh.max(), vh.max(), 1e-12)  # the longest bar fills the row
+        rows = (("gradient g", g, LS.ARROW_GRAD), ("m", mh, (0.42, 0.44, 0.47)),
+                ("√v", vh, (0.66, 0.68, 0.71)))
+        sc.text(READ_X, self.TABLE_Y, "Adam's moments, step %d" % t, 0.027,
+                "regular", layout.STRONG_INK, op, "lm")
         x = READ_X
         for label, _val, col in rows:                 # the legend row, in the bars' colours
             sc.text(x, self.TABLE_Y + 0.036, label, 0.025, "regular", _ink(col), op, "lm")
@@ -676,7 +685,7 @@ class Optimisers(LandscapeAnimation):
                 b = cam.frac(*self.lay(x0 + (x1 - x0) * frac, yb))
                 sc.line(a, b, width=4.5, color=col, opacity=0.9 * op, bias=0.0)
         step = run.w[j + 1] - run.w[j]
-        sc.text(READ_X, self.TABLE_Y + 0.075 + 2 * 0.07 + 0.005, "step = η m̂ / √v̂ = %s"
+        sc.text(READ_X, self.TABLE_Y + 0.075 + 2 * 0.07 + 0.005, "step = η m / √v = %s"
                 % wtxt(step), 0.026, "regular", _ink(OPT_COLORS["Adam"]), op, "lm")
 
     def words(self, t, ph, first, pos, table):
@@ -684,14 +693,14 @@ class Optimisers(LandscapeAnimation):
         runs = self.runs
         if ph == 0:
             if t < self.Tm["rise"][1] or t >= self.t_done + self.hold:
-                return ("the same data with ink %s %d: the loss changes %d%s faster along w%s "
-                        "than along w%s, and the bowl becomes a narrow valley"
-                        % (TIMES, int(LS.ILL_SCALE), int(LS.ILL_SCALE ** 2), TIMES, sub(1),
-                           sub(2)))
+                return ("the same data with ink %s %d: the gradient along w%s is %d%s larger "
+                        "and the curvature %d%s, so the bowl becomes a narrow valley"
+                        % (TIMES, int(LS.ILL_SCALE), sub(1), int(LS.ILL_SCALE), TIMES,
+                           int(LS.ILL_SCALE ** 2), TIMES))
             return ("curvature at the start: %.1f across the valley, %.2f along it (ratio %d); "
-                    "plain SGD must keep η below 2/%.1f = %.2f to be stable"
+                    "plain SGD is unstable above η = 2/%.1f = %.3f, so it takes %g"
                     % (self.curv[1], self.curv[0], int(self.curv[1] / self.curv[0]),
-                       self.curv[1], 2 / self.curv[1]))
+                       self.curv_max, 2 / self.curv_max, self.sgd_lr))
         if ph == 1:
             g = runs["SGD"].g[0]
             if first < 0.5:
@@ -705,7 +714,7 @@ class Optimisers(LandscapeAnimation):
         if ph == 2:
             k = min(int(pos), ILL_STEPS)
             if k < self.dip + 2:
-                return ("SGD crosses the valley in one step (loss %.1f to %.2f), then creeps along "
+                return ("SGD crosses the valley in one step (loss %.2f to %.2f), then creeps along "
                         "it; momentum (lr %g, β = 0.9) gathers speed"
                         % (runs["SGD"].loss[0], runs["SGD"].loss[1],
                            OPTIMISERS["momentum"][1]["lr"]))
@@ -715,16 +724,18 @@ class Optimisers(LandscapeAnimation):
                         % (runs["momentum"].loss[self.dip], self.dip,
                            runs["momentum"].loss[self.peak], self.peak))
             if k < max(self.arrival["RMSProp"], 1) + 8:
-                return ("the adaptive steps shrink as the gradients settle (√v̂ remembers "
+                return ("the adaptive steps shrink as the gradients settle (√v remembers "
                         "their size); step %d: RMSProp %.3f, Adam %.3f, SGD %.3f"
                         % (k, runs["RMSProp"].loss[k], runs["Adam"].loss[k], runs["SGD"].loss[k]))
             return ("RMSProp is within %.2f of the minimum from step %d; Adam's momentum makes it "
                     "overshoot too, AdamW's decay (%g) holds it %.1f short (step %d)"
                     % (ARRIVED, self.arrival["RMSProp"], OPTIMISERS["AdamW"][1]["weight_decay"],
                        np.linalg.norm(runs["AdamW"].w[-1] - self.wmin), k))
-        return ("after %d steps: RMSProp arrived at step %d, AdamW at %d (its decay holds it %.1f "
-                "short), Adam at %d; momentum is %.1f%s further along the valley than SGD, "
-                "neither is there yet"
-                % (ILL_STEPS, self.arrival["RMSProp"], self.arrival["AdamW"],
-                   np.linalg.norm(runs["AdamW"].w[-1] - self.wmin), self.arrival["Adam"],
-                   self.along("momentum") / self.along("SGD"), TIMES))
+        order = sorted((k for k in self.names if self.arrival[k] >= 0), key=self.arrival.get)
+        late = [k for k in self.names if self.arrival[k] < 0]
+        return ("after %d steps: %s; %s"
+                % (ILL_STEPS,
+                   ", ".join("%s at step %d" % (k, self.arrival[k]) for k in order),
+                   "; ".join("%s is still %.1f from the minimum (loss %.3f)"
+                             % (k, np.linalg.norm(runs[k].w[-1] - self.wmin), runs[k].loss[-1])
+                             for k in late)))
