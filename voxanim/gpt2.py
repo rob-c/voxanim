@@ -42,6 +42,7 @@ FILES = {
 N_LAYER, N_HEAD, D_MODEL, D_HEAD = 12, 12, 768, 64
 D_MLP = 4 * D_MODEL              # 3072: the MLP's hidden width
 N_VOCAB = 50257                  # 256 bytes + 50,000 merges + <|endoftext|>
+N_CTX = 1024                     # positions: the context length (rows of wpe)
 
 
 def fetch(timeout=60):
