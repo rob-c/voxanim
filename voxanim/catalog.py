@@ -378,3 +378,25 @@ register("gp-prior", _gp_prior,
          "A Gaussian process prior: the RBF kernel, its matrix over a grid, sample functions "
          "drawn from it, then the lengthscale and the variance changing with the samples and the "
          "matrix updating together.")
+
+
+def _gp_posterior():
+    from .gp_posterior import PosteriorAnimation
+    return PosteriorAnimation()
+
+
+register("gp-posterior", _gp_posterior,
+         "Conditioning a GP on data: six observations of a stated function arrive one at a time "
+         "and the posterior mean and band update exactly; the matrices K, k*, k** and the formula "
+         "light up piece by piece; then the same with observation noise.")
+
+
+def _gp_kernels():
+    from .gp_kernels import KernelsAnimation
+    return KernelsAnimation()
+
+
+register("gp-kernels", _gp_kernels,
+         "Kernels are assumptions: the same 7 points fitted with RBF, Matérn 3/2, periodic, "
+         "linear and periodic + RBF kernels (hyperparameters fitted by maximising the marginal "
+         "likelihood): the posterior of each, how it extrapolates, and log p(y) as a read-out.")

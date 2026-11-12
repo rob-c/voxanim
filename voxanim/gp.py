@@ -198,6 +198,24 @@ class Sum(Kernel):
                 **{"2." + k: v for k, v in self.k2.dK(a, b).items()}}
 
 
+def scaled(kernel, c):
+    """``kernel`` with every variance multiplied by ``c``: ``c k(x, x')``.  A
+    morph ``(1 - u) k1 + u k2`` (see :func:`blend`) is then a kernel too."""
+    return kernel.set_params({k: v * c for k, v in kernel.params.items()
+                              if k.split(".")[-1] == "variance"})
+
+
+def blend(k1, k2, u):
+    """The kernel ``(1 - u) k1 + u k2``: an exact kernel at every ``u`` in [0, 1],
+    so an animation can morph one posterior into another through real
+    posteriors (``k1`` at 0, ``k2`` at 1)."""
+    if u <= 0:
+        return k1
+    if u >= 1:
+        return k2
+    return Sum(scaled(k1, 1.0 - u), scaled(k2, u))
+
+
 # ------------------------------------------------------------------ linear algebra
 
 
