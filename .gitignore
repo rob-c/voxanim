@@ -12,3 +12,5 @@ __pycache__/
 *.part
 # the website as website/build_site.py writes it
 _site/
+# Claude Code worktrees
+.claude/
