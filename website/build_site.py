@@ -111,6 +111,13 @@ SECTIONS = [
     ("transformers", "Transformers",
      "GPT-2 small reading a real prompt, from one attention head to all 12 layers.",
      [("gpt2-attention", "Inside GPT-2")]),
+    ("modern", "Modern sequence models",
+     "State spaces, selection, experts and rotary positions.",
+     [("ssm-recurrence", "State space models: one recurrence, two views"),
+      ("mamba-selective-scan", "Mamba: selection"),
+      ("context-cost", "The cost of context: attention, RNN, SSM"),
+      ("mixture-of-experts", "Mixture of experts"),
+      ("gpt2-rotary-embeddings", "Rotary position embeddings")]),
 ]
 
 
