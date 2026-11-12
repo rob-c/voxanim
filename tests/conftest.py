@@ -52,7 +52,8 @@ def _module(p):
 CONV_PRESETS = [n for n, p in presets.REGISTRY.items()
                 if _module(p) in ("voxanim.presets", "voxanim.lessons")]
 NO_DATA = set(CONV_PRESETS) | {"rnn-training-step", "lstm-training-step", "rnn-batch-training",
-                               "gated-memory", "gradient-descent", "decision-tree"}
+                               "gated-memory", "gradient-descent", "decision-tree",
+                               "autodiff-graph"}
 
 
 def data_marks(name):
