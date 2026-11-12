@@ -65,8 +65,8 @@ def test_page():
         assert c["thumb"] == "media/%s-thumb.mp4" % media
         assert c["gif"].endswith("/releases/download/v9.9.9/%s.gif" % media)
         assert c["seconds"] == 30 and c["about"]
-    # one lazy poster per clip; app.js adds the videos (the page works without it)
-    assert page.count('loading="lazy"') == len(p.clips) and "<video" not in page.split("<dialog")[0]
-    # the cue to click on every clip and on the hero (which is a clip too)
-    assert page.count('class="open"') == len(p.clips) + 1
-    assert page.count("data-clip=") == len(p.clips) + 1
+    # one lazy poster per grid clip (the hero's loads eagerly); app.js adds the
+    # videos, so the page works without it; the cue to click on every clip
+    grid = len(p.clips) - 1
+    assert page.count('loading="lazy"') == grid and "<video" not in page.split("<dialog")[0]
+    assert page.count('class="open"') == grid + 1 and page.count("data-clip=") == grid + 1
