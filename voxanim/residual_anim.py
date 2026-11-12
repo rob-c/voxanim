@@ -40,6 +40,7 @@ from .deepnet import Spec, backward, forward, subset, train
 from .easing import ease_in_out, remap, smoothstep
 from .losschart import LossChart, pow10
 from .netanim import ACT_HI, NetAnimation, lit_colors, particle
+from .sweep import Sweep
 
 DEPTH, WIDTH = 30, 16
 SIZES = (784,) + (WIDTH,) * DEPTH + (10,)
@@ -140,11 +141,11 @@ class SkipConnections(NetAnimation):
             t += d + gap
 
         add("networks", 4.5, 0.3)
-        fw = Tempo(slow=0.55, fast=0.11, ramp_in=3.0, ramp_out=2.0).durations(DEPTH)
-        self.f_starts, self.f_durs = t + np.concatenate([[0.0], np.cumsum(fw)[:-1]]), fw
-        add("fwd", float(fw.sum()), 2.0)
-        self.b_starts, self.b_durs = t + np.concatenate([[0.0], np.cumsum(fw)[:-1]]), fw
-        add("bwd", float(fw.sum()), 2.2)
+        tempo = Tempo(slow=0.55, fast=0.11, ramp_in=3.0, ramp_out=2.0)
+        self.fwd = Sweep(t, DEPTH, tempo)
+        add("fwd", self.fwd.duration, 2.0)
+        self.bwd = Sweep(t, DEPTH, tempo)
+        add("bwd", self.bwd.duration, 2.2)
         add("train", 11.0, 0.3)
         self.Tm = Tm
         self.finish(t)
@@ -153,16 +154,6 @@ class SkipConnections(NetAnimation):
     def step_of(self, t):
         """Index into :attr:`PHASES` of the phase running at time ``t``."""
         return int(np.searchsorted(self.marks, t, side="right") - 1)
-
-    def _sweep(self, t, name, starts, durs):
-        """``(layers done, current layer, its progress)`` of a column sweep;
-        the current layer is -1 before the sweep and ``DEPTH`` after it."""
-        if t < self.Tm[name][0]:
-            return 0, -1, 0.0
-        if t >= self.Tm[name][1]:
-            return DEPTH, DEPTH, 0.0
-        k = int(np.searchsorted(starts, t, side="right") - 1)
-        return k, k, (t - starts[k]) / durs[k]
 
     # ------------------------------------------------------------------ frame
     def draw(self, sc, t, reset):
@@ -184,8 +175,8 @@ class SkipConnections(NetAnimation):
         ][ph]
         back = 1.0 - ease_in_out(remap(reset, 0.0, 0.7))
         intro = smoothstep(0.0, 0.6, t)
-        done_f, nf, uf = self._sweep(t, "fwd", self.f_starts, self.f_durs)
-        done_b, nb, ub = self._sweep(t, "bwd", self.b_starts, self.b_durs)
+        done_f, nf, uf = self.fwd.at(t)
+        done_b, nb, ub = self.bwd.at(t)
         train = self.progress("train", t)
         notes = (1.0 - smoothstep(0.0, 0.12, train)) * back
         self._bands(sc, t, done_f, nf, uf, done_b, nb, ub, back * intro)
