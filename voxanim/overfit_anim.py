@@ -49,7 +49,8 @@ WEIGHT_DECAY, DROPOUT = 1e-2, 0.5
 RUNS = (("plain", Spec(SIZES, "tanh")),
         ("weight decay", Spec(SIZES, "tanh", weight_decay=WEIGHT_DECAY)),
         ("dropout", Spec(SIZES, "tanh", dropout=DROPOUT)))
-TRAIN = dict(steps=2000, batch=N_TRAIN, lr=0.001, opt="adam", probe_layer=0)
+TRAIN = dict(steps=2000, batch=N_TRAIN, lr=0.001, opt="adam")
+MASK_LAYER = 0                                   # the dropout run records this layer's masks
 CLASS_COLORS = (C.rgb("#e0962a"), C.rgb("#3f7fd0"))          # a 3, an 8
 TRAIN_INK = tuple(float(v) for v in C.INPUT)
 TEST_INK = (0.75, 0.22, 0.22)
@@ -98,7 +99,8 @@ def runs(cache_dir=None):
     kw = dict(TRAIN, grid=grid())
     if cache_dir:
         kw["cache_dir"] = cache_dir
-    return data, images, [train(spec, data, **kw) for _name, spec in RUNS]
+    return data, images, [train(spec, data, probe_layer=MASK_LAYER if spec.dropout else None,
+                                **kw) for _name, spec in RUNS]
 
 
 @dataclass

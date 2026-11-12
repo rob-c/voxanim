@@ -188,5 +188,6 @@ def test_overfitting_claims():
     assert wd.test_loss[-1] < 0.6 and wd.test_acc[-1] >= 0.78 and wd.train_loss[-1] > 0.2
     assert drop.test_loss[-1] < 0.6 and drop.test_acc[-1] >= 0.75
     assert plain.field.shape == (len(plain.steps), A.GRID * A.GRID)
-    assert drop.probe["m"].shape == (len(drop.steps), A.N_TRAIN, A.SIZES[1])
+    assert drop.probe["m"].shape == (len(drop.steps), A.N_TRAIN, A.SIZES[A.MASK_LAYER + 1])
+    assert plain.probe == {}
     assert abs(drop.probe["m"].mean() - (1 - A.DROPOUT)) < 0.02

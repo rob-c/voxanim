@@ -435,8 +435,9 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
         out.update({"stats_" + k: v for k, v in stats.items()})
         for k, v in rec.items():
             if v:
-                out[k] = np.array(v, np.float32 if k.startswith(("probe", "field")) else
-                                  np.float64)
+                dtype = bool if k == "probe_m" else (
+                    np.float32 if k.startswith(("probe", "field")) else np.float64)
+                out[k] = np.array(v, dtype)
         return out
 
     d = cached_npz(tag, settings, build, cache_dir)
