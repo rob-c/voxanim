@@ -644,3 +644,48 @@ register("pca-and-kmeans", _pca_kmeans,
          "explains, test digits on the PC 1 / PC 2 plane, a digit rebuilt from 2, 10 and 50 "
          "components), then k-means on the two coordinates and how well its clusters match "
          "the labels.")
+# ------------------------------------------------------------------ training deep networks
+
+
+def _initialisation():
+    from . import init_anim
+    return init_anim.Initialisation(init_anim.runs())
+
+
+register("initialisation", _initialisation,
+         "A 20-layer tanh MLP under three weight scales: activation std and gradient per layer "
+         "(vanishing, exploding, Xavier), one layer's histogram, then which one learns.")
+
+
+def _skip_connections():
+    from . import residual_anim
+    return residual_anim.SkipConnections(*residual_anim.runs())
+
+
+register("skip-connections", _skip_connections,
+         "A 30-layer plain ReLU MLP against the same with a skip every two layers: the "
+         "activations fading forward, the gradient shrinking back layer by layer (log scale) "
+         "or arriving intact along the skips, then the training curves.")
+
+
+def _normalisation():
+    from . import norm_anim
+    return norm_anim.Normalisation(norm_anim.runs())
+
+
+register("normalisation", _normalisation,
+         "One hidden layer of a deep MLP mid-training: a minibatch's pre-activations as a sheet, "
+         "batch norm down each column, layer norm across each row, the learned scale and shift, "
+         "the histograms before and after, then training with and without at a high learning "
+         "rate.")
+
+
+def _overfitting():
+    from . import overfit_anim
+    return overfit_anim.Overfitting(*overfit_anim.runs())
+
+
+register("overfitting", _overfitting,
+         "A wide MLP overfitting 60 points (MNIST 3s and 8s on two principal components): the "
+         "decision field wrapping around the training points while the test loss climbs; then "
+         "weight decay, dropout (live mask) and early stopping on a validation set.")
