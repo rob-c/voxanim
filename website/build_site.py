@@ -111,6 +111,11 @@ SECTIONS = [
     ("transformers", "Transformers",
      "GPT-2 small reading a real prompt, from one attention head to all 12 layers.",
      [("gpt2-attention", "Inside GPT-2")]),
+    ("behaviour", "What language models know, and don't",
+     "Hallucination, conditioning and calibration, measured on GPT-2.",
+     [("gpt2-hallucination", "Why a model makes things up"),
+      ("gpt2-conditioning", "The prompt steers the distribution"),
+      ("gpt2-calibration", "Confidence is not correctness")]),
 ]
 
 
