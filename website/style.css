@@ -1,10 +1,12 @@
 /* voxanim website.
  *
- * The page is the animations' own studio floor: the grey the renders fade to
- * at their edges, their typeface (Inter) and the blue of their step bar.  The
- * videos have no frames; their edges feather into the floor.  The page is
- * light only, like the animations: on a dark page every clip would become a
- * bright box.
+ * Light mode is the animations' own studio floor: the grey the renders fade
+ * to at their edges, their typeface (Inter) and the blue of their step bar.
+ * Dark mode keeps the clips as they are (their grey is part of the picture)
+ * and shows each as a slide on a dark wall.  Everything else is text.
+ *
+ * Nothing here costs the viewer's machine: no masks or filters on the grid,
+ * one mask on the hero clip in light mode, transitions only on opacity.
  */
 
 :root {
@@ -15,9 +17,44 @@
   --rule: #c4c4c4;
   --blue: #1d52a8;       /* the active step in the animations' step bar, 5.2:1 */
   --scrim: rgb(28 28 28 / 0.6);
+  --code: #cdcdcd;
+  --button: #9a9a9a;
+  --clip: #d8d8d8;       /* behind a clip while its poster loads */
+  --clip-radius: 0px;
+  --clip-shadow: none;
   --gutter: clamp(16px, 4vw, 40px);
   --measure: 34rem;
   --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Dark: by system preference unless the page chose, and when it chose dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --floor: #1b1c1e;
+    --ink: #e8e8e6;
+    --ink-2: #a8aaad;
+    --rule: #3a3c40;
+    --blue: #8db4f2;
+    --scrim: rgb(0 0 0 / 0.7);
+    --code: #2a2c30;
+    --button: #6a6c70;
+    --clip-radius: 8px;
+    --clip-shadow: 0 2px 14px rgb(0 0 0 / 0.5);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --floor: #1b1c1e;
+  --ink: #e8e8e6;
+  --ink-2: #a8aaad;
+  --rule: #3a3c40;
+  --blue: #8db4f2;
+  --scrim: rgb(0 0 0 / 0.7);
+  --code: #2a2c30;
+  --button: #6a6c70;
+  --clip-radius: 8px;
+  --clip-shadow: 0 2px 14px rgb(0 0 0 / 0.5);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -49,14 +86,24 @@ p { margin: 0; max-width: var(--measure); }
 }
 .skip:focus { top: 8px; }
 
+button {
+  font: inherit; font-size: 0.875rem; color: var(--ink); cursor: pointer;
+  background: transparent; border: 1px solid var(--button); padding: 4px 12px;
+  border-radius: 3px;
+}
+button:hover { border-color: var(--ink); }
+button[aria-pressed="true"] { border-color: var(--ink); }
+
 /* ------------------------------------------------------------ top bar */
 
 .top {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
-  max-width: 1280px; margin: 0 auto; padding: 22px var(--gutter) 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px 24px;
+  flex-wrap: wrap;
+  max-width: 1280px; margin: 0 auto; padding: 18px var(--gutter) 0;
 }
 .brand { color: var(--ink); text-decoration: none; font-weight: 600; font-size: 1.125rem; }
-.top nav { display: flex; gap: 24px; font-size: 0.9375rem; }
+.top nav { display: flex; gap: 24px; font-size: 0.9375rem; margin-right: auto; }
+.prefs { display: flex; gap: 8px; }
 
 /* ------------------------------------------------------------ hero */
 
@@ -66,16 +113,24 @@ p { margin: 0; max-width: var(--measure); }
 }
 .hero h1 { font-size: clamp(2.125rem, 1.4rem + 2.6vw, 3.5rem); letter-spacing: -0.025em; }
 .hero p { margin-top: 20px; color: var(--ink-2); font-size: 1.125rem; }
-.hero-video { --feather: 10%; }   /* its bright centre needs a longer fade */
 @media (min-width: 960px) {
   .hero { grid-template-columns: minmax(0, 5fr) minmax(0, 9fr); align-items: end; gap: 40px; }
   .hero-text { padding-bottom: 7%; }
 }
 
-/* Every video: no frame, edges feathered into the floor. */
-video {
-  display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--floor);
-  --feather: 6%;
+/* A clip: its poster, and its preview video on top while it plays. */
+.frame {
+  position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden;
+  background: var(--clip); border-radius: var(--clip-radius); box-shadow: var(--clip-shadow);
+}
+.frame img, .frame video {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+}
+.frame video { opacity: 0; }
+.frame video.on { opacity: 1; transition: opacity 0.25s; }
+/* in light mode the hero's edges feather into the floor (one mask, one element) */
+.hero-video {
+  --feather: 10%;
   -webkit-mask-image:
     linear-gradient(to right, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent),
     linear-gradient(to bottom, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent);
@@ -85,6 +140,10 @@ video {
     linear-gradient(to bottom, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent);
   mask-composite: intersect;
 }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .hero-video { -webkit-mask-image: none; mask-image: none; }
+}
+:root[data-theme="dark"] .hero-video { -webkit-mask-image: none; mask-image: none; }
 
 /* ------------------------------------------------------------ section steps
  * The section index works like the step bar along the top of each
@@ -144,7 +203,7 @@ video {
 .make p { margin-top: 14px; color: var(--ink-2); }
 pre {
   margin: 20px 0 0; padding: 16px 18px; max-width: 40rem; overflow-x: auto;
-  background: #cdcdcd; color: var(--ink);
+  background: var(--code); color: var(--ink);
   font: 0.875rem/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
@@ -165,11 +224,10 @@ dialog::backdrop { background: var(--scrim); }
   dialog[open] { animation: open 180ms ease-out; }
   @keyframes open { from { opacity: 0; transform: translateY(8px); } }
 }
-/* in the player the controls sit on the video: no feathering */
-.player-media video { -webkit-mask-image: none; mask-image: none; }
 .player-bar { display: flex; justify-content: flex-end; padding: 10px 12px 2px; }
+.player-media video { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--clip); }
 .player-text {
-  display: grid; gap: 14px 40px; padding: 8px 28px 28px;
+  display: grid; gap: 14px 40px; padding: 16px 28px 28px;
   grid-template-columns: minmax(0, 1fr);
 }
 .player-text h2 { font-size: 1.625rem; }
@@ -179,17 +237,12 @@ dialog::backdrop { background: var(--scrim); }
 .player-cmd-label { font-size: 0.9375rem; color: var(--ink-2); margin-bottom: -8px; }
 .player-cmd {
   display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px;
-  background: #cdcdcd; max-width: 40rem;
+  background: var(--code); max-width: 40rem;
 }
 .player-cmd code {
   flex: 1; min-width: 0; overflow-wrap: anywhere;
   font: 0.875rem/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
-button {
-  font: inherit; font-size: 0.875rem; color: var(--ink); cursor: pointer;
-  background: transparent; border: 1px solid #9a9a9a; padding: 4px 12px;
-}
-button:hover { border-color: var(--ink); }
 @media (min-width: 820px) {
   .player-text { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
   .player-text h2, .player-about { grid-column: 1; }
@@ -197,5 +250,4 @@ button:hover { border-color: var(--ink); }
   .player-about { grid-row: 2 / span 4; }
   .player-length, .player-files, .player-cmd-label, .player-cmd { grid-column: 2; }
   .player-length { grid-row: 1; align-self: end; }
-  .player-text { padding-top: 16px; }
 }

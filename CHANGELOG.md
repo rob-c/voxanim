@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Website:** light on weak machines and slow connections. Clips are
+  lazy-loaded posters until on screen, then 480 px previews (19 MB for all 88
+  against 124 MB of full files) play at most two at a time; the full file is
+  only loaded in the player; previews are off under reduced motion or data
+  and by a button; a dark mode (system or button). The Pages workflow caches
+  the release's media and previews between builds.
+
 ## 1.2.0
 
 Thirty-three new animations in nine families, for a year of lectures. Every

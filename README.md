@@ -869,7 +869,13 @@ everything except GPT-2.
 The website (`website/`) is one static page generated from the preset
 registry by `website/build_site.py`. `SECTIONS` there groups and titles the
 animations. The MP4s are not in git: the build takes them from the latest
-release, or from a local render:
+release, or from a local render, and makes a poster and a 480 px preview
+(about a tenth of the size) of each. The page is light on the viewer's
+machine and connection: a clip is a lazy-loaded poster until it is on
+screen, then its preview plays, at most two at a time, and the full file is
+only loaded in the player; previews are off under reduced motion or data,
+on slow connections, or by the "Previews" button; dark mode follows the
+system or the "Dark mode" button (both choices are remembered per browser).
 
 ```bash
 python3 website/build_site.py _site --media build/out   # needs ffmpeg

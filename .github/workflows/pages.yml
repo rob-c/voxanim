@@ -32,6 +32,16 @@ jobs:
           cache-dependency-path: requirements-lock.txt
       - run: python -m pip install -r requirements-lock.txt
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - id: release
+        run: echo "tag=$(gh release view -R ${{ github.repository }} --json tagName -q .tagName)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      # The release's MP4s and their previews and posters, so only the first
+      # build after a release downloads and encodes them.
+      - uses: actions/cache@v4
+        with:
+          path: _site/media
+          key: site-media-${{ steps.release.outputs.tag }}-${{ hashFiles('website/build_site.py') }}
       - run: python website/build_site.py _site
         env:
           GH_TOKEN: ${{ github.token }}

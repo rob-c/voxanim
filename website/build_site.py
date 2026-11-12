@@ -9,13 +9,16 @@ descriptions) and :data:`SECTIONS` (how the animations are grouped and titled),
 so it cannot drift from the code: a preset missing from :data:`SECTIONS`, or a
 section naming one that does not exist, stops the build.
 
-``OUT`` receives ``index.html``, the stylesheet and script, ``media/<file>.mp4``
-and a poster frame ``media/<file>.jpg`` for each animation.  The MP4s are not
-committed to git: they come from a GitHub release (``gh release download``)
-or from a local ``build/out``.  Download links point at the same release's
-assets.  Needs ``ffmpeg``/``ffprobe`` for the posters and durations, and the
-GitHub CLI unless ``--media`` is given.  The Pages workflow
-(``.github/workflows/pages.yml``) runs exactly this.
+``OUT`` receives ``index.html``, the stylesheet and script, and for each
+animation ``media/<file>.mp4`` (the full render, for the player and the
+download), ``media/<file>-480.mp4`` (a small preview for the grid: 480 px
+wide, about a tenth of the size) and a poster frame ``media/<file>.jpg``.
+The MP4s are not committed to git: they come from a GitHub release
+(``gh release download``) or from a local ``build/out``; previews and posters
+that already exist in ``OUT`` are kept, so a cached ``media/`` makes a rebuild
+cheap.  Download links point at the same release's assets.  Needs
+``ffmpeg``/``ffprobe``, and the GitHub CLI unless ``--media`` is given.  The
+Pages workflow (``.github/workflows/pages.yml``) runs exactly this.
 """
 
 from __future__ import annotations
@@ -38,6 +41,9 @@ REPO = os.environ.get("GITHUB_REPOSITORY", "rob-c/voxanim")
 STATIC = ("style.css", "app.js")
 HERO = "conv2d"
 POSTER_AT = 0.4          # poster frame, as a fraction of the animation's length
+POSTER_QUALITY = 4       # ffmpeg -q:v for the JPEG posters (2 best .. 31 worst)
+PREVIEW = dict(width=480, crf=28, preset="medium")   # the grid's small H.264 previews
+PREVIEW_SUFFIX = "-480"
 
 # (anchor, heading, one-line introduction, [(preset name, title), ...]).
 # Every registered preset appears exactly once; the build checks it.
@@ -212,11 +218,11 @@ def fetch_media(dest, media_dir, tag, files):
     os.makedirs(dest, exist_ok=True)
     if media_dir is None:
         subprocess.run(["gh", "release", "download", tag, "-R", REPO, "--pattern", "*.mp4",
-                        "--dir", dest, "--clobber"], check=True)
+                        "--dir", dest, "--skip-existing"], check=True)
     else:
         for f in files:
             src = os.path.join(media_dir, f + ".mp4")
-            if os.path.exists(src):
+            if os.path.exists(src) and not os.path.exists(os.path.join(dest, f + ".mp4")):
                 shutil.copyfile(src, os.path.join(dest, f + ".mp4"))
     absent = [f for f in files if not os.path.exists(os.path.join(dest, f + ".mp4"))]
     if absent:
@@ -231,9 +237,24 @@ def duration(mp4):
 
 
 def poster(mp4, jpg, seconds):
-    """Write the frame at ``seconds`` of ``mp4`` to ``jpg``."""
+    """Write the frame at ``seconds`` of ``mp4`` to ``jpg`` (kept if it exists)."""
+    if os.path.exists(jpg):
+        return
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % seconds, "-i", mp4,
-                    "-frames:v", "1", "-q:v", "3", jpg], check=True)
+                    "-frames:v", "1", "-q:v", str(POSTER_QUALITY), jpg], check=True)
+
+
+def preview(mp4, out):
+    """Encode the grid's small preview of ``mp4`` to ``out`` (kept if it exists):
+    :data:`PREVIEW` pixels wide, silent, moov atom first so it starts at once."""
+    if os.path.exists(out):
+        return
+    tmp = out + ".part.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", mp4,
+                    "-vf", "scale=%d:-2" % PREVIEW["width"], "-c:v", "libx264",
+                    "-preset", PREVIEW["preset"], "-crf", str(PREVIEW["crf"]),
+                    "-pix_fmt", "yuv420p", "-an", "-movflags", "+faststart", tmp], check=True)
+    os.replace(tmp, out)
 
 
 def clip_html(name, title, p, secs, tag):
@@ -244,19 +265,24 @@ def clip_html(name, title, p, secs, tag):
     data = {
         "name": name, "title": title, "about": about, "seconds": round(secs),
         "mp4": "media/%s.mp4" % p.media,
+        "preview": "media/%s%s.mp4" % (p.media, PREVIEW_SUFFIX),
+        "poster": "media/%s.jpg" % p.media,
         "gif": "https://github.com/%s/releases/download/%s/%s.gif" % (REPO, tag, p.media),
         "manifest": "https://github.com/%s/releases/download/%s/%s.json" % (REPO, tag, p.media),
     }
+    # the poster is a lazy <img>; app.js adds the preview <video> while the clip is on screen
     return (
         '<li class="clip" id="%(name)s">\n'
         '  <a href="#%(name)s" data-clip=\'%(data)s\'>\n'
-        '    <video muted loop playsinline preload="none" poster="media/%(media)s.jpg"'
-        ' data-src="media/%(media)s.mp4" aria-hidden="true"></video>\n'
+        '    <span class="frame" data-preview="%(preview)s">'
+        '<img src="%(poster)s" width="960" height="540" loading="lazy" decoding="async" alt="">'
+        '</span>\n'
         '    <span class="clip-title">%(title)s</span>\n'
         '  </a>\n'
         '  <p>%(first)s</p>\n'
         '</li>' % dict(name=esc(name), data=esc(json.dumps(data, ensure_ascii=False), quote=True),
-                       media=esc(p.media), title=esc(title), first=esc(first)))
+                       preview=esc(data["preview"]), poster=esc(data["poster"]), title=esc(title),
+                       first=esc(first)))
 
 
 def page_html(durations, tag, sections=SECTIONS):
@@ -293,6 +319,7 @@ def build(out, media_dir=None, tag=None):
         mp4 = os.path.join(media, p.media + ".mp4")
         durations[name] = duration(mp4)
         poster(mp4, os.path.join(media, p.media + ".jpg"), POSTER_AT * durations[name])
+        preview(mp4, os.path.join(media, p.media + PREVIEW_SUFFIX + ".mp4"))
     for f in STATIC:
         shutil.copyfile(os.path.join(HERE, f), os.path.join(out, f))
     with open(os.path.join(out, "index.html"), "w", encoding="utf-8") as fh:

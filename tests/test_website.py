@@ -60,5 +60,8 @@ def test_page():
     for c in p.clips:
         media = presets.REGISTRY[c["name"]].media
         assert c["mp4"] == "media/%s.mp4" % media
+        assert c["preview"] == "media/%s-480.mp4" % media and c["poster"] == "media/%s.jpg" % media
         assert c["gif"].endswith("/releases/download/v9.9.9/%s.gif" % media)
         assert c["seconds"] == 30 and c["about"]
+    # the grid is posters until a clip is on screen: one lazy image per clip, no <video>
+    assert page.count('loading="lazy"') == len(p.clips) and "<video" not in page.split("<dialog")[0]
