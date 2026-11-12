@@ -131,6 +131,17 @@ class LossChart:
             sc.line(a + (b - a) * u0, a + (b - a) * u1, width=width, color=ink, opacity=0.8 * op,
                     bias=0.0)
 
+    def hline(self, sc, place, y, op, dashes=12, width=0.9):
+        """A dashed horizontal line at loss ``y`` (chance, say)."""
+        if op <= 0.01:
+            return
+        f = self.fy(y)
+        a, b = place(self.x0, f), place(self.x1, f)
+        for i in range(dashes):
+            u0, u1 = i / dashes, (i + 0.5) / dashes
+            sc.line(a + (b - a) * u0, a + (b - a) * u1, width=width, color=AXIS,
+                    opacity=0.6 * op, bias=0.0)
+
     def legend(self, sc, cam, entries, op, at, step=0.042, size=layout.MIN_TEXT, anchor="lm"):
         """``entries`` ``[(text, ink), ...]`` stacked from layout point ``at``."""
         if op <= 0.01:

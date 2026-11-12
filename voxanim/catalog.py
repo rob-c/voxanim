@@ -388,3 +388,15 @@ register("skip-connections", _skip_connections,
          "A 30-layer plain ReLU MLP against the same with a skip every two layers: the "
          "activations fading forward, the gradient shrinking back layer by layer (log scale) "
          "or arriving intact along the skips, then the training curves.")
+
+
+def _normalisation():
+    from . import norm_anim
+    return norm_anim.Normalisation(norm_anim.runs())
+
+
+register("normalisation", _normalisation,
+         "One hidden layer of a deep MLP mid-training: a minibatch's pre-activations as a sheet, "
+         "batch norm down each column, layer norm across each row, the learned scale and shift, "
+         "the histograms before and after, then training with and without at a high learning "
+         "rate.")
