@@ -248,6 +248,20 @@ not kept; the numbers are, below). Mean loss of the last 200 steps after
 With Adam, the plain RNN learns gaps of 19 to 31 steps in most seeds, so
 shorter gaps would not have separated the cells.
 
+### Training deep networks (`deepnet.py`; `overfit_anim.py`, `init_anim.py`, `residual_anim.py`, `norm_anim.py`)
+
+Four animations on one model: `deepnet.py` is a deep MLP in plain numpy with every knob that makes depth trainable — depth and width, tanh or ReLU, a normal init of chosen std, Xavier or He, residual connections every layer or every two, batch norm or layer norm (before the activation, with a learned scale and shift), dropout and weight decay. Its forward and backward passes are checked against finite differences option by option, including through both norms and the residual path, and its backward pass also returns the gradient reaching every hidden layer, which is what the bands draw. `train()` runs SGD or Adam on an MNIST subset and records, at a schedule of steps, the train/validation/test loss, each layer's activation std and gradient magnitude, one layer's minibatch values and the predicted field on a grid; runs are cached under all their settings.
+
+**`overfitting`** (about 44 s): MNIST 3s and 8s as two numbers each, their coordinates on the first two principal components of the 60 training images (an SVD in numpy). A 2-128-128-2 tanh MLP trained by full-batch Adam (lr 0.001) overfits them: the decision field wraps itself around every training point while the training loss falls to 0.001 and the test loss (1,000 digits) climbs from 0.45 to 1.98, the accuracy from 79% to 71%. Then the four cures, each a recorded run: weight decay 0.01 (training loss stops at 0.30, test accuracy 80%), dropout 0.5 with the live mask of one example's 128 hidden units (78%), and early stopping on a 200-digit validation set, whose lowest loss is at step 24 (79%).
+
+**`initialisation`** (about 39 s): a 20-layer tanh MLP (784 → 100 × 20 → 10) under three weight scales, each a panel of 20 columns. Forward, the std of each layer's activations grows up from a baseline (one decade per row): with std 0.01 they shrink tenfold a layer to 8×10⁻²¹; with std 1 tanh saturates at ±1; Xavier (std 0.1) keeps them near 0.2. Backward, the gradient reaching each layer grows down from the baseline: 2×10⁻²² at layer 1 for the small init, a million-fold *larger* for the large one (each saturated layer still multiplies by about 2), flat for Xavier. Layer 10's activations binned: a spike at 0, two spikes at ±1, a bell. Then 400 steps of SGD at learning rate 0.1 (SGD, because Adam divides each gradient by its own size and hides the effect): test accuracy 12%, 10% and 89%.
+
+**`skip-connections`** (about 36 s), the depth-wise twin of `gated-memory`: two 30-layer ReLU MLPs (784 → 16 × 30 → 10) with the same Xavier weights, the second with a skip every two layers (`h → f(h) + h`). One digit through the untrained weights: the plain activations fade (std 0.23 at layer 1, 6×10⁻⁷ at layer 30), the residual ones grow to 2.9. The gradient flows back layer by layer on a log colour scale: reaching layer 1 it is 5×10⁻⁶ of what left layer 30 in the plain network, 13× along the skips. Training (1,500 SGD steps, lr 0.05): the plain network never leaves chance (loss ln 10), the residual one reaches 90%. The setting was chosen on evidence: with tanh and Xavier a plain 30×32 network keeps 0.19 of its gradient and half-learns; with He weights the plain ReLU network keeps 0.29 but still only reaches 50% in 1,500 steps; a skip every *layer* without normalisation overflows at this depth. Width 16, depth 30, Xavier: the contrast is real.
+
+**`normalisation`** (about 38 s): layer 6 of a 12-layer tanh MLP (24 units) at step 500 of training, one real minibatch's pre-activations as a 32 × 24 sheet. Batch norm standardises down each column, over the 32 examples (the column's μ and σ appear under it); layer norm, on the same layer of the network trained with it, across each row, over the 24 units; then the learned γ (0.50 to 1.55) and β (−0.15 to 0.16) are applied, y = γ ẑ + β. The histograms before and after are live, and the normalisation drawn is recomputed from the recorded values and agrees with the network's own output. Training at learning rate 0.01 (Adam): the plain network's loss climbs back to chance, batch norm reaches 93% test accuracy, layer norm 75%; at 0.003 all three learn, so what normalisation buys is the higher rate.
+
+Tests (`tests/test_deepnet.py`) check every option's gradients against finite differences and every number the subtitles state.
+
 ### A strided-convolution classifier (`strided.py`, `strided-cnn-classifier`)
 
 Stride is the step size: a kernel that moves 2 pixels at a time reads every
@@ -315,6 +329,57 @@ MNIST test digit.
   - `raw`: 0..255
 
   An `.npz` can record its own.
+
+### Gaussian processes (`gp.py`, `gp_anim.py`, files named `gp-*`)
+
+Five 1-D regression animations on one GP library in plain numpy (`gp.py`:
+kernels with their derivatives, the exact posterior through one Cholesky
+factor, the log marginal likelihood and its gradient, expected improvement)
+and one shared plot (`gp_anim.py`: the ±2σ band as four stacked translucent
+layers, sample paths, data as disks, kernel matrices as sheets of voxels).
+Every frame is an exact posterior of what is on screen: a new observation
+enters with a huge observation variance that shrinks to its real value, and
+a change of kernel morphs through the kernel (1 − u)k_old + u k_new, so the
+band never cross-fades.
+
+**`gp-prior`** (`gp_prior.py`, about 52 s): the RBF kernel k(x, x′) as a
+bump, the kernel matrix over 24 grid points filling row by row as x′
+sweeps, three seeded sample paths, the mean and the ±2σ band, then the
+lengthscale (1 → 0.3 → 3 → 1) and the variance (1 → 2.25 → 0.25 → 1)
+moving with the samples and the matrix updating together.
+
+**`gp-posterior`** (`gp_posterior.py`, about 37 s): six noise-free
+observations of f(x) = sin x + 0.3x − 1.5 arrive one at a time; the mean
+passes through each and the band closes there. The joint covariance
+[[K, k*], [k*ᵀ, k**]] is one sheet whose blocks pop out as the pieces of
+μ* = k*ᵀK⁻¹y and σ*² = k** − k*ᵀK⁻¹k* are underlined. Then the same data
+with noise σₙ = 0.3: the band stays open and the mean need not pass through.
+
+**`gp-kernels`** (`gp_kernels.py`, about 46 s): 7 noisy points on [0.8, 5.4]
+under RBF, Matérn 3/2, periodic (period 4 assumed), linear and
+periodic + RBF, each with its variance and lengthscale fitted by gradient
+ascent on log p(y). Most of the plot is extrapolation: what each kernel
+assumes. log p(y) ranks them: periodic + RBF −0.68, RBF −1.62, Matérn
+−2.48, periodic −6.23, linear −20.8.
+
+**`gp-hyperparameters`** (`gp_hyper.py`, about 38 s): log p(y) over
+(lengthscale, noise) as a landscape of voxel columns; gradient ascent from a
+too-smooth start (ℓ = 6, σₙ = 1.5) to the top (ℓ = 1.82, σₙ = 0.24), the
+posterior changing in step, the gradient arrow on the surface, and the
+data-fit and complexity terms as bars: a big noise makes the fit term easy
+and the complexity term pays for it, so the optimum is a trade-off
+(−8.9 = −6.5 + 8.6 − 11.0).
+
+**`gp-bayesian-optimisation`** (`gp_bayesopt.py`, about 47 s): a hidden
+two-hill function, two evaluations, then eight rounds of expected
+improvement (drawn under the plot, its maximum marked); each pick flies up
+to the function and the posterior updates. Five rounds explore (more than a
+lengthscale from every evaluation), three exploit; the best evaluation,
+g(7.2) = 2.08, is the true maximum, revealed at the end.
+
+Tests check every kernel derivative and the marginal-likelihood gradient
+against finite differences, the posterior against the direct inverse,
+expected improvement against Monte Carlo, and each claim the subtitles make.
 
 ### Autoencoders with a 2-D or 3-D latent space (`autoencoder.py`, `ae_anim.py`)
 
@@ -391,6 +456,19 @@ tests.
     as the codes drift. IDEC adds the reconstruction loss (γ = 0.1), so
     they stay sharp.
 
+### Diffusion, PCA and k-means (`diffusion.py`, `diffusion_anim.py`, `pca_kmeans.py`, `pca_anim.py`)
+
+Two more ways of modelling digits without labels, on the autoencoders' stage.
+
+- **`diffusion`**: a small denoising diffusion model (DDPM) in plain numpy.
+  - **Forward process:** 200 steps of a random walk in pixel space, x_t = √(1−β_t) x_{t−1} + √β_t z, on the cosine schedule of Nichol & Dhariwal, which ends at ᾱ_T = 6·10⁻⁸. Four test digits dissolve step by step while the signal level √ᾱ_t and the noise level √(1−ᾱ_t) are drawn alongside.
+  - **Model:** a dense denoiser 784-512-512-784 (SiLU, sinusoidal embedding of t) that predicts the noise ε, plus a skip connection with a learned per-step gain, ε̂ = g(t)·x_t + net(x_t, t). The skip is essential: white noise has no structure, so a 512-wide bottleneck alone cannot pass it through (loss 0.35 even where ε is simply x_t); with it the hidden layers only have to subtract the digit, the job a U-Net's skips do. Loss = mean (ε̂ − ε)². The second phase shows one digit at t = 60, the noise added, the prediction and their difference (0.155 on that image).
+  - **Reverse process:** from fixed-seed noise, 200 steps back; at each step the estimate of the clean image (x_t − √(1−ᾱ_t) ε̂)/√ᾱ_t, clipped, sharpens while x_{t−1} is drawn from q(x_{t−1} | x_t, x̂₀). Four chains in parallel.
+  - **Training:** Adam, lr 10⁻³, batch 512, 20 epochs (2,360 steps, about five minutes); loss 0.69 → 0.16, test 0.16. Honestly: the samples are digit-like and a classifier reads them confidently, but they are grainy and not every one is a clean digit — a small model, briefly trained.
+- **`pca-and-kmeans`**: principal component analysis of the training images (mean, covariance, eigendecomposition; checked against the SVD) and k-means on the first two components.
+  - **PCA:** the mean digit; the first seven components as diverging images with a bar for the variance each explains (PC 1 9.7 %, PC 2 7.1 %; the first 10 carry 49 %, the first 50 82 %); the 600 test digits of the latent clouds on the PC 1 / PC 2 plane, coloured by label, on the same plane conventions as `autoencoder-dense-2d`; a 3 rebuilt from 2, 10 and 50 components (errors 0.100, 0.067, 0.023).
+  - **k-means (k = 10)** on the two coordinates: ten random points become the centroids, then assignment (each point takes its cluster's colour) and update (centroids walk to their means) repeat until no point changes cluster: 16 iterations, inertia 1201 → 584, read out at every step while a clusters-by-label grid fills in. Matched one-to-one, the clusters agree with the labels 42 % of the time: two numbers per digit are not enough.
+
 ### A 2-layer RNN training in batches (`rnn_batches.py`, `rnn-batch-training`)
 
 - **Layout:** the model (x → h1 → h2 → y, with recurrent weights Wh1 and
@@ -408,6 +486,49 @@ tests.
   batches, then the last batch, where the predictions follow the waves.
 - **Model:** a real numpy model (`sequence.rnn2_training`, Adam,
   lr 0.004). The loss falls from 0.20 to about 0.003.
+
+### Attention between two sequences (`seq2seq.py`, `seq2seq_anim.py`, `seq2seq-attention`)
+
+A GRU encoder–decoder with additive (Bahdanau) attention learns to reverse
+six digits: it reads `3 7 2 9 4 1` and says `1 4 9 2 7 3`. Every output
+copies exactly one input, so the right alignment is known (the
+anti-diagonal) and the one the model learns can be checked against it.
+The picture is a table under the encoder, one row per decoder step:
+
+```
+input x            3 7 2 9 4 1
+encoder h          12 × 6 band, one column per token
+
+context c  |  alignment α  |  decoder s  |  output
+```
+
+The alignment's columns sit exactly under the encoder's, so a row reads
+"how much of each input this step looked at".
+
+1. **The task.**
+2. **Encode:** the GRU reads the tokens left to right; the states appear
+   column by column.
+3. **Decode:** at each step the previous decoder state queries the encoder
+   states, the row of attention weights appears, particles fly from the
+   input tokens to the context weighted by those weights (the context *is*
+   that mix), the decoder state updates and the output digit appears.
+4. **Alignment:** the finished matrix is the anti-diagonal; 0.85 of each
+   row's weight is on the token it copies.
+5. **Training:** the recorded run (`seq2seq.train` keeps the example's
+   alignment and output after every one of the 3000 Adam steps, and the
+   held-out accuracy every 25) replays on a log time axis: the matrix is
+   flat and the output wrong before training (10% of tokens right,
+   chance), the anti-diagonal forms by step 300 (99%), 100% from step 500.
+
+The scores (keys) come from the encoder states, which know *where* they
+are; the context (values) is a mix of the input *embeddings*. With the
+states as values, as in Bahdanau et al., the model also learns the task but
+reads each token from the state *after* it (that state still remembers the
+token, and the decoder has just emitted the one it holds), so the alignment
+lands one column off the anti-diagonal in 6 seeds of 6; with the embeddings
+it lands on it (3 of 3). The decoder's first state is zero, so attention is
+its only route to the input. `tests/test_seq2seq.py` checks every gradient
+against finite differences, the accuracy and the alignment.
 
 ### Inside GPT-2 (`gpt2.py`, `gpt2_anim.py`, `gpt2-attention`)
 
@@ -455,6 +576,42 @@ One continuous camera move, about 85 s, through the real GPT-2 small
 python3 -m voxanim render gpt2-attention
 python3 -m voxanim render gpt2-attention --text "The cat sat on the"
 ```
+
+### Tokens, embeddings, the stream, sampling (`bpe_anim.py`, `embed_anim.py`, `block_anim.py`, `sampling_anim.py`)
+
+Four flat companions to `gpt2-attention`, every number read from the same GPT-2 small in `gpt2.py`.
+
+**`gpt2-tokenizer`** (about 50 s): "The hippopotamus yawned" through GPT-2's byte-pair encoder. The regular expression cuts three pieces (a word keeps its leading space), each becomes its UTF-8 bytes (a space is written Ġ), then the 17 real merges from `merges.txt` are applied one at a time, lowest rank first within each piece — "The" is done in two (h+e rank 2, T+he rank 208) and is one token; " hippopotamus" stops after ten as Ġhipp | opot | amus. The six ids pick their rows of the 50,257 × 768 embedding table, drawn as 768-wide strips. Finally "four" (id 14,337) and " four" (id 1,440): the space byte merged into the word, two different rows, cosine 0.64.
+
+**`gpt2-embeddings`** (about 60 s): the token table, " king"'s row (5,822) pulled out, its nearest rows by cosine (" kings" 0.73, " King" 0.70, " queen" 0.66, " prince" 0.59, …), and king − man + woman, which in GPT-2's table gives " king" itself first (0.78) and " queen" second (0.71). Then the 1,024 × 768 position table (each column scaled to its own spread: slow waves down the rows), the 1,024 × 1,024 cosine matrix of positions, banded along its diagonals, and the mean cosine against distance: 0.997 one apart, 0.47 at 100, zero at 164, lowest (−0.69) at 780.
+
+**`gpt2-transformer-block`** (about 57 s): for "One, two, three," the last token's 768 numbers through all 12 layers: LN₁, attention, the add, LN₂, the 3,072-wide GELU hidden layer (9–19% > 0), the MLP's output, the add, with |x| beside each (5 at the embedding, 491 after layer 12). At every step the logit lens reads the stream as the output would be read (final LayerNorm, × W_Eᵀ, softmax): the early layers predict list-like continuations (" which", " including", then " etc" at up to 99%); " four" is below 0.1% until layer 10, whose MLP makes it the top token (65%); 93% after layer 11; the last layer spreads it to the model's 46%.
+
+**`gpt2-sampling`** (about 63 s): the real distribution after "The cat sat on the" (" floor" 7.6%, entropy 7.8 bits ≈ 225 equally likely tokens). Greedy; temperature (the bars reshape as T moves 1 → 0.5 → 1.5: 24.9% and 3.5 bits, 1.8% and 11.7 bits); top-k = 10 (42.6% of the mass kept and rescaled); nucleus p = 0.9 on the sorted distribution with its cumulative mass (728 tokens here, 102 after "One, two, three,"); six tokens by nucleus sampling with each step's distribution and random number ("… sofa and yawned a little"); and the KV cache: one head's K grows by a row per token, the new q is scored against every stored row, 12 × 12 × T × 64 numbers at T = 11 and constant work in the weights per step.
+
+Tests replay the tokenizer's merge trace against `encode`, check the logit lens's last reading against the model's logits and `block_states` against the forward pass, the sampling rules on hand-made distributions, and every number the subtitles quote.
+
+### What language models know, and don't (`gpt2_probe.py`, `halluc_anim.py`, `condition_anim.py`, `calib_anim.py`)
+
+Three flat diagrams measured on the real GPT-2 small. `gpt2_probe.py` runs the same forward pass as `gpt2.py` in float32 (over aligned copies of the weights, 40× faster than the memory-mapped arrays), returning next-token distributions, seeded samples at temperature 1, entropies in bits and the last layer's attention; every number on screen is computed once and cached.
+
+**`gpt2-hallucination`** (about 47 s): the same two-shot prompt about France and about Freedonia. After the real one the distribution is sharp (' Paris' 0.68, entropy 2.4 bits); after the invented one it is flat (entropy 8.6 bits) but a city still sits on top (' Athens' 0.12). Six sampled continuations each: 4 of 6 say Paris; Freedonia gets six different cities (Sparta, Berlin, Ed, Mysia, Budapest, Cairo) — self-consistency is a signal the text alone does not carry. 'unknown' ranks 5,259th and 6,842nd: the model predicts plausible text, not truth.
+
+**`gpt2-conditioning`** (about 45 s): p(Paris) after "The capital of France is" as context is prepended piece by piece: alone 0.03 (' the' wins), with an instruction 0.09, with one worked example 0.58, two 0.61, three 0.66, drawn as a curve against the context length. Examples of another form ("The capital of Japan is in Asia.") send the same question to ' in' (0.98). Then where the conditioning is read from: the last layer's attention from the last token as a strip over the context — the mean over heads parks 0.71 on the first token (the attention sink); head 9 reads the examples instead.
+
+**`gpt2-calibration`** (about 46 s): 40 countries whose capital is one token, each asked after two worked examples. GPT-2 small is right 32 times (80%) at a mean confidence of 0.56; the wrong answers are plausible big cities (Istanbul, Zurich, Sydney, Toronto, Mumbai). The dots gather into a reliability diagram (5 bins, ECE 0.25; the model is under-confident, every bar above 0.2 sits over the diagonal), and Oslo 0.55 (right) and Zurich 0.55 (wrong) are held up side by side: from inside the model they are the same number.
+
+Tests check the entropy and softmax arithmetic, the binning and ECE on hand-made data, that the probe matches `gpt2.run`, and every number the subtitles quote.
+
+### Modern sequence models: state spaces, Mamba, the cost of context, experts, rotary positions (`ssm.py`, `mamba.py`, `moe.py`, `ssm_anim.py`, `mamba_anim.py`, `cost_anim.py`, `moe_anim.py`, `rope_anim.py`)
+
+Five animations on the building blocks that came after the transformer, every number from a model run or trained in plain numpy.
+
+- **`ssm-recurrence` — SSM: one recurrence, two views.** A diagonal linear state space model (6 states, `A_n = −(n+1)`, step `Δ = 0.1`, zero-order hold: `Ā = exp(ΔA)`, `B̄ = (Ā−1)/A·B`) reads a sine wave with a step. The recurrence `h_t = Ā h_{t−1} + B̄ x_t` fills the state band column by column; then the kernel `K_k = C·Āᵏ B̄` slides over the input and the convolution gives the same output to 4×10⁻¹⁷. Then `Δ` falls to 0.02 and rises to 0.5: `Ā₁` goes 0.98 → 0.61, the slowest state's memory 50 → 2 steps, the kernel lengthens and shortens with it.
+- **`mamba-selective-scan` — Mamba: selection.** A minimal Mamba block (16 channels × 8 states, width-4 causal convolution, input-dependent `Δ_t`, `B_t`, `C_t`) on `gated-memory`'s task: say the first value after 49 steps of noise. The cue and the noise come from the same distribution, so the block can tell the first step only by the convolution's zero padding — and that is exactly what it learns: `Δ` is 0.56 at the cue and 0.019 on the noise, 67 % of the state survives the cue step against 91 % elsewhere, one channel's read-out carries the cue across the whole gap, the answer is 0.81 for 0.80. Without the convolution the block stays at chance. The same states are then computed as a prefix scan, 6 combine levels for 50 steps, agreeing to 2×10⁻¹⁵; and the training curve (4000 Adam steps, solved by step ~2100) is drawn against the RNN's and the LSTM's from `memory.py`. Seeds and sizes that do not learn are listed in `mamba.py`.
+- **`context-cost` — The cost of context.** A context growing from 1 to 16 tokens: attention's causal `n × n` score matrix, the recurrence's chain, the scan's `⌈log₂ n⌉` levels; the work each new token costs (`n`, 1, 1) and the depth of the whole sequence (1, 16, 4). Then memory at inference with real shapes: GPT-2 small's KV cache grows by 12 × 2 × 12 × 64 = 18,432 numbers per token; a Mamba-130M's state is 24 × 1536 × 16 = 589,824 whatever the length (plus 110,592 for its convolution window). Drawn with one voxel = 768 numbers in both: the cache passes the state at 32 tokens.
+- **`mixture-of-experts` — Mixture of experts.** A top-2 router over eight 16→16→16 experts, trained on next-character prediction in a language with regimes (digits count up, letters run along the alphabet, punctuation switches between them; test cross-entropy 1.15 against the chain's floor 1.11). Each token of a sample text flies to the router; its eight probabilities, the two chosen experts computing while six idle, the gate weights, the next-character guess against the real one. Then expert utilisation over 2,048 fresh tokens, split by regime, for the model trained with the Switch load-balancing loss and one trained without (busiest / quietest 2.3× against 3.2×; no expert dies at this size, as the 16-run sweep in `moe.py` records). Finally the count: 1,024 multiply-adds per token for 4,352 expert parameters.
+- **`gpt2-rotary-embeddings` — Rotary position embeddings.** A query and a key of width 64 split into 32 pairs, each turned by `m θ_i`, `θ_i = 10000^(−2i/64)`: pairs 0, 4 and 8 drawn as arrows turning at their own rates. The score `R(m)q · R(n)k` depends on `n − m` only: positions (3, 7) and (10, 14) give the same number to ten decimals, (3, 10) does not. A vector against itself `Δ` apart: fast pairs oscillate, slow ones hold, the sum decays (0.84 → 0.41 over 49 positions). Against GPT-2 small's learned table (its real `wpe`): the cosine similarity between position vectors is 0.99 one apart, 0.86 sixteen apart, 0.43 forty-eight apart — smooth, but tied to the absolute index and ending at row 1023, where the rotary formula holds at any index. Needs the GPT-2 download.
 
 ### Diagrams: gradient descent, an MLP classifier, a decision tree (`diagram.py`)
 
@@ -515,6 +672,51 @@ three loop seamlessly.
 ```bash
 python3 -m voxanim render gradient-descent mlp-classifier decision-tree
 ```
+
+### The maths, step by step: autodiff, softmax, activations (`autodiff.py`, `autodiff_anim.py`, `softmax_anim.py`, `activations_anim.py`)
+
+Three flat diagrams (`diagram.py`) about the pieces every network is built from, each with the real numbers in it.
+
+**`autodiff-graph`** (`autodiff.py`, `autodiff_anim.py`, about 50 s): reverse-mode automatic differentiation on the graph of one sigmoid neuron, L = ½(σ(w₁x₁ + w₂x₂ + b) − y)². The engine is forty lines: every `Value` records its operation, its parents and the local derivative of its output with respect to each parent; `backward` walks the graph from L to the leaves, multiplying the incoming gradient by each edge's local derivative. The numbers are the XOR network's first hidden neuron before training on `gradient-descent`'s worked example x = (1, 0), y = 1, so z = 0.126 and σ(z) = 0.531 are the same in both animations.
+
+1. **Build:** the expression is read inside out and every operation becomes a node (×, +, σ, −, ½d²) joined to what it reads: 7 operations, 6 leaves.
+2. **Forward:** values flow right (teal) and appear under each node; each node also records its local derivatives (∂m₁/∂w₁ = x₁ = 1, ∂a/∂z = σ(1 − σ) = 0.249, ...).
+3. **Backward:** from ∂L/∂L = 1 the gradient (magenta) flows left one edge at a time, each edge showing "× local derivative": ∂L/∂z = −0.469 × 0.249 = −0.117, ∂L/∂w₁ = −0.117 × 1, ∂L/∂w₂ = −0.117 × 0 = 0 (x₂ was 0). Twelve multiplications; no formula for ∂L/∂w is ever written down.
+4. **Result:** ∂L/∂w₁ = ∂L/∂b = −0.117, ∂L/∂w₂ = 0, then one step with η = 2 (w₁ 0.126 → 0.359, b 0 → 0.233) and the forward pass again: L 0.110 → 0.063.
+
+**`gpt2-softmax-cross-entropy`** (`softmax_anim.py`, about 48 s; needs the GPT-2 weights): two real sets of logits side by side. Left, the MNIST MLP of the `mlp-*` animations on test image 18, a 3 (10 logits, −5.70 to 6.89); right, GPT-2 small on "The capital of France is" (50,257 logits, the ten most probable tokens drawn; the true next word " Paris" is ranked fifth). Both go through the same steps as horizontal bars with every number printed: the **logits**; **softmax** as exp(z − max z) (a difference of 1 is a factor e; subtracting the largest changes nothing) divided by the sum over 10 digits, or over all 50,257 tokens (the top ten hold 0.36); the one-hot **target** and the cross-entropy L = −log p(answer): −log 0.620 = 0.48 for the 3, −log 0.032 = 3.43 for Paris; the **gradient** ∂L/∂z = p − y drawn as the gap between p and y under each bar (orange: this logit comes down, blue: up; the gradients sum to 0); then **temperature**, p = softmax(z / T): T = 2 melts both (entropy 0.67 → 0.94 nats for the MLP, 6.00 → 9.43 for GPT-2, whose top ten then hold 0.03), T = 0.5 sharpens them (0.59 and 2.28; "the" takes 0.40).
+
+**`activations`** (`activations_anim.py`, about 49 s): sigmoid, tanh, ReLU and GELU (GPT-2's tanh form) drawn with their derivatives, then the 64 pre-activations of the MNIST MLP's first hidden layer on test image 18 (−6.17 to 4.67, 26 negative) as dots on each curve and as rows of voxels before and after each function: 12 of 64 saturate the sigmoid and 24 tanh (|f′| < 0.05), ReLU zeros the 26 negative ones exactly (dark), GELU lets them through slightly negative. Then **dead ReLUs**: a 784-128-10 ReLU network trained by plain SGD on MNIST with a learning rate of 1.0 (batch 128, one epoch, seeded and cached with every unit's state on the whole test set at 102 checkpoints). Within the first 30 steps 31 of its 128 hidden units stop firing on every one of the 10,000 test images and never fire again: their voxels go dark for good and the count rises on the chart, against a run at lr 0.3 where none die. Both end the epoch at the same accuracy (94.8% and 94.5%): the 31 units were lost for nothing. The gradient through a dead unit is exactly 0 (ReLU′(z) = 0 for z < 0), so nothing can bring it back.
+
+Tests check the autodiff engine and every activation's derivative against finite differences, the softmax gradient p − y, the numbers the subtitles quote, that no dead unit revives and that its gradient on the whole test set is exactly zero, and that all three loop seamlessly.
+
+### Q-learning in a gridworld (`gridworld.py`, `qlearning_anim.py`, `q-learning`)
+
+A 6 × 8 world with walls, a goal (+1) and a trap (−1), both ending the
+episode; every other move pays 0, so with γ = 0.9 the best policy is the
+shortest path. Tabular Q-learning, α = 0.5, ε-greedy with ε decaying from 1
+to 0.05 (`max(0.05, 0.99^k)`), 400 episodes, every move and every episode's
+Q-table recorded. The Q-table is drawn *on* the world: four columns of
+voxels per cell, one at each side for the action that leaves through it,
+height Q(s, a) (orange above zero, blue below).
+
+1. **The world:** tiles, walls, start, rewards, α and γ.
+2. **Episode 1:** 21 random moves; the update
+   `Q(s, a) ← Q(s, a) + α (r + γ max Q(s′, ·) − Q(s, a))` is shown with its
+   numbers after each move and changes nothing until the agent walks into
+   the trap: `0 + 0.5 (−1 + 0.9 × 0 − 0) = −0.5`, the first entry.
+3. **Learning:** episodes 2–400 fast-forwarded with the counter and ε;
+   each path flashes and the columns rise one cell further back from the
+   rewards at every visit. The goal is first reached in episode 41.
+4. **Policy:** the greedy action of each cell as an arrow on its tallest
+   column; from episode 102 on it is a shortest path.
+5. **Greedy path:** the agent follows the arrows: 14 moves, round the
+   trap; Q(start, up) = 0.25 = 0.9¹³.
+
+The seed (25) was chosen so the first episode is short enough to watch; the
+outcome does not depend on it (40 seeds of 40 end on a shortest path with
+these settings). `tests/test_gridworld.py` replays every recorded step with
+the rule and checks the convergence and the numbers above.
 
 ## Broadcast masters: 8K, HDR
 
