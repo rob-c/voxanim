@@ -2,12 +2,13 @@
 
 ## Unreleased
 
-- **Website:** light on weak machines and slow connections. Clips are
-  lazy-loaded posters until on screen, then 480 px previews (19 MB for all 88
-  against 124 MB of full files) play at most two at a time; the full file is
-  only loaded in the player; previews are off under reduced motion or data
-  and by a button; a dark mode (system or button). The Pages workflow caches
-  the release's media and previews between builds.
+- **Website:** light on weak machines and slow connections while every clip
+  still animates: the grid plays thumbnails (the first half of each
+  animation at 480 px and 2 frames a second, a 2 s hold before the loop; 3 MB
+  for all 88 against 124 MB of full files), a hovered or focused clip plays
+  its full-rate 480 px preview, and the player plays the full file. Dark mode
+  (system or button). The Pages workflow caches the release's media between
+  builds.
 
 ## 1.2.0
 

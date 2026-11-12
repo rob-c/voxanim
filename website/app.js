@@ -1,21 +1,20 @@
-// voxanim website: light on the viewer's machine and connection.
+// voxanim website: every clip animates, cheaply.
 //
-// * Every clip is a still (a lazy-loaded poster) until it is on screen; then
-//   a 480p preview plays, at most PLAYING at a time, and the <video> element
-//   is removed again when the clip leaves, so a weak device decodes no more
-//   than two streams and loads nothing it does not show.
-// * Previews are off when the browser asks for reduced motion or data, on a
-//   slow connection, or by the "Previews" button; the choice is remembered.
-// * Dark mode follows the system unless the "Dark mode" button chooses.
-// * The player plays the full 960×540 file.
+// * A clip's frame holds its poster <img>.  While the clip is near the screen
+//   a <video> plays on top: the thumbnail (the first half of the animation at
+//   480 px and 2 frames a second, with a 2 s hold before it loops), a few
+//   tens of kilobytes and almost no decoding.  Off screen, the element goes.
+// * While a clip is hovered or focused it plays its full-rate 480 px preview
+//   instead; clicking opens the player with the full 960×540 file.
+// * Under prefers-reduced-motion the thumbnails stay still (hover still
+//   plays).  Dark mode follows the system unless the button chooses.
 //
 // The page works without this script: posters, links and downloads.
 "use strict";
 
-const PLAYING = 2;                      // previews playing at once
-
 const root = document.documentElement;
 const player = document.getElementById("player");
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const store = {                         // per-viewer preferences; storage may be unavailable
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* private window, blocked storage */ } },
@@ -45,40 +44,13 @@ themeButton.addEventListener("click", () => {
 });
 systemDark.addEventListener("change", () => applyTheme(root.dataset.theme || null));
 
-// ---------------------------------------------------------------- previews on or off
+// ---------------------------------------------------------------- the clips
+// Each frame plays one source at a time: its thumbnail, or its preview while
+// highlighted.  Frames beyond a screen's distance hold no <video> at all.
 
-const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
-const reduceData = matchMedia("(prefers-reduced-data: reduce)");
-const connection = navigator.connection;
-const slow = Boolean(connection && (connection.saveData ||
-                                    /(^|-)2g$|^3g$/.test(connection.effectiveType || "")));
-const previewsButton = document.getElementById("previews");
-let previews = store.get("previews") ? store.get("previews") === "on"
-                                     : !(reduceMotion.matches || reduceData.matches || slow);
-
-function showPreviewsChoice() {
-  previewsButton.textContent = previews ? "Previews on" : "Previews off";
-  previewsButton.setAttribute("aria-pressed", String(previews));
-  previewsButton.title = previews ? "Clips play as small previews while on screen"
-                                  : "Clips stay still; open one to play it";
-}
-
-showPreviewsChoice();
-previewsButton.addEventListener("click", () => {
-  previews = !previews;
-  store.set("previews", previews ? "on" : "off");
-  showPreviewsChoice();
-  schedule();
-});
-reduceMotion.addEventListener("change", () => {
-  if (!store.get("previews")) { previews = !reduceMotion.matches; showPreviewsChoice(); schedule(); }
-});
-
-// ---------------------------------------------------------------- the preview videos
-// A frame holds a poster <img>; its <video> exists only while it plays.
-
-const frames = [...document.querySelectorAll(".frame[data-preview]")];
-const visible = [];                     // frames on screen, the most recent last
+const frames = [...document.querySelectorAll(".frame[data-thumb], .frame[data-preview]")];
+const near = new Set();                 // frames within reach of the screen
+const highlighted = new Set();          // frames hovered or focused
 
 function videoOf(frame) {
   let v = frame.querySelector("video");
@@ -104,25 +76,45 @@ function drop(frame) {
   v.remove();
 }
 
-function schedule() {
-  const active = (previews && !player.open) ? visible.slice(-PLAYING) : [];
-  for (const frame of frames) {
-    if (!active.includes(frame)) { drop(frame); continue; }
-    const v = videoOf(frame);
-    if (!v.getAttribute("src")) v.src = frame.dataset.preview;
-    v.play().catch(() => {});           // autoplay refused: the poster stays
-  }
+function wanted(frame) {
+  if (player.open || !near.has(frame)) return null;
+  if (highlighted.has(frame)) return frame.dataset.preview || frame.dataset.thumb;
+  if (reduceMotion.matches) return null;
+  return frame.dataset.thumb || frame.dataset.preview;   // the hero has only a preview
 }
 
-const onScreen = new IntersectionObserver((entries) => {
-  for (const e of entries) {
-    const i = visible.indexOf(e.target);
-    if (i >= 0) visible.splice(i, 1);
-    if (e.isIntersecting) visible.push(e.target);
+function update(frame) {
+  const src = wanted(frame);
+  if (!src) { drop(frame); return; }
+  const v = videoOf(frame);
+  if (v.getAttribute("src") !== src) {
+    v.classList.remove("on");
+    v.src = src;
   }
-  schedule();
-}, { threshold: 0.5 });
-frames.forEach((f) => onScreen.observe(f));
+  v.play().catch(() => {});             // autoplay refused: the poster stays
+}
+
+function updateAll() { frames.forEach(update); }
+
+const reach = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    if (e.isIntersecting) near.add(e.target);
+    else near.delete(e.target);
+    update(e.target);
+  }
+}, { rootMargin: "100% 0px" });        // a screen ahead and behind
+frames.forEach((f) => reach.observe(f));
+
+for (const frame of frames) {
+  const target = frame.closest("a") || frame;
+  const on = () => { highlighted.add(frame); update(frame); };
+  const off = () => { highlighted.delete(frame); update(frame); };
+  target.addEventListener("mouseenter", on);
+  target.addEventListener("mouseleave", off);
+  target.addEventListener("focusin", on);
+  target.addEventListener("focusout", off);
+}
+reduceMotion.addEventListener("change", updateAll);
 
 // ---------------------------------------------------------------- step bar
 // Like the step bar in the animations: sections above in ink, the current
@@ -165,9 +157,9 @@ function openClip(clip) {
   field(".player-cmd code").textContent = "python3 -m voxanim render " + clip.name;
   field(".copy").textContent = "Copy";
   big.poster = clip.poster;
-  big.src = clip.mp4;                   // the full file: the previews are for the grid
+  big.src = clip.mp4;                   // the full file
   if (!player.open) player.showModal();
-  schedule();                           // the previews rest while the player is open
+  updateAll();                          // the grid rests while the player is open
   if (!reduceMotion.matches) big.play().catch(() => {});
   history.replaceState(null, "", "#" + clip.name);
 }
@@ -177,7 +169,7 @@ player.addEventListener("close", () => {
   big.removeAttribute("src");
   big.load();
   history.replaceState(null, "", location.pathname + location.search);
-  schedule();
+  updateAll();
 });
 
 // a click on the backdrop (outside the dialog's box) closes it

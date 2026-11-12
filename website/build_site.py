@@ -11,12 +11,15 @@ section naming one that does not exist, stops the build.
 
 ``OUT`` receives ``index.html``, the stylesheet and script, and for each
 animation ``media/<file>.mp4`` (the full render, for the player and the
-download), ``media/<file>-480.mp4`` (a small preview for the grid: 480 px
-wide, about a tenth of the size) and a poster frame ``media/<file>.jpg``.
-The MP4s are not committed to git: they come from a GitHub release
-(``gh release download``) or from a local ``build/out``; previews and posters
-that already exist in ``OUT`` are kept, so a cached ``media/`` makes a rebuild
-cheap.  Download links point at the same release's assets.  Needs
+download), ``media/<file>-480.mp4`` (a 480 px preview at full frame rate,
+played while a clip is hovered or focused), ``media/<file>-thumb.mp4`` (what
+the grid plays all the time: the first half of the animation at 480 px and 2
+frames a second, holding its last frame for 2 s before it loops; a few tens
+of kilobytes) and a poster frame ``media/<file>.jpg``.  The MP4s are not
+committed to git: they come from a GitHub release (``gh release download``)
+or from a local ``build/out``; previews, thumbnails and posters that already
+exist in ``OUT`` are kept, so a cached ``media/`` makes a rebuild cheap.
+Download links point at the same release's assets.  Needs
 ``ffmpeg``/``ffprobe``, and the GitHub CLI unless ``--media`` is given.  The
 Pages workflow (``.github/workflows/pages.yml``) runs exactly this.
 """
@@ -42,8 +45,10 @@ STATIC = ("style.css", "app.js")
 HERO = "conv2d"
 POSTER_AT = 0.4          # poster frame, as a fraction of the animation's length
 POSTER_QUALITY = 4       # ffmpeg -q:v for the JPEG posters (2 best .. 31 worst)
-PREVIEW = dict(width=480, crf=28, preset="medium")   # the grid's small H.264 previews
+PREVIEW = dict(width=480, crf=28, preset="medium")   # full-rate preview, on hover
 PREVIEW_SUFFIX = "-480"
+THUMB = dict(width=480, fps=2, crf=30, half=True, hold=2.0)   # what the grid plays all the time
+THUMB_SUFFIX = "-thumb"
 
 # (anchor, heading, one-line introduction, [(preset name, title), ...]).
 # Every registered preset appears exactly once; the build checks it.
@@ -244,17 +249,31 @@ def poster(mp4, jpg, seconds):
                     "-frames:v", "1", "-q:v", str(POSTER_QUALITY), jpg], check=True)
 
 
-def preview(mp4, out):
-    """Encode the grid's small preview of ``mp4`` to ``out`` (kept if it exists):
-    :data:`PREVIEW` pixels wide, silent, moov atom first so it starts at once."""
+def _encode(mp4, out, filters, crf, before_input=()):
+    """``mp4`` through ffmpeg ``filters`` to H.264 ``out``: silent, yuv420p,
+    moov atom first so it starts at once.  Kept if ``out`` exists."""
     if os.path.exists(out):
         return
     tmp = out + ".part.mp4"
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", mp4,
-                    "-vf", "scale=%d:-2" % PREVIEW["width"], "-c:v", "libx264",
-                    "-preset", PREVIEW["preset"], "-crf", str(PREVIEW["crf"]),
+    subprocess.run(["ffmpeg", "-v", "error", "-y", *before_input, "-i", mp4, "-vf", filters,
+                    "-c:v", "libx264", "-preset", PREVIEW["preset"], "-crf", str(crf),
                     "-pix_fmt", "yuv420p", "-an", "-movflags", "+faststart", tmp], check=True)
     os.replace(tmp, out)
+
+
+def preview(mp4, out):
+    """The full-rate preview of ``mp4``: :data:`PREVIEW` pixels wide."""
+    _encode(mp4, out, "scale=%d:-2" % PREVIEW["width"], PREVIEW["crf"])
+
+
+def thumb(mp4, out, seconds):
+    """The grid's thumbnail of ``mp4`` (``seconds`` long): its first half at
+    :data:`THUMB` frames a second, the last frame held ``hold`` seconds so the
+    native loop pauses before it starts again."""
+    t = THUMB
+    cut = ("-t", "%.3f" % (seconds / 2)) if t["half"] else ()
+    _encode(mp4, out, "fps=%d,scale=%d:-2,tpad=stop_mode=clone:stop_duration=%.1f"
+            % (t["fps"], t["width"], t["hold"]), t["crf"], before_input=cut)
 
 
 def clip_html(name, title, p, secs, tag):
@@ -266,23 +285,25 @@ def clip_html(name, title, p, secs, tag):
         "name": name, "title": title, "about": about, "seconds": round(secs),
         "mp4": "media/%s.mp4" % p.media,
         "preview": "media/%s%s.mp4" % (p.media, PREVIEW_SUFFIX),
+        "thumb": "media/%s%s.mp4" % (p.media, THUMB_SUFFIX),
         "poster": "media/%s.jpg" % p.media,
         "gif": "https://github.com/%s/releases/download/%s/%s.gif" % (REPO, tag, p.media),
         "manifest": "https://github.com/%s/releases/download/%s/%s.json" % (REPO, tag, p.media),
     }
-    # the poster is a lazy <img>; app.js adds the preview <video> while the clip is on screen
+    # the poster is a lazy <img>; app.js adds the <video> on top: the thumbnail while the
+    # clip is near the screen, the full-rate preview while it is hovered or focused
     return (
         '<li class="clip" id="%(name)s">\n'
         '  <a href="#%(name)s" data-clip=\'%(data)s\'>\n'
-        '    <span class="frame" data-preview="%(preview)s">'
+        '    <span class="frame" data-thumb="%(thumb)s" data-preview="%(preview)s">'
         '<img src="%(poster)s" width="960" height="540" loading="lazy" decoding="async" alt="">'
         '</span>\n'
         '    <span class="clip-title">%(title)s</span>\n'
         '  </a>\n'
         '  <p>%(first)s</p>\n'
         '</li>' % dict(name=esc(name), data=esc(json.dumps(data, ensure_ascii=False), quote=True),
-                       preview=esc(data["preview"]), poster=esc(data["poster"]), title=esc(title),
-                       first=esc(first)))
+                       preview=esc(data["preview"]), thumb=esc(data["thumb"]),
+                       poster=esc(data["poster"]), title=esc(title), first=esc(first)))
 
 
 def page_html(durations, tag, sections=SECTIONS):
@@ -320,6 +341,7 @@ def build(out, media_dir=None, tag=None):
         durations[name] = duration(mp4)
         poster(mp4, os.path.join(media, p.media + ".jpg"), POSTER_AT * durations[name])
         preview(mp4, os.path.join(media, p.media + PREVIEW_SUFFIX + ".mp4"))
+        thumb(mp4, os.path.join(media, p.media + THUMB_SUFFIX + ".mp4"), durations[name])
     for f in STATIC:
         shutil.copyfile(os.path.join(HERE, f), os.path.join(out, f))
     with open(os.path.join(out, "index.html"), "w", encoding="utf-8") as fh:
