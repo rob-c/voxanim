@@ -114,8 +114,10 @@ SECTIONS = [
       ("dec-dense", "Deep embedded clustering"),
       ("idec-dense", "Improved deep embedded clustering")]),
     ("transformers", "Transformers",
-     "GPT-2 small reading a real prompt, from one attention head to all 12 layers.",
-     [("gpt2-tokenizer", "Byte-pair encoding"),
+     "Attention between two sequences, then GPT-2 small reading a real prompt, from one "
+     "attention head to all 12 layers.",
+     [("seq2seq-attention", "Attention between two sequences"),
+      ("gpt2-tokenizer", "Byte-pair encoding"),
       ("gpt2-embeddings", "What embeddings know"),
       ("gpt2-attention", "Inside GPT-2"),
       ("gpt2-transformer-block", "Through the transformer"),
@@ -125,6 +127,9 @@ SECTIONS = [
      [("gpt2-hallucination", "Why a model makes things up"),
       ("gpt2-conditioning", "The prompt steers the distribution"),
       ("gpt2-calibration", "Confidence is not correctness")]),
+    ("rl", "Reinforcement learning",
+     "An agent learning from reward.",
+     [("q-learning", "Q-learning in a gridworld")]),
 ]
 
 
