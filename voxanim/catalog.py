@@ -144,6 +144,20 @@ register("lstm-training-step", partial(_seq_step, "lstm"),
          "then 1000 more steps until the predictions follow the wave.")
 
 
+def _gated_memory():
+    """A plain RNN and an LSTM, the same size and training, on a task that
+    needs memory across a gap of noise: only the gated one learns it."""
+    from . import memory
+    from .gated_anim import GatedMemory
+    return GatedMemory(memory.trace("rnn"), memory.trace("lstm", memory.FORGET_BIAS),
+                       memory.train("lstm", memory.LEAKY_BIAS))
+
+
+register("gated-memory", _gated_memory,
+         "RNN vs LSTM on a task that needs memory across 49 steps of noise: the answers, what "
+         "each state still knows of the cue, the vanishing gradient, the training curves.")
+
+
 # ------------------------------------------------------------------ self-attention (tiny ViT)
 
 ATTN_INDEX = 15         # test image: a '5' the model gets right at 66% ('3' next)

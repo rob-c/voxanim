@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 54 animations, from a 3×3 convolution to the inside of GPT-2, all from
+numpy. 55 animations, from a 3×3 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
 
@@ -25,7 +25,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 54 animations
+python3 -m voxanim list --names                   # the 55 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
@@ -210,6 +210,43 @@ against finite differences. It also checks that layer-1 weight gradients are exa
 wherever the pixel is zero. Use `mnist.trace(i)` to animate another test
 image, and change `mnist.SIZES` for another architecture (the sheet shapes
 in `mlp.SHAPES` must match).
+
+### Memory across a gap: RNN vs LSTM (`memory.py`, `gated_anim.py`, `gated-memory`)
+
+A task that needs memory: say the first value of a sequence after 49 steps
+of noise (`x_0` is the cue, `x_1 … x_49` uniform noise, loss
+`½ (y_49 − cue)²`). A plain tanh RNN and an LSTM, 8 units each, are trained
+the same way (Adam, 8000 steps on fresh sequences) and drawn unrolled through
+time, one above the other:
+
+1. **The task.**
+2. **Forward:** both read the same sequence; the RNN answers about 0, the
+   LSTM the cue.
+3. **Memory:** the run again with the cue flipped. The bands switch to the
+   difference between the two runs, which is what each state still knows
+   about the cue: the RNN's fades within a few steps, the LSTM's cell state
+   keeps it.
+4. **Backward:** the gradient of the final error, drawn as its magnitude on
+   a log scale, flows back through time. Through tanh and `Wh` it shrinks at
+   every step of the RNN and reaches the cue vanishingly small (6×10⁻¹⁵ for
+   the animated sequence); along the cell state it is multiplied only by the
+   forget gate (7×10⁻³ reaches the cue).
+5. **Training:** the loss curves. A third curve shows an LSTM whose forget
+   gate starts at the usual bias of 1 (open to 0.73): it fails like the RNN.
+   The gated cell remembers only when its gate starts open
+   (`memory.FORGET_BIAS` = 2.5, open to 0.92).
+
+The gap was chosen on evidence, not on a lucky seed (`build/sweep2.py` is
+not kept; the numbers are, below). Mean loss of the last 200 steps after
+8000 steps, four seeds; chance is 0.167:
+
+| gap | RNN | LSTM, forget bias 1 | LSTM, forget bias 2.5 |
+| --- | --- | --- | --- |
+| 31 steps | 0.010, 0.001, 0.001, 0.000 | 0.165, 0.165, 0.170, 0.171 | 0.000 ×4 |
+| 49 steps | 0.167, 0.168, 0.166, 0.104 | 0.167, 0.166, 0.171, 0.167 | 0.000 ×4 |
+
+With Adam, the plain RNN learns gaps of 19 to 31 steps in most seeds, so
+shorter gaps would not have separated the cells.
 
 ### A strided-convolution classifier (`strided.py`, `strided-cnn-classifier`)
 
@@ -581,7 +618,7 @@ The renders use exactly those weights.
 
 ```bash
 python3 -m pip install -r requirements-lock.txt
-ruff check voxanim tests website         # lint (configuration in pyproject.toml)
+ruff check voxanim tests website tools   # lint (configuration in pyproject.toml)
 python3 -m pytest tests                  # everything available offline
 python3 -m voxanim prepare && python3 -m pytest tests   # the full suite
 ```
@@ -618,6 +655,19 @@ python3 -m http.server -d _site                          # http://localhost:8000
 `.github/workflows/pages.yml` builds it and deploys it to GitHub Pages on
 every push to `main` and every published release.
 
+**Making a release:** render everything, gather the assets, tag, publish.
+
+```bash
+python3 -m voxanim render all --jobs 8 --clean-frames   # hours; build/out/
+python3 tools/release_assets.py /tmp/release           # renders + manifests, weights, SHA256SUMS
+git tag -a v1.1.0 -m "voxanim 1.1.0" && git push origin v1.1.0
+gh release create v1.1.0 --title "voxanim 1.1.0" --notes-file NOTES.md /tmp/release/*
+```
+
+`release_assets.py` refuses to run while any animation lacks a render or a
+render disagrees with its manifest; the weights archive is deterministic.
+The website redeploys itself when the release is published.
+
 Before changing a module, render a few `draft` frames of the animations that
 use it and compare them afterwards. Every refactor in the history was checked
 this way: three frames from each animation, plus 25 dense frames for larger
@@ -651,11 +701,11 @@ voxanim/
     cache.py       checksummed downloads; trained weights keyed on all their settings
     optim.py minibatch.py   the shared Adam and minibatch loop
     mnist.py       MNIST, the dense and convolutional classifiers
-    strided.py vit.py sequence.py autoencoder.py deep_models.py   the other models
+    strided.py vit.py sequence.py memory.py autoencoder.py deep_models.py   the other models
     model_io.py    load / save dense models (.npz, PyTorch, Keras, JSON)
     gpt2.py        GPT-2 small: safetensors reader, BPE tokenizer, forward pass
   animations
-    mlp.py cnn.py attention.py recurrent.py rnn_batches.py dnn.py
+    mlp.py cnn.py attention.py recurrent.py rnn_batches.py gated_anim.py dnn.py
     ae_anim.py ae_training.py vae_anim.py unet_anim.py dec_anim.py
     gpt2_anim.py (+ gpt2_panel.py, gpt2_camera.py, gpt2_layout.py)
     gd_anim.py mlp_graph.py dtree.py

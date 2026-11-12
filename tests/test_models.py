@@ -122,6 +122,30 @@ def test_continue_training_is_self_consistent():
         assert c.losses[-1] < tr2.loss / 4
 
 
+def test_memory_task_gradients_and_outcome():
+    """The masked gradient of the memory task matches finite differences, and
+    the trained pair behaves as the animation says: the LSTM answers the cue,
+    the RNN does not, and the gradient reaching the cue differs by orders."""
+    from voxanim import memory as Mem
+    from voxanim import sequence as S
+    rng = np.random.default_rng(4)
+    for kind in ("rnn", "lstm"):
+        M = S.MODELS[kind]
+        P = M["init"](rng, 5)
+        x, cue = Mem.memory_batch(rng, 3, 6)
+        f = M["fwd"](P, x)
+        g, _ = Mem.backward_last(kind, P, f, cue)
+        fd_check(lambda Q, M=M, x=x, cue=cue: Mem.loss_last(M["fwd"](Q, x)["y"], cue), P, g,
+                 list(P))
+    rnn, lstm = Mem.trace("rnn"), Mem.trace("lstm", Mem.FORGET_BIAS)
+    leaky = Mem.train("lstm", Mem.LEAKY_BIAS)
+    assert abs(lstm.y - lstm.cue) < 0.15 and abs(lstm.y2 + lstm.cue) < 0.15
+    assert abs(rnn.y - rnn.cue) > 0.5
+    assert lstm.losses[-200:].mean() < 0.01
+    assert min(rnn.losses[-200:].mean(), leaky.losses[-200:].mean()) > 0.1
+    assert np.abs(lstm.d["dc"][0]).max() > 100 * np.abs(rnn.d["dh"][0]).max()
+
+
 def test_snapshot_steps():
     from voxanim import autoencoder as A
     assert A.snapshot_steps(20, 1.5).tolist() == [0, 1, 2, 3, 4, 6, 9, 13, 19, 20]

@@ -8,6 +8,12 @@
   sorting, three digits leaving trails, the output sharpening, a loss curve.
   `autoencoder.training_run` snapshots a run that reproduces the cached
   model byte for byte.
+- **New animation `gated-memory`:** a plain RNN against an LSTM on a task
+  that needs memory across 49 steps of noise (`memory.py`, `gated_anim.py`):
+  the answers, what each state still knows of the cue (the run repeated with
+  the cue flipped), the gradient of the final error vanishing through the
+  RNN but not along the cell state, and the training curves, including an
+  LSTM whose forget gate starts half shut and fails like the RNN.
 - **`rnn-training-step`, `lstm-training-step`:** a sixth phase, "keep
   training": 1000 more recorded steps (`sequence.continue_training`) until
   the predictions follow the wave, with a loss curve. The step indicator
