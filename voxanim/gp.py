@@ -392,12 +392,13 @@ def expected_improvement(mu, sd, best, xi=0.0):
 
         EI = (mu - best - xi) Phi(z) + sd phi(z),  z = (mu - best - xi) / sd
 
-    (0 where ``sd`` is 0).  Large where the mean is high (exploit) and where
-    the uncertainty is large (explore).
+    (the plain improvement ``max(mu - best - xi, 0)`` where ``sd`` is 0).  Large
+    where the mean is high (exploit) and where the uncertainty is large
+    (explore).
     """
     mu, sd = np.asarray(mu, np.float64), np.asarray(sd, np.float64)
     d = mu - best - xi
     safe = np.where(sd > 1e-12, sd, 1.0)
     z = d / safe
     ei = d * norm_cdf(z) + safe * norm_pdf(z)
-    return np.where(sd > 1e-12, ei, 0.0)
+    return np.where(sd > 1e-12, ei, np.maximum(d, 0.0))

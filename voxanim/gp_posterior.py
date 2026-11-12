@@ -227,29 +227,31 @@ class PosteriorAnimation(GPDiagram):
         self.heat(self.J, J, VARIANCE, show, 0.3 * lit.ravel())
         self.J.light(lit.ravel(), float(lit.max()))
         self.J.fade(f.back)
-        self.J.cage = 0.6 * f.back
+        self.J.cage = 0.6 * f.intro                 # (0 at the loop's seam: no cells either)
         self._block_labels(sc, f, n, m)
 
     def _block_labels(self, sc, f, n, m):
-        """K, k*, k*^T and k** beside their blocks (mono: the superscript T)."""
+        """K, k*, k*^T and k** beside their blocks (mono: the superscript T); the
+        data blocks' names arrive with the first observation."""
         op = f.intro
+        data_op = op * float(f.seen.max())
         b = self.J.block
         s = SHEET_SCALE
 
-        def over(c0, c1, text, tag, above=True):
+        def over(c0, c1, text, tag, o, above=True):
             lo = b.cell_center(0 if above else n + m - 1, c0, 0)
             hi = b.cell_center(0 if above else n + m - 1, c1 - 1, 0)
             box = (np.minimum(lo, hi) - 0.5 * s, np.maximum(lo, hi) + 0.5 * s)
-            self.caption(sc, box, text, op, size=layout.MIN_TEXT, above=above,
+            self.caption(sc, box, text, o, size=layout.MIN_TEXT, above=above,
                          ink=self._tag_ink(f, tag))
-        over(0, n, "K", "K")
-        over(n, n + m, "k*", "ks")
-        over(n, n + m, "k**", "kss", above=False)
+        over(0, n, "K", "K", data_op)
+        over(n, n + m, "k*", "ks", data_op)
+        over(n, n + m, "k**", "kss", op, above=False)
         # k*^T left of the lower block, at its middle row
         x0 = screen_box(self.cam, *self.J.bbox())[0]
         y = self.cam.project(b.cell_center(n + m // 2, 0, 0))[1]
         sc.text((x0 - 8) / self.cam.width, y / self.cam.height, "k*ᵀ", layout.MIN_TEXT, "mono",
-                self._tag_ink(f, "ks"), op * self._cap, "rm")
+                self._tag_ink(f, "ks"), data_op * self._cap, "rm")
 
     @staticmethod
     def _tag_ink(f, tag):
@@ -293,13 +295,14 @@ class PosteriorAnimation(GPDiagram):
                     % (num(LENGTHSCALE, 1), num(VARIANCE, 1)))
         if t < self.Tm["formula"][0]:
             i = f.current if f.current >= 0 else len(self.X) - 1
-            n_in = int((f.noise < 1.0).sum())
+            n_in = int((f.seen > 0).sum())
             return ("observation %d at x = %s: y = f(x) = %s. The posterior mean passes through "
                     "it and the band closes there; %d point%s in"
                     % (i + 1, num(self.X[i], 1), num(f.y[i]), n_in, "" if n_in == 1 else "s"))
         if t < self.Tm["noise"][0]:
             return {
-                None: "the posterior in closed form, from three kernel matrices",
+                None: "μ* and σ*² from K, k* and k**: every posterior on this page is computed "
+                      "this way",
                 "K": "K = k(X, X): the %d × %d covariance of the data; its inverse weights "
                      "the observations" % (len(self.X), len(self.X)),
                 "ks": "k* = k(X, x*): how each data point is tied to every x on the grid",

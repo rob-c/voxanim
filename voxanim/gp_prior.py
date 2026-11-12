@@ -126,6 +126,11 @@ class PriorAnimation(GPDiagram):
                 v = log_lerp(a, c, ease_in_out(remap(t, t0, t1)))
         return v
 
+    @staticmethod
+    def _move(t, moves):
+        """Index of the move of ``moves`` under way (or last begun) at ``t``."""
+        return max(k for k, (t0, _t1, _a, _c) in enumerate(moves) if t >= t0)
+
     def kernel(self, l, var):
         """The RBF kernel with the hyperparameters on show."""
         return gp.RBF(variance=var, lengthscale=l)
@@ -254,11 +259,13 @@ class PriorAnimation(GPDiagram):
             return ("the mean is 0 everywhere; 95%% of samples lie within ±2σ = ±%s"
                     % num(2 * np.sqrt(f.var), 1))
         if t < self.Tm["variance"][0]:
-            how = "wiggly" if f.l < 0.6 else ("smooth" if f.l > 1.8 else "moderate")
-            return ("lengthscale ℓ = %s: how far correlation reaches. Short ℓ, %s samples; "
-                    "the diagonal band narrows" % (num(f.l), how)
-                    if f.l < 0.9 else
-                    "lengthscale ℓ = %s: long ℓ, %s samples; the diagonal band widens"
-                    % (num(f.l), how))
-        return ("variance σ² = %s: the scale of the functions. The band is ±2σ = ±%s; "
-                "the matrix brightens with σ²" % (num(f.var), num(2 * np.sqrt(f.var), 1)))
+            k = self._move(t, self.l_moves)
+            return ("lengthscale ℓ = %s: how far correlation reaches. Short ℓ: wiggly samples, "
+                    "a narrow diagonal band" % num(f.l) if k == 0 else
+                    "lengthscale ℓ = %s: long ℓ: smooth samples, a wide diagonal band"
+                    % num(f.l) if k == 1 else
+                    "lengthscale back to ℓ = %s" % num(f.l))
+        k = self._move(t, self.var_moves)
+        return ("variance σ² = %s: the scale of the functions. The band is ±2σ = ±%s; the "
+                "matrix %s" % (num(f.var), num(2 * np.sqrt(f.var), 1),
+                               "brightens" if k == 0 else "dims" if k == 1 else "is back"))

@@ -16,7 +16,7 @@ first term rewards fitting the data, the second punishes a flexible model
 2. **start** -- too smooth: l = 6, s_n = 1.5.  The posterior mean is nearly
    flat, the band wide; the data-fit bar is poor,
 3. **ascent** -- gradient ascent in (log l, log s_n) with step 0.05 x the
-   gradient, 50 steps (:func:`voxanim.gp.ascend`, cached): the arrow is the
+   gradient, 40 steps (:func:`voxanim.gp.ascend`, cached): the arrow is the
    next step, the posterior tightens on the data as l shrinks and s_n falls,
    the fit bar improves while the complexity bar worsens,
 4. **optimum** -- l = 1.8, s_n = 0.24, where the two trade off: log p(y) = -8.9.
@@ -52,7 +52,7 @@ N_L, N_N = 24, 24                                # columns per axis
 LEVELS, DEPTH = 18, 40.0                         # column levels; log p(y) range they span
 LAND_LO, LAND_HI = C.rgb("#1d4f4c"), C.rgb("#d2fff7")   # column colour: floor .. top
 START = (6.0, 1.5)                               # (lengthscale, noise sd): too smooth
-LR, STEPS = 0.05, 50                             # gradient ascent in log space
+LR, STEPS = 0.05, 40                             # gradient ascent in log space
 LAND_AT, LAND_SCALE = (0.75, 0.44), 0.80         # the landscape: layout position, voxel size
 BARS = (0.60, 0.845, 0.955)                      # bars panel: x0, first row y, x1 (layout)
 BAR_ROW, BAR_HALF, BAR_SPAN = 0.052, 0.085, 20.0 # row spacing; half-width (layout); its units
@@ -165,10 +165,11 @@ class HyperAnimation(GPDiagram):
         return gp.log_marginal(kernel(l), self.X, self.y, sd * sd)
 
     def log_gradient(self, l, sd):
-        """d log p(y) / d (log l, log sd) at ``(l, sd)``: the direction the ascent
-        takes, in the landscape's (log) coordinates."""
+        """The gradient of log p(y) in the ascent's coordinates (log l, log sd^2),
+        drawn on the landscape's axes (log l, log sd): a step is LR times this,
+        so the arrow points where the walker goes."""
         g = self.evidence(l, sd).grad
-        return np.array([g["lengthscale"] * l, g["noise"] * 2.0 * sd * sd])
+        return np.array([g["lengthscale"] * l, 0.5 * g["noise"] * sd * sd])
 
     def level(self, z):
         """Column height, in levels (0..LEVELS), of a log p(y) value."""
@@ -332,7 +333,7 @@ class HyperAnimation(GPDiagram):
                     % (num(START[0], 0), num(START[1], 1), num(ev.fit, 1),
                        num(ev.complexity, 1)))
         if t < self.Tm["ascent"][0]:
-            return ("the arrow: the gradient of log p(y) in (log ℓ, log σₙ). Each step moves "
+            return ("the arrow: the gradient of log p(y) in (log ℓ, log σₙ²). Each step moves "
                     "%s × the gradient, uphill" % num(LR, 2))
         if t < self.Tm["optimum"][0]:
             return ("step %d: ℓ = %s, σₙ = %s. As σₙ falls the complexity term rises to %s while "
