@@ -55,7 +55,8 @@ def test_page():
     p = _Collect()
     p.feed(page)
     assert len(p.ids) == len(set(p.ids))                    # ids unique
-    assert [c["name"] for c in p.clips] == \
+    assert p.clips[0]["name"] == site.HERO                   # the hero is a clip too
+    assert [c["name"] for c in p.clips[1:]] == \
         [n for *_, items in site.SECTIONS for n, _ in items]
     for c in p.clips:
         media = presets.REGISTRY[c["name"]].media
@@ -66,3 +67,6 @@ def test_page():
         assert c["seconds"] == 30 and c["about"]
     # one lazy poster per clip; app.js adds the videos (the page works without it)
     assert page.count('loading="lazy"') == len(p.clips) and "<video" not in page.split("<dialog")[0]
+    # the cue to click on every clip and on the hero (which is a clip too)
+    assert page.count('class="open"') == len(p.clips) + 1
+    assert page.count("data-clip=") == len(p.clips) + 1

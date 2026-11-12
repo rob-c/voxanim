@@ -44,10 +44,12 @@
       or run for real, in plain numpy, and every frame can be rendered again from
       the open code.</p>
     </div>
-    <div class="hero-video frame" data-preview="media/{{hero}}-480.mp4">
+    <a class="hero-video frame" href="#{{hero_name}}" data-clip='{{hero_clip}}'
+       data-preview="media/{{hero}}-480.mp4">
       <img src="media/{{hero}}.jpg" width="960" height="540" fetchpriority="high"
            alt="A 3×3 convolution: eight filters sliding over a 7×7×8 input">
-    </div>
+      {{open}}
+    </a>
   </section>
 
   <nav class="steps" aria-label="Sections">
@@ -78,7 +80,7 @@ python3 -m voxanim render gradient-descent</code></pre>
   <p>voxanim {{version}}, released under the MIT licence. The conv2d animations
   follow the originals by <a href="https://animatedai.github.io">Animated AI</a>.
   The grid plays the first half of each animation at two frames a second;
-  point at a clip for full speed, open it for the full 960×540 file.</p>
+  point at a clip for full speed, click it for the full 960×540 file.</p>
 </footer>
 
 <dialog id="player" aria-labelledby="player-title">

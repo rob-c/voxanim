@@ -276,12 +276,14 @@ def thumb(mp4, out, seconds):
             % (t["fps"], t["width"], t["hold"]), t["crf"], before_input=cut)
 
 
-def clip_html(name, title, p, secs, tag):
-    """One animation in the grid: a looping video with its title and summary.
-    Everything the player dialog shows travels in ``data-`` attributes."""
-    first, about = describe(p)
-    esc = html.escape
-    data = {
+OPEN = ('<span class="open" aria-hidden="true"><svg viewBox="0 0 12 12" width="10" height="10">'
+        '<path d="M2 1.5v9l8-4.5z" fill="currentColor"/></svg>Watch in full quality</span>')
+
+
+def clip_data(name, title, p, secs, tag):
+    """Everything the player dialog shows for one animation (its ``data-clip``)."""
+    _first, about = describe(p)
+    return {
         "name": name, "title": title, "about": about, "seconds": round(secs),
         "mp4": "media/%s.mp4" % p.media,
         "preview": "media/%s%s.mp4" % (p.media, PREVIEW_SUFFIX),
@@ -290,20 +292,28 @@ def clip_html(name, title, p, secs, tag):
         "gif": "https://github.com/%s/releases/download/%s/%s.gif" % (REPO, tag, p.media),
         "manifest": "https://github.com/%s/releases/download/%s/%s.json" % (REPO, tag, p.media),
     }
-    # the poster is a lazy <img>; app.js adds the <video> on top: the thumbnail while the
-    # clip is near the screen, the full-rate preview while it is hovered or focused
+
+
+def clip_html(name, title, p, secs, tag):
+    """One animation in the grid: its frame with the "watch in full quality"
+    cue, its title and summary.  The poster is a lazy <img>; app.js adds the
+    <video> on top: the thumbnail while the clip is near the screen, the
+    full-rate preview while it is hovered or focused."""
+    first, _about = describe(p)
+    data = clip_data(name, title, p, secs, tag)
+    esc = html.escape
     return (
         '<li class="clip" id="%(name)s">\n'
         '  <a href="#%(name)s" data-clip=\'%(data)s\'>\n'
         '    <span class="frame" data-thumb="%(thumb)s" data-preview="%(preview)s">'
         '<img src="%(poster)s" width="960" height="540" loading="lazy" decoding="async" alt="">'
-        '</span>\n'
+        '%(open)s</span>\n'
         '    <span class="clip-title">%(title)s</span>\n'
         '  </a>\n'
         '  <p>%(first)s</p>\n'
         '</li>' % dict(name=esc(name), data=esc(json.dumps(data, ensure_ascii=False), quote=True),
                        preview=esc(data["preview"]), thumb=esc(data["thumb"]),
-                       poster=esc(data["poster"]), title=esc(title), first=esc(first)))
+                       poster=esc(data["poster"]), title=esc(title), first=esc(first), open=OPEN))
 
 
 def page_html(durations, tag, sections=SECTIONS):
@@ -320,10 +330,14 @@ def page_html(durations, tag, sections=SECTIONS):
             '<header><h2 id="%s-h">%s</h2><p>%s</p></header>\n'
             '<ol class="clips">\n%s\n</ol>\n</section>'
             % (anchor, anchor, anchor, html.escape(heading), html.escape(intro), clips))
-    hero = presets.REGISTRY[HERO].media
+    hero = presets.REGISTRY[HERO]
+    hero_title = next(t for *_, items in sections for n, t in items if n == HERO)
+    hero_data = clip_data(HERO, hero_title, hero, durations[HERO], tag)
     fill = {
         "count": str(len(presets.REGISTRY)), "version": __version__, "tag": html.escape(tag),
-        "repo": REPO, "hero": hero, "index": "\n".join(index), "sections": "\n\n".join(body),
+        "repo": REPO, "hero": hero.media, "hero_name": HERO, "index": "\n".join(index),
+        "sections": "\n\n".join(body), "open": OPEN,
+        "hero_clip": html.escape(json.dumps(hero_data, ensure_ascii=False), quote=True),
     }
     return re.sub(r"\{\{(\w+)\}\}", lambda m: fill[m.group(1)], template)
 
