@@ -109,8 +109,13 @@ SECTIONS = [
       ("dec-dense", "Deep embedded clustering"),
       ("idec-dense", "Improved deep embedded clustering")]),
     ("transformers", "Transformers",
-     "GPT-2 small reading a real prompt, from one attention head to all 12 layers.",
-     [("gpt2-attention", "Inside GPT-2")]),
+     "Attention between two sequences, then GPT-2 small reading a real prompt, from one "
+     "attention head to all 12 layers.",
+     [("seq2seq-attention", "Attention between two sequences"),
+      ("gpt2-attention", "Inside GPT-2")]),
+    ("rl", "Reinforcement learning",
+     "An agent learning from reward.",
+     [("q-learning", "Q-learning in a gridworld")]),
 ]
 
 

@@ -35,6 +35,8 @@ preset                         shows                                        modu
 ``dec-dense``                  Deep Embedded Clustering                     dec_anim
 ``idec-dense``                 Improved DEC                                 dec_anim
 ``gpt2-attention``             inside GPT-2 small                           gpt2_anim
+``seq2seq-attention``          encoder-decoder attention reversing digits   seq2seq_anim
+``q-learning``                 tabular Q-learning in a gridworld            qlearning_anim
 ``gradient-descent``           a 2-3-1 network learning XOR                 gd_anim
 ``mlp-classifier``             a 784-32-16-10 node-and-line diagram         mlp_graph
 ``decision-tree``              CART on a 2-D, 3-class dataset               dtree
@@ -364,3 +366,30 @@ def _dtree():
 register("decision-tree", _dtree,
          "A decision tree (CART, Gini) grown on a 2-D, 3-class dataset: the threshold search, "
          "the splits, the regions, then new points falling down the tree.")
+
+
+# ------------------------------------------------------------------ seq2seq attention, Q-learning
+
+
+def _seq2seq():
+    from . import seq2seq
+    from .seq2seq_anim import Seq2SeqAttention
+    return Seq2SeqAttention(seq2seq.trace())
+
+
+register("seq2seq-attention", _seq2seq,
+         "An encoder-decoder with additive attention reversing six digits: the encoder reads, "
+         "the decoder attends and copies, the alignment matrix forms row by row, then the "
+         "recorded training replays it being learned.")
+
+
+def _qlearning():
+    from . import gridworld
+    from .qlearning_anim import QLearning
+    return QLearning(gridworld.run())
+
+
+register("q-learning", _qlearning,
+         "Tabular Q-learning in a 6x8 gridworld with walls, a goal and a trap: the first "
+         "episodes move by move with the update rule, the Q-table rising as a height-field over "
+         "the grid, epsilon decaying, the greedy policy and its shortest path.")
