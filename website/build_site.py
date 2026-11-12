@@ -110,7 +110,11 @@ SECTIONS = [
       ("idec-dense", "Improved deep embedded clustering")]),
     ("transformers", "Transformers",
      "GPT-2 small reading a real prompt, from one attention head to all 12 layers.",
-     [("gpt2-attention", "Inside GPT-2")]),
+     [("gpt2-attention", "Inside GPT-2"),
+      ("gpt2-tokenizer", "Byte-pair encoding"),
+      ("gpt2-embeddings", "What embeddings know"),
+      ("gpt2-transformer-block", "Through the transformer"),
+      ("gpt2-sampling", "Sampling the next token")]),
 ]
 
 

@@ -218,3 +218,25 @@ def draw_image(anim, sc, c, tex, w, h, opacity=1.0, grid=0.35, lift=0.3):
         return
     c = np.asarray(c, np.float64) + anim.view * lift
     anim._billboard(sc, c, w / 2, h / 2, image_shader(anim, c, tex, w, h, opacity, grid))
+
+
+def shrink_columns(tex, max_cols):
+    """``tex`` (rows, cols, 3) with neighbouring columns averaged in pairs until
+    there are at most ``max_cols``: a 768-wide vector drawn 400 px wide keeps
+    every value's share of the colour instead of dropping every other one."""
+    t = np.asarray(tex, np.float32)
+    while t.shape[1] > max_cols and t.shape[1] > 1:
+        if t.shape[1] % 2:
+            t = np.concatenate([t, t[:, -1:]], 1)
+        t = (t[:, 0::2] + t[:, 1::2]) / 2
+    return t
+
+
+def draw_strip(anim, sc, c, colors, w, h, opacity=1.0, lift=0.3):
+    """A vector's ``(n, 3)`` colours (or a ``(rows, n, 3)`` stack of vectors) as
+    a ``w x h`` px strip centred at ``c``, with the columns averaged down to
+    the pixels available (see :func:`shrink_columns`); no cell grid."""
+    tex = np.asarray(colors, np.float32)
+    if tex.ndim == 2:
+        tex = tex[None]
+    draw_image(anim, sc, c, shrink_columns(tex, int(w)), w, h, opacity, grid=0.0, lift=lift)
