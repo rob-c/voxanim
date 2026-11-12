@@ -400,3 +400,14 @@ register("normalisation", _normalisation,
          "batch norm down each column, layer norm across each row, the learned scale and shift, "
          "the histograms before and after, then training with and without at a high learning "
          "rate.")
+
+
+def _overfitting():
+    from . import overfit_anim
+    return overfit_anim.Overfitting(*overfit_anim.runs())
+
+
+register("overfitting", _overfitting,
+         "A wide MLP overfitting 60 points (MNIST 3s and 8s on two principal components): the "
+         "decision field wrapping around the training points while the test loss climbs; then "
+         "weight decay, dropout (live mask) and early stopping on a validation set.")
