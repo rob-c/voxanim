@@ -39,9 +39,10 @@ the load rather than rescuing it: over 4 seeds and expert widths 4, 16 and
 32, the busiest expert takes 1.5-4.2 times the quietest without it and
 1.4-2.8 times with it (lower in 11 of the 16 pairs).  Seed 3 at width 16 is
 shown, where the contrast is largest (3.2 against 2.3 on the animation's
-2,048-token sample).  The routing is only partly by regime: an expert's
-majority regime takes 50-75 % of its tokens, punctuation being the most
-concentrated; the utilisation bars show the split.
+2,048-token sample).  The routing is only partly by regime: with the three
+regimes weighted equally, an expert's majority regime accounts for 40-77 %
+of its load, punctuation being the most concentrated; the utilisation bars
+show the split.
 """
 
 from __future__ import annotations
