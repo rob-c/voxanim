@@ -960,3 +960,63 @@ register("learning-rate-finder-and-restarts", _lr_finder,
          "rate, the knee, the minimum and the divergence marked), then a cosine schedule with "
          "warm restarts at the knee rate: the schedule, the loss against one cosine, and the "
          "landscape walker kicked out of its basin at each restart.")
+# ------------------------------------------------------------------ activation functions
+#
+# Seven activations training the same MNIST classifiers (voxanim.actfun).
+
+
+def _activation_race():
+    from .actfun_race import ActivationRace
+    return ActivationRace()
+
+
+register("activation-race", _activation_race,
+         "Sigmoid, tanh, ReLU, Leaky ReLU, GELU, SiLU and ELU drawn with their slopes, then the "
+         "same 784-128-64-10 network trained with each: training loss and test accuracy racing "
+         "on a log time axis, the final table (honest about ties) and the measured time a "
+         "training step costs under each.")
+
+
+def _activation_gradients():
+    from .actfun_gradients import ActivationGradients
+    return ActivationGradients()
+
+
+register("activation-gradients", _activation_gradients,
+         "An eight-layer MLP under each activation: the gradient reaching every layer at the "
+         "start (sigmoid's vanishing, ReLU's flat, GELU and SiLU in between) and after training, "
+         "and each slope drawn over the real histogram of a layer's pre-activations with the "
+         "fraction of units on a flat part.")
+
+
+def _activation_sparsity():
+    from .actfun_sparsity import ActivationSparsity
+    return ActivationSparsity()
+
+
+register("activation-sparsity", _activation_sparsity,
+         "What each activation leaves on in the trained race networks: one test batch's hidden "
+         "layer as a sheet under each, the fraction off, near zero or saturated per layer over "
+         "training, how many units one digit uses, and the units dead on every test image.")
+
+
+def _activation_smoothness():
+    from .actfun_smoothness import ActivationSmoothness
+    return ActivationSmoothness()
+
+
+register("activation-smoothness", _activation_smoothness,
+         "The trained networks' output along the straight line between a 3 and an 8: piecewise "
+         "linear under ReLU (its slope a staircase, the kinks counted), smooth under GELU, SiLU "
+         "and tanh; then the training loss along a random weight direction for each.")
+
+
+def _activation_depth():
+    from .actfun_depth import ActivationDepth
+    return ActivationDepth()
+
+
+register("activation-depth", _activation_depth,
+         "The 20-layer network of the initialisation animation under each activation and its "
+         "matching init, no normalisation: the activation std per layer, 400 SGD steps, which "
+         "ones train and which stall, and what the stalled ones look like inside.")
