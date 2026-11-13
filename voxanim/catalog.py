@@ -748,3 +748,49 @@ register("learning-rate-schedule", _lr_schedule,
          "Constant, step decay, cosine with warmup and one-cycle schedules training the MNIST "
          "MLP: the schedules, the loss curves, the same schedules on the two-weight landscape, "
          "and why warmup tames Adam's first steps.")
+# ------------------------------------------------------------------ fine-tuning and transfer
+#
+# Split MNIST (digits 0-4, then 5-9) through a two-conv CNN (voxanim.transfer),
+# and the learning-rate finder with warm restarts on the MLP and the landscape.
+
+
+def _transfer_learning():
+    from . import transfer as T
+    from .transfer_anim import TransferLearning
+    data = T.split()
+    return TransferLearning(data, T.pretrain(data), T.transfer_runs(data))
+
+
+register("transfer-learning", _transfer_learning,
+         "A CNN trained on the digits 0-4, then the digits 5-9 learned from 100 images a class "
+         "three ways: from scratch, with the pretrained conv layers frozen and a new head, and "
+         "fine-tuned at a tenth of the rate; the first-layer filters live, the three accuracy "
+         "curves, who wins with little data.")
+
+
+def _catastrophic_forgetting():
+    from . import transfer as T
+    from .transfer_anim import CatastrophicForgetting
+    data = T.split()
+    return CatastrophicForgetting(data, T.pretrain(data), T.forgetting_runs(data))
+
+
+register("catastrophic-forgetting", _catastrophic_forgetting,
+         "The CNN trained on 0-4 fine-tuned on 5-9: a bar per digit, the old digits' accuracy "
+         "collapsing as the new ones learn; then rehearsal (old images mixed into every "
+         "minibatch) and lower learning rates, and the trade-off in numbers.")
+
+
+def _lr_finder():
+    from . import transfer as T
+    from .transfer_anim import LearningRateFinder
+    lrs, losses = T.lr_range_test()
+    peak, mlp = T.restart_runs()
+    return LearningRateFinder(lrs, losses, peak, mlp, T.landscape_restarts())
+
+
+register("learning-rate-finder-and-restarts", _lr_finder,
+         "The learning-rate range test on the MNIST MLP (loss against an exponentially rising "
+         "rate, the knee, the minimum and the divergence marked), then a cosine schedule with "
+         "warm restarts at the knee rate: the schedule, the loss against one cosine, and the "
+         "landscape walker kicked out of its basin at each restart.")
