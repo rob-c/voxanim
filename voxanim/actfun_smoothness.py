@@ -52,6 +52,7 @@ from .cache import cached_npz
 from .diagram import Diagram, draw_image
 from .easing import ease_in_out, remap, smoothstep
 from .losschart import LossChart
+from .text import num
 
 CLASS_A, CLASS_B = 3, 8                       # the two digits: the first of each in the test subset
 LINE_N = 401                                  # points along the line
@@ -305,9 +306,10 @@ class ActivationSmoothness(Diagram):
                     % (CLASS_A, CLASS_B, CLASS_A, CLASS_B))
         if t < T["slope"][0]:
             zr = self.z[i["relu"]]
-            return ("z₈, each network's logit for '%d', along the line: from %.1f to %.1f under "
+            return ("z₈, each network's logit for '%d', along the line: from %s to %s under "
                     "ReLU, where p(8) goes %.3f → %.3f; every curve rises, so look at the slope"
-                    % (CLASS_B, zr[0], zr[-1], self.p[i["relu"]][0], self.p[i["relu"]][-1]))
+                    % (CLASS_B, num(zr[0], 1), num(zr[-1], 1), self.p[i["relu"]][0],
+                       self.p[i["relu"]][-1]))
         if t < T["loss"][0] - 1.5:
             return ("under ReLU the slope is a staircase: %d steps, one per hidden unit switching "
                     "along the line (Leaky ReLU %d); GELU, SiLU and tanh curve. Largest jump: %s "
