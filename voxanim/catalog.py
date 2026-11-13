@@ -748,3 +748,58 @@ register("learning-rate-schedule", _lr_schedule,
          "Constant, step decay, cosine with warmup and one-cycle schedules training the MNIST "
          "MLP: the schedules, the loss curves, the same schedules on the two-weight landscape, "
          "and why warmup tames Adam's first steps.")
+# ------------------------------------------------------------------ capacity and bottlenecks
+#
+# How much a layer can carry: latent widths of an autoencoder, a classifier
+# squeezed through two units, the rank of a weight matrix, width against
+# depth at one parameter budget (voxanim.capacity).
+
+
+def _bottleneck_sweep():
+    from .bottleneck_anim import BottleneckSweep
+    from .capacity import bottleneck_sweep
+    return BottleneckSweep(bottleneck_sweep())
+
+
+register("bottleneck-sweep", _bottleneck_sweep,
+         "The dense autoencoder with a latent of 1, 2, 3, 8, 32 and 256 numbers: four test digits "
+         "rebuilt by each width side by side, the test error against width (steep, then flat), "
+         "and the codes of 600 test digits on a line, a plane and in a cube, coloured by label.")
+
+
+def _information_bottleneck():
+    from .bottleneck_anim import InformationBottleneck
+    from .capacity import HIDDEN, squeeze_run
+    return InformationBottleneck([squeeze_run(h) for h in HIDDEN])
+
+
+register("information-bottleneck", _information_bottleneck,
+         "A classifier squeezed through a 2-unit layer (784-64-2-10) against one with 64: the "
+         "600 test digits' two coordinates moving and sorting by class as training runs, both "
+         "accuracies, and the confusion matrix of what two numbers cannot keep apart.")
+
+
+def _rank_of_a_layer():
+    from .capacity import rank_study
+    from .rank_anim import RankOfALayer
+    return RankOfALayer(rank_study())
+
+
+register("rank-of-a-layer", _rank_of_a_layer,
+         "The singular values of the trained MNIST MLP's 784x64 and 64x32 weight matrices as "
+         "bars; both rebuilt from their top 1, 2, 4, 8, 16 and 32 components, the weight images "
+         "re-forming, the test accuracy and the fraction of parameters kept after each: the "
+         "fact LoRA relies on.")
+
+
+def _width_vs_depth():
+    from .capacity import step_times, width_depth_runs
+    from .widthdepth_anim import WidthVsDepth
+    runs, data = width_depth_runs()
+    return WidthVsDepth(runs, data, step_times(data))
+
+
+register("width-vs-depth", _width_vs_depth,
+         "About 50,000 parameters as one hidden layer of 64, four of 52 or sixteen of 37: one "
+         "digit's activations and the gradient reaching each layer as bands, the three accuracy "
+         "curves, the measured time per training step, and why the winner depends.")
