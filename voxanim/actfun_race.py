@@ -109,10 +109,10 @@ class ActivationRace(Diagram):
         ph = 0 if reset > 0 else self.step_of(t)
         race = self.progress("race", t)
         swap = smoothstep(0.0, 0.5, remap(t, self.Tm["race"][0] - 1.5, self.Tm["race"][0] - 0.3))
-        results = smoothstep(0.0, 0.25, self.progress("results", t))
+        results = self.progress("results", t)
         funcs = (1.0 - swap) * back
-        charts = swap * (1.0 - results) * back
-        table = results * back
+        charts = swap * (1.0 - smoothstep(0.0, 0.08, results)) * back     # charts go first,
+        table = smoothstep(0.1, 0.25, results) * back                      # then the table
         self._functions(sc, t, funcs)
         self._race(sc, race, charts)
         self._table(sc, t, table)

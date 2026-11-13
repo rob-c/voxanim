@@ -52,13 +52,13 @@ BINS = 30                                       # over Z_RANGE
 HIST_FULL = 0.35                                # a bin with this share fills the plot
 GRAD_RANGE = (-8.0, -2.0)                       # log10 gradient RMS: dark .. lit
 DARK = C.rgb("#3a3f44")
-GRID_AT, GRID_SCALE, PITCH = (0.45, 0.42), 2.6, (1.2, 1.3)
+GRID_AT, GRID_SCALE, PITCH = (0.45, 0.40), 2.6, (1.2, 1.3)
 NOTE_X = 0.78                                   # the per-row read-outs, layout x
 PLOT_X0, PLOT_W, PLOT_GAP = 0.005, 0.125, 0.0155
-PLOT_Y = (0.66, 0.86)
+PLOT_Y = (0.69, 0.87)
 PLOT_DT = 1.15                                  # seconds per slope plot
 FRAME = (0.96, 0.96, 0.96)
-TRAIN_T = 10.0                                  # the after-training phase
+TRAIN_T = 12.0                                  # the after-training phase
 
 
 def histogram(y):
@@ -107,7 +107,7 @@ class ActivationGradients(Diagram):
         Tm["sweep"] = (t, self.bwd.t1)
         t = self.bwd.t1 + 2.5
         Tm["slopes"] = (t, t + N_ACT * PLOT_DT)
-        t += N_ACT * PLOT_DT + 3.5
+        t += N_ACT * PLOT_DT + 4.0
         Tm["train"] = (t, t + TRAIN_T)
         t += TRAIN_T
         self.Tm = Tm
@@ -173,9 +173,11 @@ class ActivationGradients(Diagram):
         for l in range(DEPTH):
             lo, hi = g.block.box((0, N_ACT), (l, l + 1), (0, 1))
             x0, _y0, x1, y1 = screen_box(self.cam, lo, hi)
-            sc.text((x0 + x1) / 2 / self.cam.width, (y1 + 6) / self.cam.height,
-                    "%d" % (l + 1) if l else "layer 1", layout.MIN_TEXT, "regular",
-                    layout.NOTE_INK, op * self._cap, "mt")
+            sc.text((x0 + x1) / 2 / self.cam.width, (y1 + 6) / self.cam.height, "%d" % (l + 1),
+                    layout.MIN_TEXT, "regular", layout.NOTE_INK, op * self._cap, "mt")
+            if l == 0:
+                sc.text((x0 - 10) / self.cam.width, (y1 + 6) / self.cam.height, "layer",
+                        layout.MIN_TEXT, "regular", layout.NOTE_INK, op * self._cap, "rt")
         self.caption(sc, g, "the gradient reaching each layer, log colour scale (10%s dark, "
                      "10%s lit)" % (sup(int(GRAD_RANGE[0])), sup(int(GRAD_RANGE[1]))), op,
                      above=True,
@@ -202,7 +204,7 @@ class ActivationGradients(Diagram):
             flat = self.flat0[k] + (self.flat1[k] - self.flat0[k]) * trained
             slope_plot(self, sc, box, a, hist, self.flat_bins[k], op, u, HIST_FULL)
             self.label(sc, self.P((box[0][0] + box[0][1]) / 2, PLOT_Y[1]),
-                       "%d%% flat" % round(100 * flat), layout.MIN_TEXT, anchor="mt", dy=24,
+                       "%d%% flat" % round(100 * flat), layout.MIN_TEXT, anchor="mt", dy=28,
                        ink=layout.NOTE_INK, opacity=op * smoothstep(0.8, 1.0, u))
         self.label(sc, self.P(0.5, PLOT_Y[0]), "f′ over layer %d's pre-activations on %d test "
                    "images (tinted bins: |f′| < %g, a flat part)" % (HIST_LAYER + 1, HIST_N, FLAT),

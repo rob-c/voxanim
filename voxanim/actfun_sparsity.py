@@ -51,9 +51,9 @@ MEASURE_LABEL = {"zero": "exactly 0", "small": "|a| < %g" % NEAR_ZERO,
                  "flat": "saturated, |f′| < %g" % FLAT}
 DEAD_INK = (0.85, 0.25, 0.25)
 
-SHEET_AT, SHEET_SCALE = (0.44, 0.37), 0.45
+SHEET_AT, SHEET_SCALE = (0.44, 0.40), 0.45
 NOTE_X = 0.745                                   # read-outs right of the sheet
-STRIP_GAP, PAIR_GAP = 0.6, 3.4                   # cells between a pair's rows, between pairs
+STRIP_GAP, PAIR_GAP = 0.6, 4.4                   # cells between a pair's rows, between pairs
 BARS = ((0.08, 0.95), (0.64, 0.86))              # the bar chart: (x0, x1), (top, baseline)
 BAR_W = 0.036                                    # layout width of one bar
 AXIS = (0.5, 0.52, 0.54)
@@ -305,13 +305,14 @@ class ActivationSparsity(Diagram):
                 self.caption_side(sc, box, "%d of %d on" % (used, N_UNITS),
                                   op * smoothstep(0.8, 1.0, on))
         if op > 0.01 and t >= self.Tm["digit"][0]:
-            lo = self.strips[0][0].bbox()[0]
-            hi = self.strips[0][0].bbox()[1]
+            # the caption goes under the whole stack, centred on its full width
+            lo = np.minimum(self.strips[-1][1].bbox()[0], self.strips[0][0].bbox()[0])
+            hi = np.maximum(self.strips[-1][1].bbox()[1], self.strips[0][0].bbox()[1])
             head = ("one test digit (%s) through each network: its %d hidden units, lit where "
                     "|a| ≥ %g" % (article(self.digit), N_UNITS, NEAR_ZERO))
             if dead > 0:
                 head = "units off on every one of the %s test images, in red" % f"{N_TEST:,}"
-            self.caption(sc, (lo, hi), head, op, above=True, size=layout.MIN_TEXT, max_width=0.7)
+            self.caption(sc, (lo, hi), head, op, size=layout.MIN_TEXT, max_width=0.7)
 
     # ------------------------------------------------------------------ words
     def _words(self, t, k, train, reset):

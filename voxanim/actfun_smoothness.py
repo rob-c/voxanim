@@ -17,9 +17,10 @@ on the trained race networks (:mod:`voxanim.actfun_race`).
 4. **the loss** -- the training loss of one minibatch of 64 along a random
    direction in weight space, θ + s·d, each layer of d scaled to that
    layer's own size.  Over a wide range (s = ±0.6) all seven slices are
-   smooth bowls; zoomed in twelve-fold (±0.05) the ReLU and Leaky ReLU
-   slices are chains of straight pieces while GELU's, SiLU's and tanh's stay
-   curves: slope jumps of 17% and 39% against under 1%.  That is the
+   smooth bowls; zoomed in sixty-fold (±0.01) and differentiated, the slope
+   of the ReLU and Leaky ReLU slices is a staircase (the loss is a chain of
+   straight pieces) while GELU's, SiLU's and tanh's slopes are curves: slope
+   jumps of 11% and 24% of the mean slope against under 1%.  That is the
    smoother ground a smooth activation gives the optimiser; at the scale of
    a whole step it hardly shows, which is why ReLU trains fine.
 
@@ -57,7 +58,7 @@ LINE_N = 401                                  # points along the line
 SLOPE_KEYS = ("relu", "leaky_relu", "gelu", "silu", "tanh")    # whose slopes are drawn
 SLICE_N = 64                                  # training images the loss slice is measured on
 WIDE, WIDE_N = 0.6, 121                       # the wide slice: s in [-WIDE, WIDE]
-ZOOM, ZOOM_N = 0.05, 201                      # the zoomed slice
+ZOOM, ZOOM_N = 0.01, 401                      # the zoomed slice (its slope is drawn)
 IMG_Y, IMG_PX, BLEND_PX = 0.26, 52.0, 38.0    # the row of digits: layout y, px sizes
 IMG_X = (0.10, 0.30, 0.50, 0.70, 0.90)        # α = 0, ¼, ½, ¾, 1
 LOGIT_BOX = ((0.08, 0.95), (0.42, 0.61))
@@ -91,12 +92,17 @@ def loss_slices(runs, dat, cache_dir=None):
     return cached_npz("actfun_slices", settings, build, cache_dir)
 
 
-def detrended(s, values):
-    """``values (n, len(s))`` minus their tangent line at ``s = 0`` (the middle
-    sample): the curvature and the kinks, without the slope."""
-    m = len(s) // 2
-    slope = (values[:, m + 1] - values[:, m - 1]) / (s[m + 1] - s[m - 1])
-    return values - values[:, m][:, None] - slope[:, None] * s[None]
+def slope_of(s, values):
+    """``(midpoints, slopes)``: the slope of each row of ``values (n, len(s))``
+    between consecutive samples, each row minus its own mean (the curves are
+    compared for their shape, not their level)."""
+    d = np.diff(values, axis=1) / np.diff(s)[None]
+    return (s[1:] + s[:-1]) / 2, d - d.mean(1, keepdims=True)
+
+
+def pct(v):
+    """A fraction as a percentage, ``<1%`` when it rounds to nothing."""
+    return "<1%" if v < 0.005 else "%d%%" % round(100 * v)
 
 
 def first_of(dat, digit):
@@ -133,7 +139,7 @@ class ActivationSmoothness(Diagram):
             self.rough.append(roughness(z))
         self.slope = [np.gradient(z, self.alpha) for z in self.z]
         self.slices = loss_slices(self.runs, dat) if slices is None else slices
-        self.zoom_rel = detrended(self.slices["s_zoom"], self.slices["zoom"])
+        self.s_mid, self.zoom_slope = slope_of(self.slices["s_zoom"], self.slices["zoom"])
         self.rough_zoom = [roughness(v) for v in self.slices["zoom"]]
         keys = [a.key for a in ACTS]
         self.shown = [keys.index(k) for k in SLOPE_KEYS]
@@ -145,8 +151,8 @@ class ActivationSmoothness(Diagram):
         wide = self.slices["wide"]
         self.wide_chart = LossChart(WIDE_BOX, (-WIDE, WIDE), (0.0, rounded_range(0, wide.max(),
                                                                                   0.1)[1]))
-        zr2 = rounded_range(self.zoom_rel[self.shown].min(), self.zoom_rel[self.shown].max(),
-                            0.0002)
+        zr2 = rounded_range(self.zoom_slope[self.shown].min(), self.zoom_slope[self.shown].max(),
+                            0.001)
         self.zoom_chart = LossChart(ZOOM_BOX, (-ZOOM, ZOOM), zr2)
 
         Tm, t = {}, 0.3
@@ -226,7 +232,7 @@ class ActivationSmoothness(Diagram):
         x = 0.5 - total / 2 if left is None else self.fr(self.P(left, fy))[0]
         y = self.fr(self.P(0.5, fy))[1]
         for s, ink, w in zip(labels, inks, widths):
-            sc.text(x, y, s, layout.MIN_TEXT, "regular", ink, op * self._cap, "la")
+            sc.text(x, y, s, layout.MIN_TEXT, "regular", ink, op * self._cap, "lm")
             x += w + gap
 
     def _output(self, sc, t, op):
@@ -268,9 +274,9 @@ class ActivationSmoothness(Diagram):
         op *= self._cap
         if op <= 0.01:
             return
-        s_w, s_z = self.slices["s_wide"], self.slices["s_zoom"]
+        s_w = self.slices["s_wide"]
         up_w = -WIDE + 2 * WIDE * remap(loss, 0.0, 0.35)
-        up_z = -ZOOM + 2 * ZOOM * remap(loss, 0.4, 0.8)
+        up_z = self.s_mid[0] + (self.s_mid[-1] - self.s_mid[0]) * remap(loss, 0.4, 0.8)
         wc, zc = self.wide_chart, self.zoom_chart
         wc.axes(sc, self.cam, self.P, op, "s (every layer moved by s of its size)",
                 "loss of one minibatch", [(v, "%g" % v) for v in (-0.3, 0, 0.3)],
@@ -279,11 +285,13 @@ class ActivationSmoothness(Diagram):
             wc.curve(sc, self.P, s_w, self.slices["wide"][i], up_w, a.ink, op, width=1.4)
         zop = op * smoothstep(0.38, 0.45, loss)
         zc.axes(sc, self.cam, self.P, zop, "s, zoomed in %d×" % round(WIDE / ZOOM),
-                "loss minus its tangent at s = 0", [(v, "%g" % v) for v in (-0.025, 0, 0.025)],
-                [(v, "%+.4f" % v if v else "0") for v in
-                 np.arange(zc.y_range[0], zc.y_range[1] + 1e-9, 0.0004)])
+                "slope of the loss, each minus its mean",
+                [(v, "%g" % v) for v in (-0.005, 0, 0.005)],
+                [(v, "%+.3f" % v if abs(v) > 1e-9 else "0") for v in
+                 np.arange(-0.02, 0.0201, 0.002) if zc.y_range[0] <= v <= zc.y_range[1]])
         for i in self.shown:
-            zc.curve(sc, self.P, s_z, self.zoom_rel[i], up_z, ACTS[i].ink, zop, width=1.4)
+            zc.curve(sc, self.P, self.s_mid, self.zoom_slope[i], up_z, ACTS[i].ink, zop,
+                     width=1.4)
         self._names(sc, range(len(ACTS)), NAMES_Y, op)
         sc.probe(("loss",), (loss * 300, 0, 0), tol=6.0)
 
@@ -302,16 +310,15 @@ class ActivationSmoothness(Diagram):
                     % (CLASS_B, zr[0], zr[-1], self.p[i["relu"]][0], self.p[i["relu"]][-1]))
         if t < T["loss"][0] - 1.5:
             return ("under ReLU the slope is a staircase: %d steps, one per hidden unit switching "
-                    "along the line (Leaky ReLU %d); GELU, SiLU and tanh curve. Largest jump: %d%% "
-                    "and %d%% of the mean slope against %d%%, %d%%, %d%%"
+                    "along the line (Leaky ReLU %d); GELU, SiLU and tanh curve. Largest jump: %s "
+                    "and %s of the mean slope against %s, %s, %s"
                     % (self.kinks[i["relu"]], self.kinks[i["leaky_relu"]],
-                       round(100 * self.rough[i["relu"]]), round(100 * self.rough[i["leaky_relu"]]),
-                       round(100 * self.rough[i["gelu"]]), round(100 * self.rough[i["silu"]]),
-                       round(100 * self.rough[i["tanh"]])))
+                       pct(self.rough[i["relu"]]), pct(self.rough[i["leaky_relu"]]),
+                       pct(self.rough[i["gelu"]]), pct(self.rough[i["silu"]]),
+                       pct(self.rough[i["tanh"]])))
         rz = self.rough_zoom
-        return ("one minibatch's loss along a random weight direction: at ±%.1f all seven are "
-                "smooth bowls; at ±%.2f ReLU's is straight pieces (slope jumps %d%%, Leaky ReLU "
-                "%d%%), GELU's, SiLU's, tanh's still curves (%d%%, %d%%, %d%%)"
-                % (WIDE, ZOOM, round(100 * rz[i["relu"]]), round(100 * rz[i["leaky_relu"]]),
-                   round(100 * rz[i["gelu"]]), round(100 * rz[i["silu"]]),
-                   round(100 * rz[i["tanh"]])))
+        return ("the loss along a random weight direction: at ±%.1f all seven are smooth bowls; "
+                "at ±%.2f the slope of ReLU's is a staircase (jumps %d%% of the mean slope, Leaky "
+                "ReLU %s), GELU's and SiLU's a curve (%s, %s)"
+                % (WIDE, ZOOM, pct(rz[i["relu"]]), pct(rz[i["leaky_relu"]]), pct(rz[i["gelu"]]),
+                   pct(rz[i["silu"]])))

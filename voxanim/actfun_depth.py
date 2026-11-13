@@ -60,7 +60,7 @@ PLOT_X0, PLOT_W, PLOT_GAP = 0.005, 0.125, 0.0155
 PLOT_Y = (0.68, 0.84)
 FRAME = (0.96, 0.96, 0.96)
 CHANCE = np.log(10.0)
-TRAIN_T, INSIDE_T = 11.0, 9.0
+TRAIN_T, INSIDE_T = 12.0, 11.0
 HIST_INK = (0.55, 0.57, 0.60)
 
 
@@ -117,11 +117,11 @@ class ActivationDepth(Diagram):
         self.chart = LossChart(CHART, (0, DEEP20["steps"]), (0.0, 3.0))
 
         Tm, t = {}, 0.3
-        Tm["network"] = (t, t + 4.0)
-        t += 4.0
+        Tm["network"] = (t, t + 4.5)
+        t += 4.5
         self.fwd = Sweep(t, DEPTH, Tempo(slow=0.55, fast=0.14, ramp_in=3.0, ramp_out=2.0))
         Tm["sweep"] = (t, self.fwd.t1)
-        t = self.fwd.t1 + 2.5
+        t = self.fwd.t1 + 3.0
         Tm["train"] = (t, t + TRAIN_T)
         t += TRAIN_T + 0.5
         Tm["inside"] = (t, t + INSIDE_T)
