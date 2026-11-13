@@ -120,8 +120,11 @@ reduceMotion.addEventListener("change", updateAll);
 // Like the step bar in the animations: sections above in ink, the current
 // one in blue, the rest grey.
 
-const steps = [...document.querySelectorAll(".steps a")];
+const stepsNav = document.querySelector(".steps");
+const steps = [...stepsNav.querySelectorAll("a")];
 const sections = steps.map((a) => document.querySelector(a.hash));
+const stepsToggle = stepsNav.querySelector(".steps-toggle");
+const stepsCurrent = stepsNav.querySelector(".steps-current");
 
 function markStep(current) {
   const i = sections.indexOf(current);
@@ -130,8 +133,16 @@ function markStep(current) {
     if (j === i) a.setAttribute("aria-current", "true");
     else a.removeAttribute("aria-current");
   });
-  if (i >= 0) steps[i].scrollIntoView({ block: "nearest", inline: "nearest" });
+  if (i >= 0) stepsCurrent.textContent = (i + 1) + "\u2002" + steps[i].textContent;
 }
+
+// on narrow screens the list is behind a button naming the current section
+function openSteps(open) {
+  stepsNav.classList.toggle("open", open);
+  stepsToggle.setAttribute("aria-expanded", String(open));
+}
+stepsToggle.addEventListener("click", () => openSteps(!stepsNav.classList.contains("open")));
+steps.forEach((a) => a.addEventListener("click", () => openSteps(false)));
 
 const spy = new IntersectionObserver((entries) => {
   for (const e of entries) if (e.isIntersecting) markStep(e.target);

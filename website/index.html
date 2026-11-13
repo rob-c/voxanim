@@ -53,7 +53,10 @@
   </section>
 
   <nav class="steps" aria-label="Sections">
-    <ol>
+    <button type="button" class="steps-toggle" aria-expanded="false" aria-controls="steps-list">
+      <span class="steps-current">Sections</span><span class="steps-caret" aria-hidden="true"></span>
+    </button>
+    <ol id="steps-list">
 {{index}}
     </ol>
   </nav>

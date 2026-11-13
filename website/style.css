@@ -167,13 +167,31 @@ a:hover .frame .open, a:focus-visible .frame .open, a.frame:hover .open, a.frame
   background: var(--floor);
   border-bottom: 1px solid var(--rule);
 }
+/* every section on view, wrapping onto as many lines as it takes */
 .steps ol {
-  display: flex; gap: 26px; list-style: none; counter-reset: step;
-  max-width: 1280px; margin: 0 auto; padding: 14px var(--gutter);
-  overflow-x: auto; scrollbar-width: none; font-size: 0.9375rem; white-space: nowrap;
+  display: flex; flex-wrap: wrap; gap: 6px 26px; list-style: none; counter-reset: step;
+  max-width: 1280px; margin: 0 auto; padding: 12px var(--gutter);
+  font-size: 0.9375rem;
 }
-.steps ol::-webkit-scrollbar { display: none; }
-.steps li { counter-increment: step; }
+.steps li { counter-increment: step; white-space: nowrap; }
+.steps-toggle { display: none; }
+/* narrow screens: a button that names the current section and opens the list */
+@media (max-width: 719px) {
+  .steps-toggle {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    width: 100%; padding: 12px var(--gutter); border: 0; border-radius: 0;
+    font-size: 0.9375rem; text-align: left; color: var(--ink); background: transparent;
+  }
+  .steps-current { color: var(--blue); }
+  .steps-caret {
+    width: 8px; height: 8px; flex: none;
+    border-right: 1.5px solid var(--ink-2); border-bottom: 1.5px solid var(--ink-2);
+    transform: rotate(45deg) translateY(-2px);
+  }
+  .steps-toggle[aria-expanded="true"] .steps-caret { transform: rotate(225deg) translateY(-2px); }
+  .steps ol { display: none; flex-direction: column; gap: 10px; padding-top: 0; }
+  .steps.open ol { display: flex; }
+}
 .steps a { color: var(--ink-2); text-decoration: none; }
 .steps a::before { content: counter(step) "\2002"; font-variant-numeric: tabular-nums; }
 .steps a.done { color: var(--ink); }
@@ -184,7 +202,7 @@ a:hover .frame .open, a:focus-visible .frame .open, a.frame:hover .open, a.frame
 
 .group {
   max-width: 1280px; margin: 0 auto; padding: 64px var(--gutter) 8px;
-  scroll-margin-top: 48px;
+  scroll-margin-top: 120px;          /* the sticky section bar can be three lines tall */
 }
 .group > header { margin-bottom: 32px; }
 .group h2 { font-size: clamp(1.625rem, 1.3rem + 1vw, 2.125rem); }
@@ -195,7 +213,7 @@ a:hover .frame .open, a:focus-visible .frame .open, a.frame:hover .open, a.frame
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
   counter-reset: clip;
 }
-.clip { counter-increment: clip; scroll-margin-top: 64px; }
+.clip { counter-increment: clip; scroll-margin-top: 130px; }
 .clip > a { display: block; color: var(--ink); text-decoration: none; }
 .clip-title { display: block; margin-top: 10px; font-size: 1.125rem; font-weight: 500; }
 .clip > a:hover .clip-title { text-decoration: underline; text-decoration-thickness: 1px; }
