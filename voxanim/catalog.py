@@ -1080,3 +1080,65 @@ register("sharp-vs-flat-minima", _sharp_vs_flat,
          "Two minima of the MNIST MLP, found with batch 8 and batch 1024: the loss surface on "
          "the plane through both, the loss along the line between them (train and test), the "
          "bowl width along random directions, their test errors and what weight noise does.")
+# ------------------------------------------------------------------ regularisation
+#
+# Penalties and constraints on what a network may learn (voxanim.regul).
+
+
+def _l1_vs_l2():
+    from .regul_geometry import L1VsL2
+    return L1VsL2()
+
+
+register("l1-vs-l2", _l1_vs_l2,
+         "Why L1 makes weights exactly zero and L2 only shrinks them: the two balls, a real "
+         "two-weight 3-vs-8 classifier's loss contours touching them as the penalty grows, "
+         "the soft threshold against the shrink in one dimension, and the lasso and ridge "
+         "paths of all sixteen weights.")
+
+
+def _l1_l2_weights():
+    from .regul_weights import L1L2Weights
+    return L1L2Weights()
+
+
+register("l1-l2-weights", _l1_l2_weights,
+         "An MNIST MLP trained with no penalty, L2, L1 and elastic net: the first layer's 64 "
+         "templates through training, the weights' histograms, the pixels L1 cuts out "
+         "entirely, the never-lit border the plain network never forgets, and why the "
+         "proximal step makes exact zeros where the subgradient cannot.")
+
+
+def _regularisers():
+    from .regul_tools import Regularisers
+    return Regularisers()
+
+
+register("regularisers", _regularisers,
+         "Four more regularisers, one step each with real numbers: dropout's mask, Gaussian "
+         "input noise, max-norm's cap on each unit's weights and label smoothing's softened "
+         "target, and what each one changes in the trained network.")
+
+
+def _regularisation_race():
+    from .regul_race import RegularisationRace
+    return RegularisationRace()
+
+
+register("regularisation-race", _regularisation_race,
+         "A 784-256-256-10 network memorising 1,000 digits, trained plain and with L2, L1, "
+         "dropout, input noise, max-norm and label smoothing (each at the strength chosen on "
+         "validation data): the training and test loss racing, the gap, the final table, and "
+         "the strength sweeps from overfitting to underfitting.")
+
+
+def _regularised_autoencoder():
+    from .regul_ae_anim import RegularisedAutoencoder
+    return RegularisedAutoencoder()
+
+
+register("regularised-autoencoder", _regularised_autoencoder,
+         "A tied-weight MNIST autoencoder with a 256-unit code trained plain, with L1 on the "
+         "code, weight decay, denoising and a contractive penalty, each held to the same clean "
+         "reconstruction error: its features forming, the code of one digit, clean and noisy "
+         "digits rebuilt, and what each regulariser buys.")

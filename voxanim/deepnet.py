@@ -19,7 +19,16 @@ chooses
 * **dropout** of hidden units (inverted: kept units are scaled by
   ``1 / keep``), and
 * **weight decay** (an L2 penalty ``wd / 2 * sum W^2`` on the weights, added
-  to the objective, so its gradient is checkable too).
+  to the objective, so its gradient is checkable too),
+* an **L1 penalty** ``l1 * sum |W|`` on the weights, either through its
+  subgradient ``l1 * sign(W)`` like any other term, or (``l1_prox``, plain
+  SGD only) as the proximal step after each update: every weight moves
+  ``lr * l1`` towards 0 and stops there, so weights become exactly 0,
+* a **max-norm** constraint: after each update, every hidden unit's incoming
+  weight vector longer than ``max_norm`` is scaled back to that length, and
+* **label smoothing**: the target is ``(1 - eps)`` on the label and
+  ``eps / classes`` everywhere (the recorded losses stay the plain
+  cross-entropy against the label, so runs remain comparable).
 
 :func:`forward` keeps every intermediate; :func:`backward` returns the
 parameter gradients and the gradient reaching every hidden layer (what the
@@ -43,6 +52,12 @@ drawing from its own seeded generator so the minibatch order and the
 initial weights are the same with and without it), ``example_loss`` (the
 loss of every training example at every recorded step) and ``probe_rows``
 (record only the first rows of the probe).
+
+The regularisation animations added ``l1``, ``l1_prox``, ``max_norm`` and
+``label_smoothing`` to :class:`Spec` and ``weights`` (snapshots of chosen
+weight matrices at every recorded step) to :func:`train`, on the same terms:
+off by default, and left out of :meth:`Spec.settings` and the cache key when
+off.
 """
 
 from __future__ import annotations
@@ -141,6 +156,10 @@ class Spec:
     norm: str | None = None           # None, "batch" or "layer"
     dropout: float = 0.0              # fraction of hidden units dropped while training
     weight_decay: float = 0.0         # L2 coefficient on the weights
+    l1: float = 0.0                   # L1 coefficient on the weights
+    l1_prox: bool = False             # L1 as a proximal step after each update (plain SGD)
+    max_norm: float = 0.0             # cap on each hidden unit's incoming weight norm
+    label_smoothing: float = 0.0      # eps: the target's mass spread over the classes
 
     @property
     def depth(self):
@@ -156,8 +175,23 @@ class Spec:
         return src >= 0 and self.sizes[src] == self.sizes[l + 1]
 
     def settings(self):
-        """The JSON-able dict that keys a cache file."""
-        return dict(asdict(self), sizes=list(self.sizes))
+        """The JSON-able dict that keys a cache file (the regularisation options
+        only when on, so every earlier run keeps its key)."""
+        d = dict(asdict(self), sizes=list(self.sizes))
+        for k in LATER_OPTIONS:
+            if not d[k]:
+                del d[k]
+        return d
+
+    def target(self, y_onehot):
+        """The training target for one-hot labels: smoothed when asked."""
+        eps = self.label_smoothing
+        if not eps:
+            return y_onehot
+        return (1.0 - eps) * y_onehot + eps / y_onehot.shape[1]
+
+
+LATER_OPTIONS = ("l1", "l1_prox", "max_norm", "label_smoothing")
 
 
 def init(spec, rng):
@@ -262,15 +296,28 @@ def cross_entropy(p, y_onehot):
 
 
 def penalty(spec, P):
-    """The weight-decay term of the objective, ``wd / 2 * sum of W^2``."""
-    if not spec.weight_decay:
-        return 0.0
-    return 0.5 * spec.weight_decay * sum(float((v * v).sum()) for k, v in P.items()
-                                         if k.startswith("W"))
+    """The penalty terms of the objective: weight decay ``wd / 2 * sum of W^2``
+    and the L1 term ``l1 * sum of |W|``."""
+    out = 0.0
+    if spec.weight_decay:
+        out += 0.5 * spec.weight_decay * sum(float((v * v).sum()) for k, v in P.items()
+                                             if k.startswith("W"))
+    if spec.l1:
+        out += spec.l1 * sum(float(np.abs(v).sum()) for k, v in P.items() if k.startswith("W"))
+    return out
+
+
+def soft_cross_entropy(p, target):
+    """Mean ``-sum target * log p`` over the batch (a smoothed target)."""
+    return float(-np.mean(np.sum(target * np.log(p + 1e-300), 1)))
 
 
 def objective(spec, P, f, y_onehot):
-    """What :func:`backward` differentiates: the cross-entropy plus the penalty."""
+    """The training objective: the cross-entropy against the (smoothed) target
+    plus the penalty.  :func:`backward` differentiates it, except the L1 term
+    when ``l1_prox`` (that is the proximal step's job)."""
+    if spec.label_smoothing:
+        return soft_cross_entropy(f["p"], spec.target(y_onehot)) + penalty(spec, P)
     return cross_entropy(f["p"], y_onehot) + penalty(spec, P)
 
 
@@ -295,7 +342,7 @@ def backward(spec, P, f, y_onehot):
     """
     L, N = spec.depth, len(y_onehot)
     keep = 1.0 - spec.dropout
-    dlogits = (f["p"] - y_onehot) / N
+    dlogits = (f["p"] - spec.target(y_onehot)) / N
     G = {"W%d" % L: f["h"][L].T @ dlogits, "b%d" % L: dlogits.sum(0)}
     dh = [None] * (L + 1)
     dh[L] = dlogits @ P["W%d" % L].T
@@ -321,7 +368,34 @@ def backward(spec, P, f, y_onehot):
     if spec.weight_decay:
         for l in range(L + 1):
             G["W%d" % l] = G["W%d" % l] + spec.weight_decay * P["W%d" % l]
+    if spec.l1 and not spec.l1_prox:
+        for l in range(L + 1):
+            G["W%d" % l] = G["W%d" % l] + spec.l1 * np.sign(P["W%d" % l])
     return G, dict(dh=dh, dz=dz_all)
+
+
+def soft_threshold(w, t):
+    """The proximal step of ``t * |w|``: every entry moved ``t`` towards 0,
+    and set to exactly 0 if it would cross it."""
+    return np.sign(w) * np.maximum(np.abs(w) - t, 0.0)
+
+
+def unit_norms(W):
+    """``(units,)`` the length of each unit's incoming weight vector (a column of ``W``)."""
+    return np.sqrt((W * W).sum(0))
+
+
+def constrain(spec, P, lr):
+    """What follows an optimiser step: the L1 proximal step (``l1_prox``, at
+    learning rate ``lr``) on every weight matrix, then max-norm on the hidden
+    layers' incoming weights."""
+    if spec.l1 and spec.l1_prox:
+        for l in range(spec.depth + 1):
+            P["W%d" % l] = soft_threshold(P["W%d" % l], lr * spec.l1)
+    if spec.max_norm:
+        for l in range(spec.depth):
+            W = P["W%d" % l]
+            P["W%d" % l] = W * np.minimum(1.0, spec.max_norm / np.maximum(unit_norms(W), 1e-300))
 
 
 def sparsity(spec, f):
@@ -438,6 +512,7 @@ class Run:
     stats: dict                  # batch norm's running statistics after training
     sparse: dict                 # zero, small, flat (S, L) per layer (see sparsity), if recorded
     example_loss: np.ndarray | None = None   # (S, n_train) each example's loss, when asked
+    weights: dict | None = None  # name -> (S, ...) float32 snapshots, when asked
 
     @property
     def best(self):
@@ -469,7 +544,8 @@ def example_losses(spec, P, data, stats=None, x=None, y=None):
 
 def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_layer=None,
           probe_keys=PROBE_KEYS, grid=None, sparse=False, cache_dir=DEFAULT_CACHE,
-          tag="deepnet", augment=None, example_loss=False, probe_rows=None) -> Run:
+          tag="deepnet", augment=None, example_loss=False, probe_rows=None,
+          weights=()) -> Run:
     """Train ``spec`` on ``data`` for ``steps`` minibatch updates and record the
     run (cached under every setting).
 
@@ -488,8 +564,12 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
     from training's, so the minibatches and the initial weights are those of
     the un-augmented run.  ``example_loss`` records every training example's
     loss at each recorded step; ``probe_rows`` keeps only the first rows of
-    the probe (``h`` at layer 0 is the minibatch's input, augmented).
+    the probe (``h`` at layer 0 is the minibatch's input, augmented);
+    ``weights`` names parameter arrays (``"W0"``, say) recorded at every
+    recorded step, as float32 (:attr:`Run.weights`).
     """
+    if spec.l1_prox and opt != "sgd":
+        raise ValueError("l1_prox is the proximal step of plain SGD (opt='sgd')")
     settings = dict(spec.settings(), steps=steps, batch=batch, lr=lr, opt=opt, seed=seed,
                     every=every, probe_layer=probe_layer, data=data.settings(),
                     grid=None if grid is None else [list(grid.shape), float(np.abs(grid).sum())])
@@ -503,6 +583,8 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
         settings["example_loss"] = True
     if probe_rows is not None:
         settings["probe_rows"] = probe_rows
+    if weights:
+        settings["weights"] = list(weights)
     n = len(data.x_train)
     if every:
         marks = np.unique(np.concatenate([np.arange(0, steps, every), [steps]]))
@@ -550,6 +632,8 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
                     rec[k].append(v)
             if example_loss:
                 rec["example_loss"].append(example_losses(spec, P, data, stats))
+            for k in weights:
+                rec.setdefault("weights_" + k, []).append(P[k].astype(np.float32))
 
         per_epoch = -(-n // batch)
         epochs = -(-(steps + 1) // per_epoch)
@@ -565,23 +649,27 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
                 break
             batch_loss.append(cross_entropy(f["p"], y))
             optim.step(P, G)
+            constrain(spec, P, lr)
         out = dict(P, steps=marks, batch_loss=np.array(batch_loss))
         out.update({"P0_" + k: v for k, v in P0.items()})
         out.update({"stats_" + k: v for k, v in stats.items()})
         for k, v in rec.items():
             if v:
                 dtype = bool if k == "probe_m" else (
-                    np.float32 if k.startswith(("probe", "field", "example")) else np.float64)
+                    np.float32 if k.startswith(("probe", "field", "example", "weights"))
+                    else np.float64)
                 out[k] = np.array(v, dtype)
         return out
 
     d = cached_npz(tag, settings, build, cache_dir)
     meta = ("steps", "batch_loss", *RECORDS)
-    P = {k: v for k, v in d.items() if k not in meta and not k.startswith(("P0_", "stats_"))}
+    P = {k: v for k, v in d.items()
+         if k not in meta and not k.startswith(("P0_", "stats_", "weights_"))}
+    snaps = {k[8:]: d[k] for k in d if k.startswith("weights_")}
     P0 = {k[3:]: v for k, v in d.items() if k.startswith("P0_")}
     stats = {k[6:]: v for k, v in d.items() if k.startswith("stats_")}
     probe = {k[6:]: d[k] for k in d if k.startswith("probe_")}
     sparse_ = {k[7:]: d[k] for k in d if k.startswith("sparse_")}
     return Run(spec, d["steps"], d["batch_loss"], d["train_loss"], d["test_loss"],
                d["test_acc"], d.get("val_loss"), d["act_std"], d["grad_rms"], d["dz_rms"],
-               probe, d.get("field"), P, P0, stats, sparse_, d.get("example_loss"))
+               probe, d.get("field"), P, P0, stats, sparse_, d.get("example_loss"), snaps)
