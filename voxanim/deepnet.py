@@ -35,6 +35,14 @@ or on a flat part of its activation (``sparsity``), and the predicted
 probabilities on a grid of inputs (the decision field).  Runs are seeded and cached by
 :func:`voxanim.cache.cached_npz` under all their settings, like
 :func:`voxanim.autoencoder.training_run`.
+
+Three options were added for the generalisation animations, each off by
+default and absent from the cache key when off, so every earlier run keeps
+its file: ``augment`` (a callable transforming each minibatch's inputs,
+drawing from its own seeded generator so the minibatch order and the
+initial weights are the same with and without it), ``example_loss`` (the
+loss of every training example at every recorded step) and ``probe_rows``
+(record only the first rows of the probe).
 """
 
 from __future__ import annotations
@@ -429,6 +437,7 @@ class Run:
     P0: dict                     # the initial ones
     stats: dict                  # batch norm's running statistics after training
     sparse: dict                 # zero, small, flat (S, L) per layer (see sparsity), if recorded
+    example_loss: np.ndarray | None = None   # (S, n_train) each example's loss, when asked
 
     @property
     def best(self):
@@ -438,16 +447,29 @@ class Run:
 
 
 RECORDS = ("train_loss", "test_loss", "test_acc", "val_loss", "act_std", "grad_rms", "dz_rms",
-           "probe_z", "probe_y", "probe_a", "probe_m", "probe_g", "probe_beta", "field",
-           "sparse_zero", "sparse_small", "sparse_flat")
+           "probe_h", "probe_z", "probe_y", "probe_a", "probe_m", "probe_g", "probe_beta",
+           "field", "sparse_zero", "sparse_small", "sparse_flat", "example_loss")
+EXAMPLE_CHUNK = 1000                      # rows per forward pass when scoring every example
 
 
 PROBE_KEYS = ("z", "y", "a", "m")         # what a probe records, unless asked for less
 
 
+def example_losses(spec, P, data, stats=None, x=None, y=None):
+    """``(n,)`` the loss ``-log p[label]`` of every training example (or of
+    the given ``x``, ``y``), in chunks of :data:`EXAMPLE_CHUNK` rows."""
+    x = data.x_train if x is None else x
+    y = data.y_train if y is None else y
+    out = []
+    for s in range(0, len(x), EXAMPLE_CHUNK):
+        p = forward(spec, P, x[s:s + EXAMPLE_CHUNK], stats=stats)["p"]
+        out.append(-np.log(p[np.arange(len(p)), y[s:s + EXAMPLE_CHUNK]] + 1e-300))
+    return np.concatenate(out)
+
+
 def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_layer=None,
           probe_keys=PROBE_KEYS, grid=None, sparse=False, cache_dir=DEFAULT_CACHE,
-          tag="deepnet") -> Run:
+          tag="deepnet", augment=None, example_loss=False, probe_rows=None) -> Run:
     """Train ``spec`` on ``data`` for ``steps`` minibatch updates and record the
     run (cached under every setting).
 
@@ -459,6 +481,14 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
     at those inputs; ``sparse`` records :func:`sparsity` of every hidden
     layer on each recorded step's minibatch.  Everything a recorded step
     shows is measured *before* that step's update.
+
+
+    ``augment(rng, x)`` returns the minibatch ``x`` transformed (it must have a
+    ``settings()`` for the cache key); it draws from a generator seeded apart
+    from training's, so the minibatches and the initial weights are those of
+    the un-augmented run.  ``example_loss`` records every training example's
+    loss at each recorded step; ``probe_rows`` keeps only the first rows of
+    the probe (``h`` at layer 0 is the minibatch's input, augmented).
     """
     settings = dict(spec.settings(), steps=steps, batch=batch, lr=lr, opt=opt, seed=seed,
                     every=every, probe_layer=probe_layer, data=data.settings(),
@@ -467,6 +497,12 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
         settings["probe_keys"] = list(probe_keys)
     if sparse:
         settings["sparse"] = True
+    if augment is not None:
+        settings["augment"] = augment.settings()
+    if example_loss:
+        settings["example_loss"] = True
+    if probe_rows is not None:
+        settings["probe_rows"] = probe_rows
     n = len(data.x_train)
     if every:
         marks = np.unique(np.concatenate([np.arange(0, steps, every), [steps]]))
@@ -481,6 +517,7 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
 
     def build():
         rng = np.random.default_rng(seed)
+        arng = np.random.default_rng([seed, 1])          # augmentation's own stream
         P = init(spec, rng)
         P0 = {k: v.copy() for k, v in P.items()}
         stats = init_stats(spec)
@@ -502,7 +539,7 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
             if probe_layer is not None:
                 for k in probe_keys:
                     if f[k][probe_layer] is not None:
-                        rec["probe_" + k].append(f[k][probe_layer])
+                        rec["probe_" + k].append(f[k][probe_layer][:probe_rows])
                 if spec.norm:
                     rec["probe_g"].append(P["g%d" % probe_layer].copy())
                     rec["probe_beta"].append(P["beta%d" % probe_layer].copy())
@@ -511,11 +548,15 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
             if sparse:
                 for k, v in zip(("sparse_zero", "sparse_small", "sparse_flat"), sparsity(spec, f)):
                     rec[k].append(v)
+            if example_loss:
+                rec["example_loss"].append(example_losses(spec, P, data, stats))
 
         per_epoch = -(-n // batch)
         epochs = -(-(steps + 1) // per_epoch)
         for step, idx in enumerate(minibatches(rng, n, epochs, batch)):
             x, y = data.x_train[idx], eye(data.y_train[idx])
+            if augment is not None:
+                x = augment(arng, x)
             f = forward(spec, P, x, train=True, rng=rng, stats=stats)
             G, D = backward(spec, P, f, y)
             if step in want:
@@ -530,7 +571,7 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
         for k, v in rec.items():
             if v:
                 dtype = bool if k == "probe_m" else (
-                    np.float32 if k.startswith(("probe", "field")) else np.float64)
+                    np.float32 if k.startswith(("probe", "field", "example")) else np.float64)
                 out[k] = np.array(v, dtype)
         return out
 
@@ -543,4 +584,4 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
     sparse_ = {k[7:]: d[k] for k in d if k.startswith("sparse_")}
     return Run(spec, d["steps"], d["batch_loss"], d["train_loss"], d["test_loss"],
                d["test_acc"], d.get("val_loss"), d["act_std"], d["grad_rms"], d["dz_rms"],
-               probe, d.get("field"), P, P0, stats, sparse_)
+               probe, d.get("field"), P, P0, stats, sparse_, d.get("example_loss"))

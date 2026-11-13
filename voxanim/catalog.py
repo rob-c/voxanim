@@ -1020,3 +1020,63 @@ register("activation-depth", _activation_depth,
          "The 20-layer network of the initialisation animation under each activation and its "
          "matching init, no normalisation: the activation std per layer, 400 SGD steps, which "
          "ones train and which stall, and what the stalled ones look like inside.")
+# ------------------------------------------------------------------ generalisation
+#
+# Five animations on why a network works on data it has not seen, all real
+# MNIST trainings of the deep MLP (voxanim.deepnet) measured by
+# voxanim.generalise.
+
+
+def _double_descent():
+    from . import ddescent_anim
+    return ddescent_anim.DoubleDescent(*ddescent_anim.runs())
+
+
+register("double-descent", _double_descent,
+         "Test error against width for a one-hidden-layer MLP trained to interpolation on a small "
+         "MNIST subset with 20% label noise: the classic U, the peak at the interpolation "
+         "threshold, the second descent, and why (the wide interpolator is smoother).")
+
+
+def _memorising_noise():
+    from . import memorise_anim
+    return memorise_anim.MemorisingNoise(*memorise_anim.runs())
+
+
+register("memorising-noise", _memorising_noise,
+         "The MLP trained on 5,000 MNIST images with 0%, 25% and 50% of the labels replaced by "
+         "wrong ones: all three reach near-zero training loss; the test accuracies; every "
+         "example's loss over training (clean ones learned first); where to stop early.")
+
+
+def _data_vs_model_size():
+    from . import datasize_anim
+    return datasize_anim.DataVsModelSize(*datasize_anim.runs())
+
+
+register("data-vs-model-size", _data_vs_model_size,
+         "Learning curves: test error against training-set size (100 to 60,000) for three model "
+         "sizes, every training real; where more data stops helping a small model, where a "
+         "bigger one pays, and the digits each regime gets wrong.")
+
+
+def _augmentation():
+    from . import augment_anim
+    return augment_anim.Augmentation(*augment_anim.runs())
+
+
+register("augmentation", _augmentation,
+         "One digit shifted, rotated and scaled at random in numpy; a 500-image classifier "
+         "trained with and without augmentation (the live minibatches, the loss curves), and the "
+         "invariance it buys measured on shifted and rotated test digits.")
+
+
+def _sharp_vs_flat():
+    from . import minima_anim
+    return minima_anim.SharpVsFlat(*minima_anim.runs())
+
+
+register("sharp-vs-flat-minima", _sharp_vs_flat,
+         "Two minima of the MNIST MLP, found with batch 8 and batch 1024: the loss surface on "
+         "the plane through both, the loss along the line between them (train and test), the "
+         "bowl width along random directions, their test errors and what weight noise does.")
