@@ -748,3 +748,61 @@ register("learning-rate-schedule", _lr_schedule,
          "Constant, step decay, cosine with warmup and one-cycle schedules training the MNIST "
          "MLP: the schedules, the loss curves, the same schedules on the two-weight landscape, "
          "and why warmup tames Adam's first steps.")
+
+# ------------------------------------------------------------------ trimming: pruning, distillation
+#
+# Masks, retraining under a mask, activation energies and distillation on the
+# MNIST MLP and CNN (voxanim.prune); the animations in voxanim.prune_anim.
+
+
+def _magnitude_pruning():
+    from . import mnist, prune, prune_anim
+    return prune_anim.MagnitudePruning(prune.prune_sweep(),
+                                       prune.layers_to_dict(mnist.train()[0]))
+
+
+register("magnitude-pruning", _magnitude_pruning,
+         "The trained 784-64-32-10 MLP's weights as sheets beside the histogram of |w|: a "
+         "threshold sweeps up and the weights below it go dark; at 50, 80, 90, 95 and 99% pruned "
+         "the test accuracy without retraining, after a fine-tune with the mask held, and for "
+         "iterative pruning.")
+
+
+def _lottery_ticket():
+    from . import prune, prune_anim
+    return prune_anim.LotteryTicket([prune.lottery(seed=s) for s in (0, 1)])
+
+
+register("lottery-ticket", _lottery_ticket,
+         "The 20%-dense mask from pruning a trained MLP, rewound onto its original "
+         "initialisation and retrained against a random mask of the same density and the dense "
+         "network: the three test-error curves, and a second seed's.")
+
+
+def _structured_pruning():
+    from . import mnist, prune, prune_anim
+    (Wc, bc), (Wd, bd) = mnist.cnn_train()[0]
+    x = mnist.load()[2][prune_anim.SP_IMAGE]
+    return prune_anim.StructuredPruning(prune.structured_sweep(), dict(Wc=Wc, bc=bc, Wd=Wd, bd=bd),
+                                        prune.layers_to_dict(mnist.train()[0]), x)
+
+
+register("structured-pruning", _structured_pruning,
+         "The CNN's 4 filters and the MLP's 64 hidden units ranked by activation energy on the "
+         "test set and removed one at a time, least active first: the feature maps and weight "
+         "rows disappear, the accuracy against the number removed with and without a brief "
+         "fine-tune, and what is left after half are gone.")
+
+
+def _distillation():
+    from . import mnist, prune, prune_anim
+    _xtr, _ytr, xte, yte = mnist.load()
+    return prune_anim.Distillation(prune.distil(), prune.distil(n_train=60000, steps=1500),
+                                   xte[prune_anim.DS_IMAGE], int(yte[prune_anim.DS_IMAGE]))
+
+
+register("distillation", _distillation,
+         "A 784-256-256-10 teacher's output for one 3 as bars, at temperature 1 and softened "
+         "at temperature 4 (the dark knowledge in the wrong classes), then a 784-32-10 student "
+         "trained on 3,000 images three ways: hard labels, the soft targets, both; the three "
+         "accuracy curves and the final numbers.")
