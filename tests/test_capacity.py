@@ -110,7 +110,8 @@ def test_squeeze_runs_are_consistent_with_their_settings(squeeze):
         assert run.steps[-1] == C.SQUEEZE["epochs"] * run.steps_per_epoch
         assert run.steps_per_epoch == -(-60000 // C.SQUEEZE["batch"])
         assert np.all(np.diff(run.steps) > 0)
-        assert run.cloud.shape == (S, C.CLOUD, h) and run.test_acc.shape == (S,)
+        kept = C.CLOUD if h <= C.CLOUD_MAX else 0            # the wide layer is never drawn
+        assert run.cloud.shape == (S, kept, h) and run.test_acc.shape == (S,)
         assert [e.shape for e in run.example] == [(S, C.FIRST), (S, h), (S, 10)]
         assert np.allclose(run.example[2].sum(1), 1.0)
         assert run.confusion.sum() == 10000
@@ -118,7 +119,7 @@ def test_squeeze_runs_are_consistent_with_their_settings(squeeze):
         assert run.errors == 10000 - np.trace(run.confusion)
         # the recorded cloud is the trained network's middle layer
         _xtr, _ytr, xte, _yte = C.mnist.load()
-        sel = np.arange(C.AE.CLOUD_START, C.AE.CLOUD_START + C.CLOUD)
+        sel = np.arange(C.AE.CLOUD_START, C.AE.CLOUD_START + kept)
         assert np.allclose(C.squeeze_forward(run.P, xte[sel])[1], run.cloud[-1], atol=1e-5)
 
 

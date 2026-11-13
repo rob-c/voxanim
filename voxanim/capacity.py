@@ -112,6 +112,7 @@ HIDDEN = (2, 64)                                       # the squeezed and the ro
 FIRST = 64                                             # the first hidden layer, both nets
 EVAL_TEST = 2000                                       # test digits a snapshot's accuracy uses
 EXAMPLE = 0                                            # cloud digit whose every layer is recorded
+CLOUD_MAX = 3                                          # the cloud is kept up to this width
 
 
 def squeeze_sizes(hidden):
@@ -168,6 +169,7 @@ class SqueezeRun:
     steps_per_epoch: int
     test_acc: np.ndarray          # (S,) accuracy on the first EVAL_TEST test digits
     cloud: np.ndarray             # (S, CLOUD, hidden) the middle layer's output for the cloud
+                                  # (empty, (S, 0, hidden), for a layer wider than CLOUD_MAX)
     cloud_labels: np.ndarray      # (CLOUD,)
     example: list                 # per layer (first hidden, middle, softmax): (S, width) of
                                   # cloud digit EXAMPLE's values
@@ -191,11 +193,13 @@ class SqueezeRun:
 def squeeze_run(hidden, cache_dir=DEFAULT_CACHE) -> SqueezeRun:
     """Train the ``784 -> 64 -> hidden -> 10`` classifier by Adam on all 60,000
     training digits, recording at :func:`voxanim.autoencoder.snapshot_steps`
-    the middle layer's values for the cloud digits and the test accuracy;
-    cached under every setting."""
-    settings = dict(sizes=list(squeeze_sizes(hidden)), middle="linear", **SQUEEZE, cloud=CLOUD,
-                    cloud_start=AE.CLOUD_START, eval_test=EVAL_TEST,
-                    snapshot_ratio=AE.SNAPSHOT_RATIO, example=EXAMPLE)
+    the middle layer's values for the cloud digits (when it is narrow enough
+    to draw, :data:`CLOUD_MAX`) and the test accuracy; cached under every
+    setting."""
+    keep_cloud = hidden <= CLOUD_MAX
+    settings = dict(sizes=list(squeeze_sizes(hidden)), middle="linear", **SQUEEZE,
+                    cloud=CLOUD if keep_cloud else 0, cloud_start=AE.CLOUD_START,
+                    eval_test=EVAL_TEST, snapshot_ratio=AE.SNAPSHOT_RATIO, example=EXAMPLE)
     xtr, ytr, xte, yte = mnist.load(cache_dir)
     sel = np.arange(AE.CLOUD_START, AE.CLOUD_START + CLOUD)
     eye = np.eye(10)
@@ -210,7 +214,7 @@ def squeeze_run(hidden, cache_dir=DEFAULT_CACHE) -> SqueezeRun:
 
         def snapshot():
             h1, h2, p = squeeze_forward(P, xte[sel])
-            rec["cloud"].append(h2)
+            rec["cloud"].append(h2 if keep_cloud else h2[:0])
             rec["ex"].append([h1[EXAMPLE], h2[EXAMPLE], p[EXAMPLE]])
             rec["acc"].append(chunk_mean(
                 lambda s: (squeeze_forward(P, xte[s])[2].argmax(1) == yte[s]).mean(),
