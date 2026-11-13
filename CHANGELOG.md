@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.4.0
+
+Five new animations on regularisation, every one a real model trained in
+plain numpy with its claims tested; the 113 animations of 1.3.0 are
+untouched (the old `deepnet` options train bit for bit as before). The
+release also carries everything 1.3.0 added, since 1.3.0 was tagged but
+never published.
+
+- **Regularisation** (`regul.py`, `regul_ae.py`): `l1-vs-l2` (the balls, a
+  real two-weight loss surface, the soft threshold, lasso and ridge paths),
+  `l1-l2-weights` (L2, proximal L1, elastic net and L1 by its slope on an
+  MLP's first layer), `regularisers` (dropout, input noise, max-norm, label
+  smoothing), `regularisation-race` (seven regularisers on 1,000 digits, and
+  the strength sweeps), `regularised-autoencoder` (a tied-weight MNIST
+  autoencoder with L1 on the code, weight decay, denoising and a contractive
+  penalty, each held to the same clean error).
+- **`deepnet.py`:** L1 by its subgradient or as SGD's proximal step,
+  max-norm, label smoothing, and weight snapshots through training; off by
+  default and absent from the cache key when off.
+- **Website:** a Regularisation section.
+
 ## 1.3.0
 
 Twenty-five new animations on the details of training, in seven families,

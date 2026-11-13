@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 113 animations, from a 3×3 convolution to the inside of GPT-2, all from
+numpy. 118 animations, from a 3×3 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
 
@@ -25,7 +25,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 113 animations
+python3 -m voxanim list --names                   # the 118 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
@@ -293,6 +293,44 @@ Five animations on why a network works on data it has not seen, every one a real
 **`sharp-vs-flat-minima`** (about 37 s): the 784-128-10 network trained for the same 40 epochs with minibatches of 8 (50,000 steps, lr 0.001) and of 1,024 (400 steps, lr 0.01): test error 3.5% and 4.2%. The training loss on the plane through both minima as a voxel height-field; along the straight line between them the training loss climbs to 0.014 (the test loss runs from 0.27 to 0.20: the flat network is the more confident); along six random directions the loss rises by 0.01 within 29.5 units of the flat minimum and 14.6 of the sharp one; weight noise of norm 32 takes the test error to 5.0% and 7.9%.
 
 Tests (`tests/test_generalisation.py`) check the model's gradients and the new options, every measurement helper, that the cache files store the settings the modules state, and every claim above as a relative claim.
+
+### Regularisation (`regul.py`, `regul_ae.py`, `regul_plots.py`; `regul_geometry.py`, `regul_weights.py`, `regul_tools.py`, `regul_race.py`, `regul_ae_anim.py`)
+
+Five animations on the penalties and constraints that stop a network memorising, ending with an autoencoder. `deepnet.py` gains an L1 penalty, either by its subgradient or as the proximal step after each SGD update (the soft threshold, which is what puts weights at exactly 0), a max-norm cap on each hidden unit's incoming weights, label smoothing, and snapshots of chosen weight matrices through training. Every option is off by default and absent from the cache key when off: a run of the old options trains bit for bit as before. `regul.py` holds the four studies: a logistic regression of 3s against 8s on 7 × 7 block averages fitted by FISTA along lasso and ridge paths, the 784-64-10 MLP's first layer under each penalty, a race of regularisers on 1,000 digits whose strengths are chosen on a validation set the test set never touches, and the autoencoder runs.
+
+**`l1-vs-l2`** (about 54 s): a 3-against-8 classifier with two weights, w₆ and w₉, reading two 7 × 7 blocks of the digit (85.8% test accuracy with no penalty, at w₆ = −1.29, w₉ = 3.01). Its training loss over the two weights is drawn as contours, with the L1 diamond and the L2 circle. As λ grows the penalised optimum slides along its path, and the ball through it touches the contour through it. L1 meets the contour at the diamond's corner, so w₆ is exactly 0 from λ = 0.10 and w₉ from 0.34. L2 at λ = 60 still has w₆ = −5×10⁻⁴: shrunk, never zero. Then one weight: pulled towards v, L2's best w is v / (1 + λ) and L1's is the soft threshold; at λ = 1 the soft threshold puts 10 of the 16 fitted weights at exactly 0. Then the full 16-weight model's paths: lasso drops weights one by one (16, 14, 13, 12, … 2, 1, 0) and ridge shrinks all 16 together. At λ = 0.032 lasso keeps 9 for 92.9% (93.9% with all 16), and the 4 × 4 map shows which blocks of the digit it still reads.
+
+**`l1-l2-weights`** (about 58 s): the 784-64-10 ReLU MLP trained by SGD (lr 0.1, batches of 64, 10 epochs of all 60,000 digits) from the same weights with no penalty, L2 (λ₂ = 2×10⁻³), L1 by its proximal step (λ₁ = 2×10⁻⁴), elastic net (λ₁ = 10⁻⁴, λ₂ = 10⁻³) and L1 by its slope λ·sign(w).
+
+- **One weight:** from a never-lit corner pixel, so only the penalty moves it. It starts at 0.099 and plain keeps it. L2 halves it every 3,466 steps and never reaches 0. L1 walks it ηλ = 2×10⁻⁵ a step to exactly 0 at step 4,951.
+- **Templates:** 36 of the 64 first-layer templates of four runs play through training, and L1 blanks the background. 67 pixels are never lit in the 60,000 digits: plain keeps their random weights forever, L2 leaves 15% of them, and L1 cuts 213 pixels out entirely (65 of the 67).
+- **Histograms:** L1 puts 46% of the 50,176 weights at exactly 0 and elastic net 40%. L2 halves the bell's width and zeroes none.
+- **The slope term:** the same L1 penalty as a slope term reaches the same accuracy and norm (96.5%, ‖W₀‖ 7.4) with no weight at exactly 0. 46% hop back and forth within ηλ of it.
+- **Cost:** 97.5% plain, 96.4–96.8% with a penalty.
+
+**`regularisers`** (about 57 s): the race's 784-256-256-10 network memorising 1,000 digits, with four more regularisers at their validation-chosen strengths, one step each and what each changes once trained.
+
+- **Dropout, p = 0.5:** a training digit's 256 hidden units under three fresh masks, the kept units scaled by 2. Test accuracy ties plain (90.8% against 90.6%). With half the hidden units dropped at test time, plain falls to 75.6% and the dropout network only to 88.2%.
+- **Input noise, σ = 0.8:** the network reads noisy test digits at 80.5% against plain's 55.9%, and clean ones at 92.8%.
+- **Max-norm, c = 1.5:** 92% of layer 1's units sit at the cap, yet accuracy is 90.7%. It binds, but buys nothing here.
+- **Label smoothing, ε = 0.2:** the target becomes 0.82 / 0.02. The median gap between the top logit and the rest shrinks from 22.2 to 3.2, under the 3.71 at which the softmax meets the target. Wrong answers are 0.29 sure instead of 0.91, at 92.0% accuracy.
+
+**`regularisation-race`** (about 56 s): the same network trained by Adam (lr 0.001, 3,000 steps) on 1,000 digits, plain and with each regulariser at the strength that scored best on 2,000 validation digits.
+
+- **Plain memorises:** training loss 1.7×10⁻⁵. Its test loss is lowest at step 100 (early stopping's pick, 0.36) and climbs to 0.56, while test accuracy only moves from 90.1% to 90.6%: it grows sure of its mistakes.
+- **The winners:** input noise (σ 0.8) ends at 92.8% with test loss 0.24, and label smoothing (ε 0.2) at 92.0%. Label smoothing's training loss cannot fall below −log 0.82.
+- **The ties:** L2, L1, dropout and max-norm are within 0.7 points of plain, the spread of 2,000 test digits. L2 and L1 still cut the test loss to 0.40 and 0.41.
+- **The sweeps behind the choices:** training and validation accuracy against strength. L2 at λ 0.1 fits only 82.3% of the training digits. L1 at 10⁻² pushes every weight within 10⁻³ of 0 and falls to chance. Input noise rises from 91.6% to 93.3% and falls again at σ 1.3.
+
+**`regularised-autoencoder`** (about 65 s): the finale. A tied-weight autoencoder 784 → 256 → 784 (a ReLU code; the decoder is Wᵀ, because with untied weights a penalty on the code is dodged by scale: the encoder shrinks and the decoder grows to match) trained for 10 epochs on 60,000 digits. It is trained plain and with four regularisers, each turned up until its clean test error is about 0.0075: L1 on the code (α = 1.1×10⁻⁴), weight decay (λ = 5×10⁻⁵), denoising (Gaussian noise σ 0.55 on the input) and the contractive penalty γ‖∂h/∂x‖² (γ = 2.5×10⁻⁵).
+
+- **Features:** each model's 16 most-used features form through training. Plain's are speckled, L1's are whole strokes and digit prototypes, and weight decay's and the contractive's are smooth.
+- **The code:** on one test 3, L1 leaves 58 of 256 units on (plain 216); over 2,000 test digits 19% are on against plain's 81%.
+- **Noise:** with noise of std 0.4 on the input, the denoiser rebuilds digits at error 0.0109 against plain's 0.0191. On clean digits plain, which pays no penalty, is best (0.0016).
+- **What each buys:** the final table has each regulariser winning its own column. Denoising is robust to noise and L1 gives a sparse code. Weight decay and the contractive penalty give the steadiest code: it moves 0.23 under the noise against plain's 0.56, with ‖∂h/∂x‖ 18.2 and 18.3 against 42.7.
+- **Two that end alike:** for a ReLU code ∂h/∂x is the weights of the units that are on (98% of them here), so the contractive penalty is weight decay weighted by how often each unit is on, and the two end up alike.
+
+Tests (`tests/test_regul.py`) check the new deepnet options and the autoencoder's four objectives against finite differences, the ReLU Jacobian against a finite-difference one, the soft threshold, max-norm and the unchanged cache keys of the old options, FISTA against the logistic optimum, the contour tracer, and every claim above as a relative claim.
 
 ### Activation functions (`actfun.py`; `actfun_race.py`, `actfun_gradients.py`, `actfun_sparsity.py`, `actfun_smoothness.py`, `actfun_depth.py`)
 
@@ -958,6 +996,7 @@ The tests:
   families of 1.3.0, the same way; their trained-outcome claims are relative
   (which network wins, by at least how much), because CI retrains every model
   on another CPU and exact numbers differ there in the last bits.
+- **`tests/test_regul.py`:** the regularisation family, the same way.
 
 A test that needs MNIST or GPT-2 is skipped, with the reason, until
 `prepare` has run. CI (`.github/workflows/ci.yml`) runs the lint and the
@@ -1038,6 +1077,7 @@ voxanim/
     landscape.py mlp_runs.py autodiff.py deepnet.py gpt2_probe.py seq2seq.py gridworld.py
     gp.py ssm.py mamba.py moe.py diffusion.py pca_kmeans.py                  (1.2.0)
     generalise.py actfun.py capacity.py prune.py transfer.py lora.py quant.py (1.3.0)
+    regul.py regul_ae.py                                                      (1.4.0)
     model_io.py    load / save dense models (.npz, PyTorch, Keras, JSON)
     gpt2.py        GPT-2 small: safetensors reader, BPE tokenizer, forward pass
   animations
@@ -1061,6 +1101,8 @@ voxanim/
     prune_anim.py transfer_anim.py lora_anim.py           trimming, fine-tuning, LoRA
     quant_anim.py precision_anim.py                       quantization and precision
     gen_common.py actfun_plots.py                         shared drawing helpers (1.3.0)
+    regul_geometry.py regul_weights.py regul_tools.py regul_race.py regul_ae_anim.py
+                   regularisation (+ regul_plots.py, its drawing helpers)
   __main__.py      the command line
 ```
 
