@@ -153,8 +153,10 @@ def random_weights(cfg, rng, dtype=np.float64, scale=0.3):
 
 
 def n_parameters(W):
-    """Total number of entries in the arrays of ``W`` (a weights dict)."""
-    return int(sum(int(np.prod(v.shape)) for v in W.values()))
+    """Total number of entries in the parameter arrays of ``W`` (a weights
+    dict): the vectors and matrices, not the 1 x 1 x 1024 x 1024 causal-mask
+    buffers the released file stores under ``h.*.attn.bias``."""
+    return int(sum(v.size for v in W.values() if v.ndim <= 2))
 
 
 # ------------------------------------------------------------------ adapters

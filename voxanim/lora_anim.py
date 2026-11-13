@@ -50,7 +50,7 @@ from .diagram import EDGE, Diagram, draw_image, shrink_columns
 from .easing import ease_in_out, ease_out, remap, smoothstep
 from .gpt2_panel import diverging
 from .netanim import amax, div_colors
-from .prob_bars import BAR, BAR_DIM, BAR_PX, LABEL_PX, MARK, ROW_PX, draw_bars, shown
+from .prob_bars import BAR, BAR_DIM, MARK, ROW_PX, draw_bars, shown
 from .text import TIMES, num
 
 CONTROL = 0                     # index into LO.CONTROLS of the prompt the control phase draws
@@ -65,7 +65,7 @@ THIN = 20.0                     # px: A's width and B's height when thickened fo
 HAIR = 1.2                      # px: the width a to-scale sliver is drawn at (0.9 px true)
 GAP = 6.0                       # px between A, B and the update
 PLUS_W = 44.0                   # px: room for the "+" between W and the adapter
-W_AT = (0.0, 0.35)              # layout fraction of W's left edge, top edge
+W_AT = (0.03, 0.35)             # layout fraction of W's left edge, top edge
 TEX = 192                       # texels a side the 768-wide matrices are averaged down to
 LABEL_DY = (8.0, 27.0)          # px below a matrix: its name, its note
 BAR_Y = 0.935                   # layout y of the parameter bar / the singular values' baseline
@@ -82,10 +82,12 @@ HEAD_Y = 0.33                   # "next token: p"
 BARS_Y = 0.385                  # the first bar row
 READ_Y = 0.73                   # the p(target) read-out
 CHART_Y0, CHART_Y1 = 0.775, 0.98        # the two charts' top and bottom
-CHART_W = 170.0                 # px each
-CHART_DX = 206.0                # px from the loss chart's left edge to the p chart's
+CHART_W = 165.0                 # px each
+CHART_DX = 196.0                # px from the loss chart's left edge to the p chart's
 CHART_PAD = (30.0, 16.0, 10.0, 22.0)    # left, top, right, bottom (px)
 PAIR_H = 5.0                    # px: each bar of a before / after pair
+PAIR_LABEL_PX = 136.0           # px: room for the token strings in the control's rows
+PAIR_BAR_PX = 120.0             # px: a control bar at p = 1
 PANEL = (0.955, 0.955, 0.945)
 PANEL_EDGE = (0.74, 0.75, 0.76)
 CHIP = (0.975, 0.975, 0.97)
@@ -324,8 +326,7 @@ class LoRA(Diagram):
         on_text = on_d * (1 - smoothstep(0.0, 0.3, merge))
         name = "(α/r)·A·B = 0" if s == 0 else "(α/r)·A·B after step %d" % s
         note = ("A 768 %s 4 and B 4 %s 768: 3,072 each" % (TIMES, TIMES) if thick <= 0
-                else "A and B drawn %d%s too thick to be seen"
-                % (round(self.thick_factor), TIMES))
+                else "A and B drawn %d%s too thick" % (round(self.thick_factor), TIMES))
         self._under(sc, cd, name, note, on_text, TRAIN)
 
     # ---- under the matrices: the parameter bar, then the singular values
@@ -338,7 +339,7 @@ class LoRA(Diagram):
         w0, d0 = self._corners()
         left = self.P(W_AT[0], BAR_Y)
         width = (self.px(self.shift(d0, SIDE, 0.0)) - self.px(w0))[0]
-        on = count * (1 - train) * back
+        on = count * (1 - smoothstep(0.0, 0.5, train)) * back
         if on > 0.01:
             self.rect(sc, self.shift(left, width / 2, 0.0), width, BAR_H, PANEL, on,
                       border=PANEL_EDGE, border_w=1.0, radius=2.0)
@@ -351,7 +352,7 @@ class LoRA(Diagram):
             self.label(sc, left, "trainable, the sliver at the left: %s = %.3f%%"
                        % (thousands(self.r.n_adapter), 100 * self.r.ratio), layout.MIN_TEXT,
                        anchor="lt", dy=BAR_H, opacity=on, ink=TRAIN)
-        on = train * (1 - merge) * back
+        on = smoothstep(0.5, 1.0, train) * (1 - merge) * back
         if on > 0.01:
             s, u = self.shown_step(t)
             sv = self.r.sv[s]
@@ -423,10 +424,11 @@ class LoRA(Diagram):
         if s == 0:
             draw_bars(self, sc, top, self._items(0), grow0, opacity, mark=LO.TARGET)
         else:
-            if u < 1:
-                draw_bars(self, sc, top, self._items(s - 1), 1.0, opacity * out_of(u),
+            mix = smoothstep(0.0, 0.5, u)        # overlapping fades: no blink between steps
+            if mix < 1:
+                draw_bars(self, sc, top, self._items(s - 1), 1.0, opacity * (1 - mix),
                           mark=LO.TARGET)
-            draw_bars(self, sc, top, self._items(s), 1.0, opacity * into(u), mark=LO.TARGET)
+            draw_bars(self, sc, top, self._items(s), 1.0, opacity * mix, mark=LO.TARGET)
         quoted = self.settled(t)
         read = self.P(RIGHT_X, READ_Y)
         self.label(sc, read, "p(%s) = %s" % (LO.TARGET.strip(), pct(self.r.p_target[quoted])),
@@ -451,11 +453,11 @@ class LoRA(Diagram):
                        opacity=opacity, kind="mono")
             pb = p_before.get(tok, 0.0)
             for k, (p, col) in enumerate(((pb, BEFORE), (pa, AFTER))):
-                length = max(BAR_PX * p, 0.6)
-                c = self.shift(row, LABEL_PX + length / 2, (k - 0.5) * (PAIR_H + 1.0))
+                length = max(PAIR_BAR_PX * p, 0.6)
+                c = self.shift(row, PAIR_LABEL_PX + length / 2, (k - 0.5) * (PAIR_H + 1.0))
                 self.rect(sc, c, length, PAIR_H, col, opacity, radius=1.5, lift=0.4)
-            self.label(sc, self.shift(row, LABEL_PX + BAR_PX * max(pb, pa) + 6, 0.0),
-                       "%s → %s" % (num(pb), num(pa)), layout.MIN_TEXT, anchor="lm",
+            self.label(sc, self.shift(row, PAIR_LABEL_PX + PAIR_BAR_PX * max(pb, pa) + 6, 0.0),
+                       "%s→%s" % (num(pb), num(pa)), layout.MIN_TEXT, anchor="lm",
                        ink=layout.CAPTION_INK, opacity=opacity, kind="mono")
         self.label(sc, self.P(RIGHT_X, READ_Y), "grey: before, teal: after the fine-tuning",
                    layout.MIN_TEXT, anchor="lm", opacity=opacity, ink=layout.NOTE_INK)
@@ -484,9 +486,10 @@ class LoRA(Diagram):
                       border_w=1.0, radius=4, lift=0.1)
             self.label(sc, self._chart_pt(k, self.r.steps, top, top), name, layout.MIN_TEXT,
                        anchor="rt", dx=4, dy=-12, opacity=opacity, ink=layout.NOTE_INK)
-            for v, s_v in ((top, num(top, 1) if k == 0 else "1"), (0.0, "0")):
-                self.label(sc, self._chart_pt(k, 0, v, top), s_v, layout.MIN_TEXT, anchor="rm",
-                           dx=-5, opacity=opacity, ink=layout.NOTE_INK, kind="mono")
+            for v, s_v, anchor in ((top, num(top, 1) if k == 0 else "1", "rt"), (0.0, "0", "rb")):
+                self.label(sc, self._chart_pt(k, 0, v, top), s_v, layout.MIN_TEXT, anchor=anchor,
+                           dx=-5, dy=-2 if anchor == "rb" else 0.0, opacity=opacity,
+                           ink=layout.NOTE_INK, kind="mono")
             for st in (0, self.r.steps):
                 self.label(sc, self._chart_pt(k, st, 0.0, top), str(st), layout.MIN_TEXT,
                            anchor="mt", dy=4, opacity=opacity, ink=layout.NOTE_INK, kind="mono")
@@ -528,10 +531,9 @@ class LoRA(Diagram):
         if t < Tm["merge"][0]:
             _c, before, after = r.controls[CONTROL]
             _o, ob, oa = r.controls[OTHER]
-            return ("a fact never trained on keeps its answer, '%s' %s → %s; but '%s' now says "
-                    "'%s' %s (was '%s' %s)"
+            return ("'%s' stays, %s → %s; but after '%s': '%s' %s → '%s' %s"
                     % (before[0][0].strip(), num(before[0][1]), num(after[0][1]),
-                       LO.CONTROLS[OTHER], oa[0][0].strip(), num(oa[0][1]), ob[0][0].strip(),
-                       num(ob[0][1])))
+                       LO.CONTROLS[OTHER], ob[0][0].strip(), num(ob[0][1]), oa[0][0].strip(),
+                       num(oa[0][1])))
         return ("merged for inference: W′ = W + (α/r)·A·B, one 768 %s 768 matrix; same logits "
                 "to %s, no extra cost" % (TIMES, sci(r.merge_max_abs)))
