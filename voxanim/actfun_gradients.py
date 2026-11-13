@@ -52,7 +52,7 @@ BINS = 30                                       # over Z_RANGE
 HIST_FULL = 0.35                                # a bin with this share fills the plot
 GRAD_RANGE = (-8.0, -2.0)                       # log10 gradient RMS: dark .. lit
 DARK = C.rgb("#3a3f44")
-GRID_AT, GRID_SCALE, PITCH = (0.45, 0.40), 2.6, (1.2, 1.3)
+GRID_AT, GRID_SCALE, PITCH = (0.45, 0.42), 2.3, (1.2, 1.3)
 NOTE_X = 0.78                                   # the per-row read-outs, layout x
 PLOT_X0, PLOT_W, PLOT_GAP = 0.005, 0.125, 0.0155
 PLOT_Y = (0.69, 0.87)
@@ -178,10 +178,9 @@ class ActivationGradients(Diagram):
             if l == 0:
                 sc.text((x0 - 10) / self.cam.width, (y1 + 6) / self.cam.height, "layer",
                         layout.MIN_TEXT, "regular", layout.NOTE_INK, op * self._cap, "rt")
-        self.caption(sc, g, "the gradient reaching each layer, log colour scale (10%s dark, "
-                     "10%s lit)" % (sup(int(GRAD_RANGE[0])), sup(int(GRAD_RANGE[1]))), op,
-                     above=True,
-                     size=layout.MIN_TEXT, max_width=0.6)
+        self.caption(sc, g, "gradient reaching each layer (log scale: 10%s dark, 10%s lit)"
+                     % (sup(int(GRAD_RANGE[0])), sup(int(GRAD_RANGE[1]))), op, above=True,
+                     size=layout.MIN_TEXT, max_width=0.7)
         if 0 <= cur < DEPTH and t < self.Tm["sweep"][1]:
             l = DEPTH - 1 - cur
             lo, hi = g.block.box((0, N_ACT), (l, l + 1), (0, 1))

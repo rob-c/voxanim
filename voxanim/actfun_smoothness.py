@@ -318,7 +318,7 @@ class ActivationSmoothness(Diagram):
                        pct(self.rough[i["tanh"]])))
         rz = self.rough_zoom
         return ("the loss along a random weight direction: at ±%.1f all seven are smooth bowls; "
-                "at ±%.2f the slope of ReLU's is a staircase (jumps %d%% of the mean slope, Leaky "
+                "at ±%.2f the slope of ReLU's is a staircase (jumps %s of the mean slope, Leaky "
                 "ReLU %s), GELU's and SiLU's a curve (%s, %s)"
                 % (WIDE, ZOOM, pct(rz[i["relu"]]), pct(rz[i["leaky_relu"]]), pct(rz[i["gelu"]]),
                    pct(rz[i["silu"]])))
