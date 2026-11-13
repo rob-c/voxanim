@@ -185,6 +185,8 @@ def calibrate_mse(x, bits, symmetric=True, axis=None, grid=CLIP_GRID):
     errors = np.stack([((calibrate(x, bits, symmetric, axis, c).fake(x) - x) ** 2)
                        .sum(axis=reduce, keepdims=True) for c in grid])
     clip = np.asarray(grid)[errors.argmin(0)]
+    if axis is None:
+        clip = float(clip.ravel()[0])
     return calibrate(x, bits, symmetric, axis, clip), clip
 
 

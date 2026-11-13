@@ -349,7 +349,7 @@ class Quantization(NetAnimation):
                     "%s  %s" % (name, _kb(self.bytes[bits])), layout.MIN_TEXT, "regular",
                     layout.CAPTION_INK, op * self._cap, "rm")
         self.caption(sc, self.Bs, "bytes on disk: weights packed, biases and scales float32",
-                     op, size=0.027, offset=0.01, max_width=0.5)
+                     op, size=0.027, above=True, max_width=0.5)
 
     def _table(self, sc, t, k, op, size):
         """The accuracy table on the right: a row lands as each stage finishes."""
@@ -416,14 +416,15 @@ def _kb(n):
 
 QAT_BITS = (2, 4)
 QAT_INKS = {2: C.rgb("#d84e4e"), 4: C.rgb("#1f6fb5")}
-LAT_AT, QW_AT = (0.20, 0.47), (0.20, 0.78)      # the latent float weights, their rounded value
-G_AT = (0.475, 0.47)                            # the gradient dL/dQ(W)
-QH_AT = (0.475, 0.78)                           # the latent weights' histogram
-QHBINS, QHROWS = 48, 10
-RULE_BOX = ((0.68, 0.94), (0.30, 0.50))         # the staircase Q(x)
-DERIV_BOX = ((0.68, 0.94), (0.62, 0.78))        # its derivative, true and straight-through
-CHART_BOX = ((0.68, 0.94), (0.33, 0.70))        # the training chart
-RESULT_X, RESULT_Y = 0.655, 0.78                # the result lines
+LAT_AT, QW_AT = (0.17, 0.44), (0.17, 0.74)      # the latent float weights, their rounded value
+G_AT = (0.47, 0.44)                             # the gradient dL/dQ(W)
+QH_AT = (0.47, 0.74)                            # the latent weights' histogram
+QHBINS, QHROWS = 40, 10
+RULE_BOX = ((0.66, 0.89), (0.28, 0.50))         # the staircase Q(x)
+DERIV_BOX = ((0.66, 0.89), (0.60, 0.78))        # its derivative, true and straight-through
+CHART_BOX = ((0.73, 0.945), (0.33, 0.68))       # the training chart
+LEGEND_AT = (0.68, 0.80)                        # the chart's legend, under it
+RESULT_X, RESULT_Y = 0.68, 0.795                # the result lines, in the legend's place
 RULE_INK = (0.30, 0.32, 0.36)
 STE_INK = C.rgb("#c0399b")
 TRUE_INK = C.INPUT
@@ -509,11 +510,11 @@ class QATraining(NetAnimation):
         self.subtitle = self.words(ph, t, train)
         i = self._snapshot(t, train)
         sheets = smoothstep(0.0, 0.5, fwd) * back
-        self._rule(sc, rule, (1 - smoothstep(0.0, 0.15, train)) * back)
+        self._rule(sc, rule, (1 - smoothstep(0.0, 0.08, train)) * back)
         self._weights(sc, t, fwd, i, sheets)
         self._gradient(sc, t, i, back)
-        self._histogram(sc, i, smoothstep(0.0, 0.3, train) * back)
-        self._chart(sc, train, back)
+        self._histogram(sc, i, smoothstep(0.15, 0.35, train) * back)
+        self._chart(sc, train, result, back)
         self._result(sc, result, back)
         self.step_indicator(sc, ph, self.PHASES)
 
@@ -574,7 +575,7 @@ class QATraining(NetAnimation):
             x, y = text(2.25 * s, lv)
             sc.text(x, y, label, layout.MIN_TEXT, "regular", layout.NOTE_INK, op * draw, "lm")
         x, y = text(-2.2 * s, 1.4 * s)
-        sc.text(x, y - 0.012, "Q(x) = s·round(x/s), clipped to ±s   (s = %s)" % num(s, 3),
+        sc.text(x, y - 0.012, "Q(x) = s·round(x/s), clipped   (s = %s)" % num(s, 3),
                 0.027, "regular", layout.CAPTION_INK, op, "lb")
         # the derivative panel
         dop = op * smoothstep(0.5, 0.7, rule)
@@ -653,9 +654,8 @@ class QATraining(NetAnimation):
         if fwd < 0.7:
             what = "Q(W%s): rounding to %ss, 0, +s" % (sub(1), MINUS)
         elif step > 0:
-            what = "Q(W%s) after step %d: %d of %s changed level" % (sub(1), step,
-                                                                     self.flips[step - 1],
-                                                                     f"{self.n:,}")
+            what = "Q(W%s), step %d: %d of %s flipped" % (sub(1), step, self.flips[step - 1],
+                                                          f"{self.n:,}")
         elif i > 0:
             what = "Q(W%s) at step %d" % (sub(1), int(self.run.steps[i]))
         else:
@@ -667,7 +667,7 @@ class QATraining(NetAnimation):
         grad = self.progress("grad", t)
         through = self.progress("through", t)
         train = self.progress("train", t)
-        op = smoothstep(0.0, 0.5, grad) * (1 - smoothstep(0.0, 0.2, train)) * back
+        op = smoothstep(0.0, 0.5, grad) * (1 - smoothstep(0.0, 0.12, train)) * back
         if op <= 0.01:
             self.Gs.visible = False
             return
@@ -675,8 +675,8 @@ class QATraining(NetAnimation):
         self.Gs.fill(div_colors(g.T.ravel(), self.gmax))
         self.Gs.cage = op
         self.Gs.fade(op)
-        self.caption(sc, self.Gs, "∂L/∂Q(W%s) on a minibatch of %d images"
-                     % (sub(1), Q.QAT_BATCH), op, above=True, size=0.027)
+        self.caption(sc, self.Gs, "∂L/∂Q(W%s), a minibatch of %d" % (sub(1), Q.QAT_BATCH), op,
+                     above=True, size=0.027)
         if through > 0:
             # a handful of values fly from the gradient sheet to the float weights
             K = 24
@@ -689,13 +689,13 @@ class QATraining(NetAnimation):
                          0.6 * SHEET_SCALE, lift=1.5)
             if 0 < through < 1:
                 sc.probe(("through",), (through * 30, 0, 0), tol=6.0)
-            text = ("∂L/∂W := ∂L/∂Q(W), straight through; %.0f%% of the weights saturate "
-                    "at ±s and get 0" % (100 * self.saturated))
+            text = ("straight through: ∂L/∂W := ∂L/∂Q(W)\n%.0f%% saturate at ±s and get 0"
+                    % (100 * self.saturated))
             self.caption(sc, self.Gs, text, op * smoothstep(0.1, 0.4, through), size=0.027,
-                         max_width=0.34)
+                         max_width=0.30)
         else:
-            self.caption(sc, self.Gs, "the float network's gradient at the rounded weights",
-                         op, size=0.027, max_width=0.34)
+            self.caption(sc, self.Gs, "the float network's gradient\nat the rounded weights", op,
+                         size=0.027, max_width=0.30)
 
     def _histogram(self, sc, i, op):
         """The latent weights binned, with the levels (solid) and the boundaries
@@ -720,14 +720,14 @@ class QATraining(NetAnimation):
                     sc.line(a + (b - a) * n / 6, a + (b - a) * (n + 0.5) / 6, width=1.0,
                             color=BOUNDARY_INK, opacity=0.85 * op, bias=0.3)
         level, boundary = self.near(W)
-        self.caption(sc, self.Hs, "float weights binned: levels (solid), boundaries (dashed)",
-                     op, above=True, size=0.027, max_width=0.36)
-        self.caption(sc, self.Hs, "within 0.1 step of a level: %.0f%%, of a boundary: %.0f%%"
-                     % (100 * level, 100 * boundary), op, size=0.027, max_width=0.36)
+        self.caption(sc, self.Hs, "the float weights, binned", op, above=True, size=0.027)
+        self.caption(sc, self.Hs, "levels solid, boundaries dashed; within 0.1 step of a level "
+                     "%.0f%%, of a boundary %.0f%%" % (100 * level, 100 * boundary), op,
+                     size=0.027, max_width=0.36)
 
-    def _chart(self, sc, train, back):
+    def _chart(self, sc, train, result, back):
         """Test accuracy of the quantized network against the step, 2 and 4 bits."""
-        op = smoothstep(0.0, 0.2, train) * back * self._cap
+        op = smoothstep(0.12, 0.3, train) * back * self._cap
         if op <= 0.01:
             return
         cam, place = self.cam, self.cam.frac
@@ -746,19 +746,20 @@ class QATraining(NetAnimation):
                                             100 * self.runs[b].acc[-1]), QAT_INKS[b])
                   for b in QAT_BITS]
         self.chart.legend(sc, cam, [(s, _ink(c)) for s, c in legend],
-                          op * smoothstep(0.85, 1.0, train), (CHART_BOX[0][0] + 0.02, 0.76))
+                          op * smoothstep(0.85, 1.0, train) * (1 - smoothstep(0.0, 0.2, result)),
+                          LEGEND_AT)
         sc.probe(("train",), (upto * 0.05, 0, 0), tol=6.0)
 
     def _result(self, sc, result, back):
         """Post-training against quantization-aware, in words, under the chart."""
-        op = smoothstep(0.0, 0.3, result) * back * self._cap
+        op = smoothstep(0.25, 0.5, result) * back * self._cap
         if op <= 0.01:
             return
         r2, r4 = self.runs[2], self.runs[4]
-        lines = (("post-training, 2 bits: %.1f%% (%.1f%% with min-max scales)"
+        lines = (("post-training %.1f%% (min-max %.1f%%)"
                   % (100 * r2.acc[0], 100 * self.acc_minmax)),
-                 ("quantization-aware, 2 bits: %.1f%%" % (100 * r2.acc[-1])),
-                 ("int4: %.1f%% → %.1f%%; float32 %.1f%%"
+                 ("quantization-aware %.1f%%" % (100 * r2.acc[-1])),
+                 ("int4 %.1f%% → %.1f%%, float32 %.1f%%"
                   % (100 * r4.acc[0], 100 * r4.acc[-1], 100 * r2.acc_float)))
         for n, line in enumerate(lines):
             fx, fy = self.fr(RESULT_X, RESULT_Y + 0.9 * 0.049 * n)
@@ -773,31 +774,30 @@ class QATraining(NetAnimation):
                     "passes through it; the straight-through estimator pretends it is 1")
         if ph == 1:
             return ("forward: the network computes with Q(W), the weights rounded to 3 levels "
-                    "(2 bits, one calibrated scale per matrix: s = %s for W%s): %.1f%% on the "
-                    "test set" % (num(self.s, 3), sub(1), 100 * r2.acc[0]))
+                    "(s = %s for W%s, calibrated): %.1f%% on the test set"
+                    % (num(self.s, 3), sub(1), 100 * r2.acc[0]))
         if ph == 2:
             step, _u = self._step_u(t)
             if step == 0:
-                return ("backward: ∂L/∂W := ∂L/∂Q(W) where |W| < 1.5 s, 0 where the weight "
-                        "saturates; the float weights then take an Adam step (lr %g)" % Q.QAT_LR)
-            return ("the step moves every weight a little; a weight that crosses a boundary "
-                    "(±s/2) changes level: %s of %s flipped in steps 1 to %d"
-                    % (", ".join(str(f) for f in self.flips[:step]), f"{self.n:,}", step))
+                return ("backward: ∂L/∂W := ∂L/∂Q(W) where |W| < 1.5 s (0 where it saturates); "
+                        "then an Adam step, lr %g" % Q.QAT_LR)
+            return ("a weight that crosses ±s/2 changes level: %s of the %s flipped in step%s %s"
+                    % (", ".join(str(f) for f in self.flips[:step]), f"{self.n:,}",
+                       "s 1 to %d" % step if step > 1 else " 1", ""))
         if ph == 3:
             if train < 0.92:
                 k = int(self.steps * smoothstep(0.0, 0.92, train))
-                return ("%d epochs of this (%d steps, step %d): the quantized network's test "
-                        "accuracy climbs; the float weights keep spreading rather than "
-                        "gathering at the levels" % (Q.QAT_EPOCHS, self.steps, k))
+                return ("step %d of %d: the quantized accuracy climbs; the float weights spread "
+                        "rather than gather at the levels" % (k, self.steps))
             level, boundary = self.near(self.run.W[-1])
-            return ("after %d steps: 2 bits %.1f%% → %.1f%%, int4 %.1f%% → %.1f%%; %.0f%% of the "
-                    "float weights sit within 0.1 step of a boundary (oscillating), %.0f%% near a "
-                    "level" % (self.steps, 100 * r2.acc[0], 100 * r2.acc[-1], 100 * r4.acc[0],
-                               100 * r4.acc[-1], 100 * boundary, 100 * level))
+            return ("%d steps: 2 bits %.1f → %.1f%%, int4 %.1f → %.1f%%; %.0f%% of the float "
+                    "weights sit at a boundary, %.0f%% at a level"
+                    % (self.steps, 100 * r2.acc[0], 100 * r2.acc[-1], 100 * r4.acc[0],
+                       100 * r4.acc[-1], 100 * boundary, 100 * level))
         lost = r2.acc_float - r2.acc[0]
         won = r2.acc[-1] - r2.acc[0]
-        return ("post-training quantization lost %.1f points at 2 bits; training through the "
-                "rounding wins %.1f of them back: %.1f%% against the float network's %.1f%%"
+        return ("post-training lost %.1f points at 2 bits; training through the rounding wins "
+                "%.1f back: %.1f%% against %.1f%% in float32"
                 % (100 * lost, 100 * won, 100 * r2.acc[-1], 100 * r2.acc_float))
 
 

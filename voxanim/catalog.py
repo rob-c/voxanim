@@ -748,3 +748,43 @@ register("learning-rate-schedule", _lr_schedule,
          "Constant, step decay, cosine with warmup and one-cycle schedules training the MNIST "
          "MLP: the schedules, the loss curves, the same schedules on the two-weight landscape, "
          "and why warmup tames Adam's first steps.")
+# ------------------------------------------------------------------ quantization and precision
+#
+# Fewer bits per number on the trained MNIST MLP (voxanim.quant): post-training
+# quantization, quantization-aware training, and float16 / bfloat16.
+
+
+def _quantization():
+    from .quant_anim import Quantization
+    return Quantization()
+
+
+register("quantization", _quantization,
+         "The trained MNIST MLP's weights rounded to int8, int4 and 2 bits: the histogram of a "
+         "layer's weights with the quantization levels over it, the sheet snapping to them, the "
+         "per-weight error, the test accuracy of each (per-tensor, per-channel and calibrated "
+         "scales) and the model's size in bytes.")
+
+
+def _qat():
+    from .quant_anim import QATraining
+    return QATraining()
+
+
+register("quantization-aware-training", _qat,
+         "Training through the rounding: fake-quantized weights in the forward pass, the "
+         "straight-through estimator in the backward (the staircase and its 'derivative'), the "
+         "quantized weights flipping level step by step, and the 2-bit network recovering "
+         "nearly all the accuracy post-training quantization lost.")
+
+
+def _mixed_precision():
+    from .precision_anim import MixedPrecision
+    return MixedPrecision()
+
+
+register("mixed-precision", _mixed_precision,
+         "float32, float16 and bfloat16 as bit layouts holding a real weight, the representable "
+         "grid at three magnitudes, a real deep-network gradient underflowing in float16 and "
+         "rescued by loss scaling, and the MLP trained in each format, with and without float32 "
+         "master weights.")
