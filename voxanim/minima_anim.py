@@ -76,11 +76,13 @@ NORMS, N_TRIALS, NOISE_SEED = (8.0, 16.0, 32.0), 5, 5  # the perturbations
 RISE = 0.01                                       # bowl width: where the loss has risen by this
 GRID_N, GRID_U, GRID_V = 36, (-0.3, 1.3), (-RADIUS, RADIUS)
 INK_SMALL, INK_LARGE = C.rgb("#1f6fb5"), C.rgb("#d84e4e")
-TEST_INK = (0.40, 0.42, 0.46)
-LAND_AT = (0.35, 0.60)
-CHART = ((0.715, 0.945), (0.28, 0.56))
-READ_X, READ_Y = 0.715, 0.63
-CAP = 0.3                                         # loss at the top of the tallest column
+TRAIN_INK = (0.22, 0.24, 0.26)                    # the training loss along the line
+TEST_INK = (0.52, 0.54, 0.58)                     # the test loss along it
+LAND_AT = (0.31, 0.50)
+CHART = ((0.665, 0.945), (0.28, 0.56))
+READ_X, READ_Y = 0.665, 0.63
+LINE_RANGE = (1e-5, 1.0)                          # the line chart's log range
+CAP = 0.12                                        # loss at the top of the tallest column
 WALKER = (0.98, 0.98, 0.97)
 
 
@@ -210,10 +212,10 @@ class SharpVsFlat(NetAnimation):
         self.land = LS.Landscape(self, self.plane, lo, hi, CAP, LAND_AT, n=GRID_N)
         self.prof = (m["around_small"].mean(0), m["around_large"].mean(0))
         self.width = tuple(bowl_width(m["radii"], p) for p in self.prof)
-        line_hi = float(max(m["line_train"].max(), m["line_test"].max())) * 1.1
-        self.line_chart = LS.LossChart(self, CHART, 1.0, 0.0, line_hi)
+        # both charts take the point's index as its "step"
+        self.line_chart = LS.LossChart(self, CHART, len(m["us"]) - 1, *LINE_RANGE, log=True)
         bowl_hi = float(max(p.max() for p in self.prof)) * 1.1
-        self.bowl_chart = LS.LossChart(self, CHART, 1.0, 0.0, bowl_hi)
+        self.bowl_chart = LS.LossChart(self, CHART, len(m["radii"]) - 1, 0.0, bowl_hi)
         Tm, t = {}, 0.3
         Tm["rise"] = (t, t + 2.5)
         Tm["minima"] = (t + 2.0, t + 7.0)
@@ -271,37 +273,41 @@ class SharpVsFlat(NetAnimation):
         cam = self.cam
         p = cam.project(np.array([(lo[0] + hi[0]) / 2, hi[1] + 0.7 * self.land.block.scale,
                                   lo[2]]))
-        sc.text(p[0] / cam.width, p[1] / cam.height + 0.03, "u: batch 8 (0) → batch 1,024 (1)",
-                0.027, "regular", layout.CAPTION_INK, op * self._cap, "mt")
-        q = cam.project(np.array([lo[0] - 0.7 * self.land.block.scale, (lo[1] + hi[1]) / 2,
-                                  lo[2]]))
-        sc.text(q[0] / cam.width - 0.02, q[1] / cam.height, "v: a random direction, ±%d"
-                % RADIUS, 0.027, "regular", layout.CAPTION_INK, op * self._cap, "rm")
+        x, y = p[0] / cam.width, p[1] / cam.height + 0.085
+        for n, text in enumerate(("along: u, from the batch-8 minimum (0) to the batch-%s one "
+                                  "(1)" % f"{LARGE['batch']:,}",
+                                  "across: v, a random unit direction, ±%d weight units"
+                                  % RADIUS)):
+            sc.text(x, y + 0.04 * n, text, 0.027, "regular", layout.CAPTION_INK, op * self._cap,
+                    "mt")
+        # the two markers' colours (labels on the surface would sit over the columns)
+        for dx, text, ink in ((-0.02, "● batch 8, the flat one", INK_SMALL),
+                              (0.02, "● batch %s, the sharp one" % f"{LARGE['batch']:,}",
+                               INK_LARGE)):
+            sc.text(x + dx, y + 0.085, text, 0.027, "regular", ink, op * self._cap,
+                    "rt" if dx < 0 else "lt")
 
     def _minima(self, sc, op):
         """The two minima on the surface, labelled."""
         if op <= 0.01:
             return
-        for u, ink, name in ((0.0, INK_SMALL, "batch 8"), (1.0, INK_LARGE, "batch 1,024")):
+        for u, ink in ((0.0, INK_SMALL), (1.0, INK_LARGE)):
             L = float(np.interp(u, self.m["us"], self.m["line_train"]))
             self.land.marker(sc, np.array([u, 0.0]), L, ink, op, size=1.1, glow=0.4)
-            p = self.land.point(np.array([u, 0.0]), L, lift=2.5)
-            s = self.cam.project(p)
-            sc.text(s[0] / self.cam.width, s[1] / self.cam.height - 0.01, name, 0.028,
-                    "regular", ink, op * self._cap, "mb")
 
     def _readout(self, sc, op):
         """The two runs' numbers (phase 1)."""
         m = self.m
-        lines = [("the two minima", layout.STRONG_INK),
-                 ("batch 8: %s steps, training loss %.4f, test error %s"
-                  % (f"{len(self.small.batch_loss):,}", m["train_loss"][0], pct(m["test_err"][0])),
-                  INK_SMALL),
-                 ("batch 1,024: %s steps, training loss %.4f, test error %s"
-                  % (f"{len(self.large.batch_loss):,}", m["train_loss"][1], pct(m["test_err"][1])),
-                  INK_LARGE),
-                 ("%.0f apart in weight space (|W| %.0f and %.0f)"
-                  % (m["distance"], m["norms"][0], m["norms"][1]), layout.CAPTION_INK)]
+        lines = [("the two minima", layout.STRONG_INK)]
+        for run, cfg, ink, k in ((self.small, SMALL, INK_SMALL, 0),
+                                 (self.large, LARGE, INK_LARGE, 1)):
+            lines.append(("batch %s: %s steps at lr %g" % (f"{cfg['batch']:,}",
+                                                           f"{len(run.batch_loss):,}", cfg["lr"]),
+                          ink))
+            lines.append(("   training loss %.4f, test error %s"
+                          % (m["train_loss"][k], pct(m["test_err"][k])), ink))
+        lines.append(("%.0f apart (|W| %.0f and %.0f)"
+                      % (m["distance"], m["norms"][0], m["norms"][1]), layout.CAPTION_INK))
         self._lines(sc, lines, op, y=0.30)
 
     def _lines(self, sc, lines, op, y=READ_Y, dy=0.045, x=READ_X):
@@ -323,20 +329,22 @@ class SharpVsFlat(NetAnimation):
         self.land.marker(sc, np.array([u, 0.0]), float(np.interp(u, us, m["line_train"])),
                          WALKER, back, size=0.8, key=("walker",))
         chart = self.line_chart
-        chart.frame(sc, back, xlabel="u", ylabel="loss")
+        chart.frame(sc, back, xlabel="u", ylabel="loss (log)")
+        for v in (1e-4, 1e-2, 1.0):
+            chart.label(sc, 0, v, "%g" % v, layout.NOTE_INK, back, dx=-0.006, anchor="rm",
+                        size=0.024)
         k = (u - us[0]) / (us[-1] - us[0]) * (len(us) - 1)
-        chart.curve(sc, m["line_train"], k, INK_SMALL, back)
+        chart.curve(sc, m["line_train"], k, TRAIN_INK, back)
         chart.curve(sc, m["line_test"], k, TEST_INK, back)
         for v, ink in ((0.0, INK_SMALL), (1.0, INK_LARGE)):
             j = (v - us[0]) / (us[-1] - us[0]) * (len(us) - 1)
-            a = chart.pt(j, 0.0)
-            b = chart.pt(j, chart.hi)
-            sc.line(a, b, width=0.9, color=ink, opacity=0.5 * back, bias=0.0)
+            sc.line(chart.pt(j, chart.lo), chart.pt(j, chart.hi), width=0.9, color=ink,
+                    opacity=0.5 * back, bias=0.0)
         i = int(round(k))
         lines = [("along the line, u = %.2f" % u, layout.STRONG_INK),
-                 ("training loss %.3f" % m["line_train"][i], INK_SMALL),
+                 ("training loss %.4f" % m["line_train"][i], TRAIN_INK),
                  ("test loss %.3f" % m["line_test"][i], TEST_INK),
-                 ("the barrier between: training loss up to %.3f"
+                 ("the barrier: training loss %.3f"
                   % m["line_train"][(us >= 0) & (us <= 1)].max(), layout.CAPTION_INK)]
         self._lines(sc, lines, back)
 
@@ -345,7 +353,12 @@ class SharpVsFlat(NetAnimation):
         m = self.m
         radii = m["radii"]
         chart = self.bowl_chart
-        chart.frame(sc, back, xlabel="distance r", ylabel="training loss")
+        chart.frame(sc, back, xlabel="distance r (−%d to %d)" % (RADIUS, RADIUS),
+                    ylabel="training loss")
+        for v in (0.2, 0.4, 0.6):
+            if v < chart.hi:
+                chart.label(sc, 0, v, "%.1f" % v, layout.NOTE_INK, back, dx=-0.006, anchor="rm",
+                            size=0.024)
         k = f.grow * (len(radii) - 1)
         for prof, ink in zip(self.prof, (INK_SMALL, INK_LARGE)):
             chart.curve(sc, prof, k, ink, back, marker=False)
@@ -360,7 +373,7 @@ class SharpVsFlat(NetAnimation):
                                   w * ky * np.sin(a) * f.grow, 0.0]) for a in th]
             for a, b in itertools.pairwise(ring):
                 sc.line(a, b, width=1.2, color=ink, opacity=0.9 * back, bias=0.25)
-        lines = [("the bowls: loss along %d random directions" % N_DIRS, layout.STRONG_INK),
+        lines = [("loss along %d random directions" % N_DIRS, layout.STRONG_INK),
                  ("batch 8: up %.2f within r = %.1f" % (RISE, self.width[0]), INK_SMALL),
                  ("batch 1,024: up %.2f within r = %.1f" % (RISE, self.width[1]), INK_LARGE),
                  ("%.1f× sharper" % (self.width[0] / self.width[1]), layout.CAPTION_INK)]
@@ -375,31 +388,38 @@ class SharpVsFlat(NetAnimation):
         top = float(m["perturbed"].max()) * 1.15
         groups = len(NORMS) + 1
         cam = self.cam
+        last = groups - 1
         for g in range(groups):
-            fx = x0 + (x1 - x0) * (g + 0.5) / groups
+            fx = x0 + 0.03 + (x1 - x0 - 0.06) * g / last
             for s, (ink, row) in enumerate(((INK_SMALL, 0), (INK_LARGE, 1))):
                 err = m["test_err"][row] if g == 0 else m["perturbed"][row, g - 1]
                 h = hmax * err / top * f.grow
-                bx = fx + (s - 0.5) * 0.028
+                bx = fx + (s - 0.5) * 0.03
                 a, b = cam.frac(bx, base), cam.frac(bx, base - h)
                 sc.line(a, b, width=9.0, color=ink, opacity=0.95 * back, bias=0.2)
-                tx, ty = self.fr(bx, base - h)
-                sc.text(tx, ty - 0.012, pct(err), 0.026, "regular", ink,
-                        back * self._cap * smoothstep(0.6, 1.0, f.grow), "mb")
+                if g in (0, last):
+                    # the first and last groups carry their numbers; the rest are read off
+                    tx, ty = self.fr(bx, base - h)
+                    sc.text(tx + (s - 0.5) * 0.012, ty - 0.012, pct(err), 0.026, "regular", ink,
+                            back * self._cap * smoothstep(0.6, 1.0, f.grow), "rb" if s == 0
+                            else "lb")
             tx, ty = self.fr(fx, base)
-            sc.text(tx, ty + 0.012, "no noise" if g == 0 else "norm %d" % NORMS[g - 1], 0.027,
+            sc.text(tx, ty + 0.012, "0" if g == 0 else "%d" % NORMS[g - 1], 0.027,
                     "regular", layout.CAPTION_INK, back * self._cap, "mt")
         sc.line(cam.frac(x0, base), cam.frac(x1, base), width=1.0, color=LS.CHART_INK,
                 opacity=0.8 * back, bias=0.0)
         tx, ty = self.fr(x0, y0 - 0.012)
         sc.text(tx, ty, "test error after weight noise", 0.027, "regular", layout.CAPTION_INK,
                 back * self._cap, "lb")
+        tx, ty = self.fr(x1, base + 0.012)
+        sc.text(tx, ty + 0.04, "norm of the noise", 0.027, "regular", layout.CAPTION_INK,
+                back * self._cap, "rt")
         lines = [("noise of norm %d, %d draws each" % (NORMS[-1], N_TRIALS), layout.STRONG_INK),
                  ("batch 8: %s → %s" % (pct(m["test_err"][0]), pct(m["perturbed"][0, -1])),
                   INK_SMALL),
-                 ("batch 1,024: %s → %s" % (pct(m["test_err"][1]), pct(m["perturbed"][1, -1])),
-                  INK_LARGE)]
-        self._lines(sc, lines, back * smoothstep(0.5, 1.0, f.grow), y=READ_Y + 0.06)
+                 ("batch %s: %s → %s" % (f"{LARGE['batch']:,}", pct(m["test_err"][1]),
+                                         pct(m["perturbed"][1, -1])), INK_LARGE)]
+        self._lines(sc, lines, back * smoothstep(0.5, 1.0, f.grow), y=READ_Y + 0.10)
 
     # ------------------------------------------------------------------ words
     def _words(self, f):

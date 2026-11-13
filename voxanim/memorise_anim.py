@@ -51,8 +51,8 @@ TRAIN = dict(steps=6000, batch=100, lr=0.001, opt="adam")
 INKS = (C.rgb("#3d9e45"), C.rgb("#e0952e"), C.rgb("#d84e4e"))     # 0%, 25%, 50%
 GRID_COLS, GRID_ROWS, GRID_PX = 10, 5, 30.0      # training digits shown in the labels phase
 GRID_AT = (0.26, 0.52)
-HEAT_AT, HEAT_W, HEAT_H = (0.26, 0.50), 330.0, 200.0     # the per-example loss image
-HEAT_COLS = 330                                  # examples averaged down to this many columns
+HEAT_AT, HEAT_W, HEAT_H = (0.25, 0.52), 300.0, 200.0     # the per-example loss image
+HEAT_COLS = 313                                  # examples averaged down to this many columns
 HEAT_MAX = 4.0                                   # loss drawn at full brightness
 CHART = ((0.57, 0.94), (0.32, 0.66))
 LOSS_RANGE = (1e-3, 3.0)
@@ -204,14 +204,16 @@ class MemorisingNoise(Diagram):
                    f"{int((~self.mask).sum()):,}", anchor="mt", opacity=op, ink=INKS[0])
         self.label(sc, self.shift(c, HEAT_W / 4, HEAT_H / 2 + 6), "%s shuffled" %
                    f"{int(self.mask.sum()):,}", anchor="mt", opacity=op, ink=INKS[2])
-        self.label(sc, self.shift(c, 0, -HEAT_H / 2 - 8), "each example's loss, bright = high; "
-                   "one row per recorded step, step 0 on top", anchor="mb", opacity=op)
+        self.label(sc, self.shift(c, 0, -HEAT_H / 2 - 30), "every example's loss, bright = high",
+                   anchor="mb", opacity=op)
+        self.label(sc, self.shift(c, 0, -HEAT_H / 2 - 8), "one row per recorded step, step 0 "
+                   "on top", anchor="mb", opacity=op, ink=layout.NOTE_INK)
         # the row on show
         y = -HEAT_H / 2 + (i + 0.5) / self.S * HEAT_H
-        self.polyline(sc, [self.shift(c, -HEAT_W / 2 - 6, y), self.shift(c, -HEAT_W / 2 - 1, y)],
+        self.polyline(sc, [self.shift(c, HEAT_W / 2 + 1, y), self.shift(c, HEAT_W / 2 + 6, y)],
                       width=1.4, color=layout.CAPTION_INK, opacity=op)
-        self.label(sc, self.shift(c, -HEAT_W / 2 - 8, y), "step %s" %
-                   f"{int(self.runs[-1].steps[i]):,}", anchor="rm", opacity=op,
+        self.label(sc, self.shift(c, HEAT_W / 2 + 8, y), "step %s" %
+                   f"{int(self.runs[-1].steps[i]):,}", anchor="lm", opacity=op,
                    ink=layout.NOTE_INK)
 
     def _chart(self, sc, f, op):
@@ -295,7 +297,7 @@ class MemorisingNoise(Diagram):
         return [
             "%s MNIST training images, a %d-%d-%d ReLU network; a seeded fraction of the labels "
             "is replaced by a wrong class" % (f"{N_TRAIN:,}", *SIZES),
-            "Adam, %d epochs: the training loss falls to %.3f, %.3f and %.3f: the network fits "
+            "Adam, %d epochs: the training loss falls to %.4f, %.4f and %.4f: the network fits "
             "the labels whether they are true or not"
             % (TRAIN["steps"] * TRAIN["batch"] // N_TRAIN, *final),
             "but it only generalises what was true: test accuracy %s, %s and %s on %s held-out "

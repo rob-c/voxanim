@@ -79,7 +79,7 @@ ERR_CHART = ((0.09, 0.45), (0.68, 0.90))          # test and training error agai
 LOSS_RANGE, ERR_RANGE = (0.0, 4.0), (0.0, 0.7)
 GLYPH_AT, GLYPH_PX, GLYPH_COLS = (0.63, 0.42), 7.0, 20   # the hidden layer, sweep phase
 CONF_AT, CONF_PX = (0.84, 0.44), 130.0            # the confusion matrix, sweep phase
-TRIO_Y, TRIO_PX, TRIO_X = 0.50, 110.0, (0.60, 0.76, 0.92)   # three matrices, later phases
+TRIO_Y, TRIO_PX, TRIO_X = 0.54, 100.0, (0.585, 0.755, 0.925)   # three matrices, later phases
 WHY_CHART = ((0.60, 0.94), (0.34, 0.66))          # sensitivity against width
 NOTE_AT = (0.58, 0.70)
 WIDTH_TICKS = (2, 10, 100, 200)
@@ -163,7 +163,7 @@ class DoubleDescent(Diagram):
         self.loss_chart = LossChart(LOSS_CHART, (WIDTHS[0], WIDTHS[-1]), LOSS_RANGE, xlog=True)
         self.err_chart = LossChart(ERR_CHART, (WIDTHS[0], WIDTHS[-1]), ERR_RANGE, xlog=True)
         self.why = LossChart(WHY_CHART, (WIDTHS[0], WIDTHS[-1]),
-                             (0.0, float(self.sens.max()) * 1.15), xlog=True)
+                             (0.0, float(self.sens.max()) * 1.5), xlog=True)
         Tm, t = {}, 0.0
         Tm["setup"] = (t, t + 6.0)
         t += 6.0 + 0.3
@@ -183,7 +183,8 @@ class DoubleDescent(Diagram):
         ph = 0 if reset > 0 else int(np.searchsorted(self.marks, t, side="right") - 1)
         done, cur, cu = self.sweep.at(t) if ph >= 1 else (0, -1, 0.0)
         grow = ease_out(self.progress("why", t)) if ph == 4 else 0.0
-        return Frame(back, ph, done, cur if ph == 1 else -1, cu, grow)
+        cur = cur if ph == 1 and cur < len(WIDTHS) else -1
+        return Frame(back, ph, done, cur, cu, grow)
 
     # ------------------------------------------------------------------ drawing
     def draw(self, sc, t, reset):
@@ -218,8 +219,8 @@ class DoubleDescent(Diagram):
                        anchor="mt", opacity=op * pop,
                        ink=WRONG_INK if wrong else layout.CAPTION_INK)
         self.label(sc, self.shift(c, 0, -GRID_ROWS / 2 * py - 8),
-                   "%s training images, %d%% of the labels false (%d of them)"
-                   % (f"{N_TRAIN:,}", round(100 * NOISE), int(self.mask.sum())),
+                   "%s training images; %d%% of the labels false, in red"
+                   % (f"{N_TRAIN:,}", round(100 * NOISE)),
                    anchor="mb", opacity=op * pop)
         lines = [strong("784-w-10 ReLU networks, w from %d to %d" % (WIDTHS[0], WIDTHS[-1])),
                  note("%s Adam steps each (%d epochs):"
@@ -239,17 +240,20 @@ class DoubleDescent(Diagram):
         draw_image(self, sc, c, cells[:, :cw], cw * px, rows * px, op, grid=0.6, lift=0.2)
         return rows * px
 
-    def _confusion(self, sc, c, k, op, px):
-        """Run ``k``'s confusion matrix on the test set: rows true, columns predicted."""
+    def _confusion(self, sc, c, k, op, px, axes=(True, True)):
+        """Run ``k``'s confusion matrix on the test set: rows true, columns
+        predicted; ``axes`` says which of the two axis labels to write."""
         m = self.conf[k].astype(np.float64)
         frac = m / m.sum(1, keepdims=True)
         v = np.clip(frac / 0.5, 0, 1)[..., None] ** 0.6
         tex = np.asarray(PAPER)[None, None] * (1 - v) + np.asarray(DIGIT_INK)[None, None] * v
         draw_image(self, sc, c, tex.astype(np.float32), px, px, op, grid=0.3, lift=0.2)
-        self.label(sc, self.shift(c, 0, px / 2 + 4), "predicted 0–9", anchor="mt", opacity=op,
-                   ink=layout.NOTE_INK)
-        self.label(sc, self.shift(c, -px / 2 - 4, 0), "true", anchor="rm", opacity=op,
-                   ink=layout.NOTE_INK)
+        if axes[1]:
+            self.label(sc, self.shift(c, 0, px / 2 + 4), "predicted 0–9", anchor="mt",
+                       opacity=op, ink=layout.NOTE_INK)
+        if axes[0]:
+            self.label(sc, self.shift(c, -px / 2 - 4, 0), "true", anchor="rm", opacity=op,
+                       ink=layout.NOTE_INK)
 
     def _current(self, sc, f, op):
         """The width training now: its hidden layer and confusion matrix."""
@@ -274,17 +278,17 @@ class DoubleDescent(Diagram):
 
     def _trio(self, sc, f, op):
         """Three confusion matrices: the U's minimum, the peak, the widest."""
-        for fx, k, name in zip(TRIO_X, (self.u_min, self.peak, self.wide),
-                               ("the U's low point", "the peak", "far past")):
+        for n, (fx, k, name) in enumerate(zip(TRIO_X, (self.u_min, self.peak, self.wide),
+                                              ("the U's low point", "the peak", "far past"))):
             c = self.P(fx, TRIO_Y)
             dim = 0.35 if f.phase == 2 and k == self.wide else 1.0
-            self._confusion(sc, c, k, op * dim, TRIO_PX)
-            self.label(sc, self.shift(c, 0, -TRIO_PX / 2 - 44), name, anchor="mb",
+            self._confusion(sc, c, k, op * dim, TRIO_PX, axes=(n == 0, n == 1))
+            self.label(sc, self.shift(c, 0, -TRIO_PX / 2 - 72), name, anchor="mb",
                        opacity=op * dim, ink=layout.STRONG_INK)
-            self.label(sc, self.shift(c, 0, -TRIO_PX / 2 - 26), "w = %d: test loss %.2f"
-                       % (WIDTHS[k], self.test_loss[k]), anchor="mb", opacity=op * dim)
-            self.label(sc, self.shift(c, 0, -TRIO_PX / 2 - 8), "%.1f%% wrong"
-                       % (100 * self.test_err[k]), anchor="mb", opacity=op * dim)
+            for row, text in enumerate(("w = %d" % WIDTHS[k], "test loss %.2f" % self.test_loss[k],
+                                        "%.0f%% wrong" % (100 * self.test_err[k]))):
+                self.label(sc, self.shift(c, 0, -TRIO_PX / 2 - 50 + 21 * row), text, anchor="mb",
+                           opacity=op * dim)
 
     def _why(self, sc, f, op):
         """Sensitivity to pixel noise against width."""
@@ -303,11 +307,14 @@ class DoubleDescent(Diagram):
             if xs[k] <= upto:
                 p = place(self.why.fx(xs[k]), self.why.fy(self.sens[k]))
                 self.disk(sc, p, 3.8, INK_WIDTH, op, lift=0.6, outline=0.3)
-                self.label(sc, self.shift(p, 0 if k == self.wide else 12, -8),
-                           "%s: %.2f" % (name, self.sens[k]),
-                           anchor="mb" if k == self.wide else "lb", opacity=op)
-        lines = [note("mean L1 change of the softmax output when pixel noise"),
-                 note("of std %.1f is added to %s test images" % (SENS_SIGMA, f"{SENS_N:,}"))]
+                # the peak's label goes above it (the chart leaves headroom); the
+                # widest point sits near the right edge: below-left of it
+                self.label(sc, self.shift(p, 6 if k == self.wide else 0, 8 if k == self.wide
+                                          else -8), "%s: %.2f" % (name, self.sens[k]),
+                           anchor="rt" if k == self.wide else "mb", opacity=op)
+        lines = [note("mean L1 change of the softmax output"),
+                 note("under pixel noise of std %.1f, %s test images"
+                      % (SENS_SIGMA, f"{SENS_N:,}"))]
         readout(self, sc, NOTE_AT[0], NOTE_AT[1] + 0.06, lines, op, step=0.045)
 
     def _points(self, sc, place, chart, xs, values, ink, op, f):
@@ -352,8 +359,8 @@ class DoubleDescent(Diagram):
             x = WIDTHS[self.peak]
             for chart in (self.loss_chart, self.err_chart):
                 chart.mark(sc, place, x, layout.CAPTION_INK, 0.8 * op)
-            self.label(sc, place(self.loss_chart.fx(x), LOSS_CHART[1][0] - 0.02),
-                       "peak: w = %d" % x, anchor="mb", opacity=op)
+            self.label(sc, place(self.loss_chart.fx(x) + 0.006, LOSS_CHART[1][0] - 0.02),
+                       "peak: w = %d" % x, anchor="lb", opacity=op)
         self.loss_chart.legend(sc, self.cam, [("test", TEST_INK), ("training", TRAIN_INK)],
                                op, (LOSS_CHART[0][1] - 0.01, LOSS_CHART[1][0] + 0.03),
                                step=0.038, anchor="rm")
@@ -371,7 +378,7 @@ class DoubleDescent(Diagram):
             "width by width: training (teal) and test (red) loss above, error below, the test "
             "set %s digits" % f"{N_TEST:,}",
             "the classic U, in the test loss: %.2f at w = %d, up to %.2f at w = %d, the width "
-            "that just fits all %s labels: confidently wrong"
+            "that just about fits all %s labels: confidently wrong"
             % (tl[u], WIDTHS[u], tl[p], WIDTHS[p], f"{N_TRAIN:,}"),
             "past the peak the training error stays at %.0f%% and the test loss falls to %.2f at "
             "w = %d; the test error only ever falls: %.0f%% → %.0f%% → %.0f%%"
