@@ -86,8 +86,8 @@ CHART_W = 165.0                 # px each
 CHART_DX = 196.0                # px from the loss chart's left edge to the p chart's
 CHART_PAD = (30.0, 16.0, 10.0, 22.0)    # left, top, right, bottom (px)
 PAIR_H = 5.0                    # px: each bar of a before / after pair
-PAIR_LABEL_PX = 136.0           # px: room for the token strings in the control's rows
-PAIR_BAR_PX = 120.0             # px: a control bar at p = 1
+PAIR_LABEL_GAP = 10.0           # px between the control's longest token string and its bars
+PAIR_BAR_PX = 110.0             # px: a control bar at p = 1
 PANEL = (0.955, 0.955, 0.945)
 PANEL_EDGE = (0.74, 0.75, 0.76)
 CHIP = (0.975, 0.975, 0.97)
@@ -201,6 +201,9 @@ class LoRA(Diagram):
         self.prompt_lines = token_lines(LO.PROMPT)
         self.control_lines = token_lines(LO.CONTROLS[CONTROL])
         self.loss_max = float(self.r.loss.max())
+        self.pair_label_px = PAIR_LABEL_GAP + layout.REF_W * max(
+            layout.text_width(shown(tok), layout.MIN_TEXT, "mono")
+            for tok, _p in self.r.controls[CONTROL][2][:TOP_SHOWN])
         self.gain = float(self.r.p_target[-1] / self.r.p_target[0])
         # how much thicker A and B are drawn during training than their true scale
         self.thick_factor = THIN / (SIDE * LO.RANK / LO.GPT2.d_model)
@@ -227,7 +230,7 @@ class LoRA(Diagram):
 
     def settled(self, t):
         """The recorded state the read-outs quote at ``t`` (the previous one
-        until the crossfade is half way)."""
+        until the step's transition is half way)."""
         s, u = self.shown_step(t)
         return s if (u > SWAP or s == 0) else s - 1
 
@@ -406,12 +409,19 @@ class LoRA(Diagram):
                 self.label(sc, c, tok, layout.MIN_TEXT, opacity=opacity, ink=layout.STRONG_INK)
                 x += w + CHIP_GAP
 
-    def _items(self, s):
+    def _items(self, s, u=1.0):
         """The bar rows after step ``s``: the top tokens, plus the target when it
-        is not among them."""
+        is not among them.  With ``u`` < 1 each probability is on its way from
+        the previous step's (0 for a token new to the list), so the bars grow
+        and shrink rather than jump."""
         items = list(self.r.top[s][:TOP_SHOWN])
         if all(tok != LO.TARGET for tok, _p in items):
             items.append((LO.TARGET, float(self.r.p_target[s])))
+        if u < 1 and s > 0:
+            prev = dict(self.r.top[s - 1])
+            prev[LO.TARGET] = float(self.r.p_target[s - 1])
+            k = ease_out(u)
+            items = [(tok, prev.get(tok, 0.0) + (p - prev.get(tok, 0.0)) * k) for tok, p in items]
         return items
 
     def _bars(self, sc, t, opacity):
@@ -421,14 +431,8 @@ class LoRA(Diagram):
         s, u = self.shown_step(t)
         grow0 = ease_out(self.progress("bars0", t))
         top = self.P(RIGHT_X, BARS_Y)
-        if s == 0:
-            draw_bars(self, sc, top, self._items(0), grow0, opacity, mark=LO.TARGET)
-        else:
-            mix = smoothstep(0.0, 0.5, u)        # overlapping fades: no blink between steps
-            if mix < 1:
-                draw_bars(self, sc, top, self._items(s - 1), 1.0, opacity * (1 - mix),
-                          mark=LO.TARGET)
-            draw_bars(self, sc, top, self._items(s), 1.0, opacity * mix, mark=LO.TARGET)
+        draw_bars(self, sc, top, self._items(s, u), grow0 if s == 0 else 1.0, opacity,
+                  mark=LO.TARGET)
         quoted = self.settled(t)
         read = self.P(RIGHT_X, READ_Y)
         self.label(sc, read, "p(%s) = %s" % (LO.TARGET.strip(), pct(self.r.p_target[quoted])),
@@ -454,9 +458,9 @@ class LoRA(Diagram):
             pb = p_before.get(tok, 0.0)
             for k, (p, col) in enumerate(((pb, BEFORE), (pa, AFTER))):
                 length = max(PAIR_BAR_PX * p, 0.6)
-                c = self.shift(row, PAIR_LABEL_PX + length / 2, (k - 0.5) * (PAIR_H + 1.0))
+                c = self.shift(row, self.pair_label_px + length / 2, (k - 0.5) * (PAIR_H + 1.0))
                 self.rect(sc, c, length, PAIR_H, col, opacity, radius=1.5, lift=0.4)
-            self.label(sc, self.shift(row, PAIR_LABEL_PX + PAIR_BAR_PX * max(pb, pa) + 6, 0.0),
+            self.label(sc, self.shift(row, self.pair_label_px + PAIR_BAR_PX * max(pb, pa) + 6, 0.0),
                        "%s→%s" % (num(pb), num(pa)), layout.MIN_TEXT, anchor="lm",
                        ink=layout.CAPTION_INK, opacity=opacity, kind="mono")
         self.label(sc, self.P(RIGHT_X, READ_Y), "grey: before, teal: after the fine-tuning",
@@ -531,7 +535,7 @@ class LoRA(Diagram):
         if t < Tm["merge"][0]:
             _c, before, after = r.controls[CONTROL]
             _o, ob, oa = r.controls[OTHER]
-            return ("'%s' stays, %s → %s; but after '%s': '%s' %s → '%s' %s"
+            return ("'%s' stays, %s → %s; after '%s': '%s' %s → '%s' %s"
                     % (before[0][0].strip(), num(before[0][1]), num(after[0][1]),
                        LO.CONTROLS[OTHER], ob[0][0].strip(), num(ob[0][1]), oa[0][0].strip(),
                        num(oa[0][1])))

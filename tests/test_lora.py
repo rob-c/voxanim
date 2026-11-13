@@ -154,8 +154,15 @@ def test_the_recorded_run_and_its_claims():
     assert r.p_target[0] < 1e-3 and r.p_target[-1] > 0.5
     assert r.p_target[-1] / r.p_target[0] > 1000
     assert r.top[0][0][0] != LO.TARGET and r.top[-1][0][0] == LO.TARGET
-    for _prompt, before, after in r.controls:
-        assert before[0][0] == after[0][0]
+    # the control drawn (a two-shot fact), a story opening and a template with
+    # another country keep their top token; the unrelated sentence the subtitle
+    # quotes as "what else moved" does move (the old top token loses ground)
+    for i in (0, 2, 4):
+        _prompt, before, after = r.controls[i]
+        assert before[0][0] == after[0][0], r.controls[i]
+    _prompt, before, after = r.controls[1]
+    p_after = dict(after).get(before[0][0], 0.0)
+    assert p_after < 0.9 * before[0][1] or after[0][0] != before[0][0]
     assert np.all(r.B[0] == 0) and np.abs(r.B[-1]).max() > 0
     # rank 4: four singular values, the fifth zero to rounding
     assert r.sv[-1][3] > 1e-3 * r.sv[-1][0] and r.sv[-1][4] < 1e-5 * r.sv[-1][0]
