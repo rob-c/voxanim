@@ -4,7 +4,9 @@ The network is ``x -> [dense -> (norm) -> activation -> (dropout) (+ skip)] x L
 -> dense -> softmax``, cross-entropy against a one-hot label.  A :class:`Spec`
 chooses
 
-* the **depth and width** (``sizes``), the activation (tanh or ReLU),
+* the **depth and width** (``sizes``), the activation (``tanh``, ``relu``,
+  ``sigmoid``, ``leaky_relu`` (slope 0.01), ``gelu`` (the tanh form, as
+  GPT-2), ``silu`` or ``elu``; :data:`ACTIVATIONS`),
 * the **initialisation**: zero-mean normal with a chosen std, Xavier
   (``sqrt(1 / fan_in)``) or He (``sqrt(2 / fan_in)``), zero biases,
 * **residual connections** every layer or every two (``h_out = f(h) + h``,
@@ -28,14 +30,16 @@ finite differences, option by option, in ``tests/test_deepnet.py``.
 subset (:func:`subset`) and records, at a schedule of steps, the train and
 test loss, the test accuracy, each layer's activation std and gradient
 magnitude, optionally one layer's pre-activations on the current minibatch
-(the probe) and the predicted probabilities on a grid of inputs (the
-decision field).  Runs are seeded and cached by
+(the probe), optionally how much of every layer is switched off, near zero
+or on a flat part of its activation (``sparsity``), and the predicted
+probabilities on a grid of inputs (the decision field).  Runs are seeded and cached by
 :func:`voxanim.cache.cached_npz` under all their settings, like
 :func:`voxanim.autoencoder.training_run`.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass
 
 import numpy as np
@@ -50,6 +54,69 @@ BN_MOMENTUM = 0.9            # running mean / variance: old * 0.9 + batch * 0.1
 EVAL_N = 2000                # images a recorded train / test loss is measured on
 SNAPSHOT_RATIO = 1.08        # geometric schedule of recorded steps (as the autoencoder run)
 
+# ------------------------------------------------------------------ the activations
+
+ACTIVATIONS = ("tanh", "relu", "sigmoid", "leaky_relu", "gelu", "silu", "elu")
+LEAKY_SLOPE = 0.01           # leaky ReLU's slope for z < 0
+GELU_C = math.sqrt(2.0 / math.pi)
+GELU_K = 0.044715            # GELU's tanh approximation (GPT-2's gelu_new)
+ELU_ALPHA = 1.0              # ELU: alpha (exp(z) - 1) for z < 0
+NEAR_ZERO = 0.01             # |a| below this: a unit that is (almost) off
+FLAT = 0.05                  # |f'(z)| below this: a unit on a flat part of its activation
+
+
+def _sigmoid(y):
+    return 1.0 / (1.0 + np.exp(-y))
+
+
+def _gelu_tanh(y):
+    return np.tanh(GELU_C * (y + GELU_K * y * y * y))     # y * y * y: 30x faster than y ** 3
+
+
+def act(name, y):
+    """Activation ``name`` (one of :data:`ACTIVATIONS`) applied to ``y``."""
+    y = np.asarray(y, np.float64)
+    if name == "tanh":
+        return np.tanh(y)
+    if name == "relu":
+        return np.maximum(y, 0.0)
+    if name == "sigmoid":
+        return _sigmoid(y)
+    if name == "leaky_relu":
+        return np.where(y > 0, y, LEAKY_SLOPE * y)
+    if name == "gelu":
+        return 0.5 * y * (1.0 + _gelu_tanh(y))
+    if name == "silu":
+        return y * _sigmoid(y)
+    if name == "elu":
+        return np.where(y > 0, y, ELU_ALPHA * (np.exp(np.minimum(y, 0.0)) - 1.0))
+    raise ValueError("unknown activation %r (one of %s)" % (name, ", ".join(ACTIVATIONS)))
+
+
+def act_grad(name, y, a=None):
+    """Derivative of activation ``name`` at ``y``; ``a`` is its output there,
+    if already known (saves an exp)."""
+    y = np.asarray(y, np.float64)
+    if a is None:
+        a = act(name, y)
+    if name == "tanh":
+        return 1.0 - a * a
+    if name == "relu":
+        return (y > 0).astype(np.float64)
+    if name == "sigmoid":
+        return a * (1.0 - a)
+    if name == "leaky_relu":
+        return np.where(y > 0, 1.0, LEAKY_SLOPE)
+    if name == "gelu":
+        t = _gelu_tanh(y)
+        return 0.5 * (1.0 + t) + 0.5 * y * (1.0 - t * t) * GELU_C * (1.0 + 3.0 * GELU_K * y * y)
+    if name == "silu":
+        s = _sigmoid(y)
+        return s * (1.0 + y * (1.0 - s))
+    if name == "elu":
+        return np.where(y > 0, 1.0, a + ELU_ALPHA)      # exp(y) = a + alpha for y < 0
+    raise ValueError("unknown activation %r (one of %s)" % (name, ", ".join(ACTIVATIONS)))
+
 
 # ------------------------------------------------------------------ the model
 
@@ -59,7 +126,7 @@ class Spec:
     """What the network is (see the module docstring for each option)."""
 
     sizes: tuple                      # (inputs, hidden..., classes)
-    activation: str = "tanh"          # "tanh" or "relu"
+    activation: str = "tanh"          # one of ACTIVATIONS
     init: str = "xavier"              # "xavier", "he" or "normal"
     init_std: float = 0.0             # the std of a "normal" init
     residual: int = 0                 # 0: none; 1: a skip every layer; 2: every two
@@ -119,12 +186,12 @@ def init_stats(spec):
 
 
 def _act(spec, y):
-    return np.tanh(y) if spec.activation == "tanh" else np.maximum(y, 0.0)
+    return act(spec.activation, y)
 
 
 def _act_grad(spec, y, a):
     """Derivative of the activation at ``y`` (its output was ``a``)."""
-    return 1.0 - a * a if spec.activation == "tanh" else (y > 0).astype(np.float64)
+    return act_grad(spec.activation, y, a)
 
 
 def _normalise(spec, z, l, train, stats):
@@ -249,6 +316,18 @@ def backward(spec, P, f, y_onehot):
     return G, dict(dh=dh, dz=dz_all)
 
 
+def sparsity(spec, f):
+    """Three ``(L,)`` arrays, one entry per hidden layer: the fraction of its
+    activations that are exactly 0, within :data:`NEAR_ZERO` of 0, and on a
+    flat part of the activation (``|f'(y)| <`` :data:`FLAT`)."""
+    L = spec.depth
+    zero = np.array([float((f["a"][l] == 0.0).mean()) for l in range(L)])
+    small = np.array([float((np.abs(f["a"][l]) < NEAR_ZERO).mean()) for l in range(L)])
+    flat = np.array([float((np.abs(_act_grad(spec, f["y"][l], f["a"][l])) < FLAT).mean())
+                     for l in range(L)])
+    return zero, small, flat
+
+
 def layer_stats(spec, f, D):
     """Three ``(L,)`` arrays, one entry per hidden layer ``l``: the std of its
     output ``h[l + 1]``, the RMS of the gradient reaching that output on the
@@ -349,6 +428,7 @@ class Run:
     P: dict                      # the trained parameters
     P0: dict                     # the initial ones
     stats: dict                  # batch norm's running statistics after training
+    sparse: dict                 # zero, small, flat (S, L) per layer (see sparsity), if recorded
 
     @property
     def best(self):
@@ -358,14 +438,16 @@ class Run:
 
 
 RECORDS = ("train_loss", "test_loss", "test_acc", "val_loss", "act_std", "grad_rms", "dz_rms",
-           "probe_z", "probe_y", "probe_a", "probe_m", "probe_g", "probe_beta", "field")
+           "probe_z", "probe_y", "probe_a", "probe_m", "probe_g", "probe_beta", "field",
+           "sparse_zero", "sparse_small", "sparse_flat")
 
 
 PROBE_KEYS = ("z", "y", "a", "m")         # what a probe records, unless asked for less
 
 
 def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_layer=None,
-          probe_keys=PROBE_KEYS, grid=None, cache_dir=DEFAULT_CACHE, tag="deepnet") -> Run:
+          probe_keys=PROBE_KEYS, grid=None, sparse=False, cache_dir=DEFAULT_CACHE,
+          tag="deepnet") -> Run:
     """Train ``spec`` on ``data`` for ``steps`` minibatch updates and record the
     run (cached under every setting).
 
@@ -374,14 +456,17 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
     None.  ``probe_layer`` records that hidden layer's pre-activations, scaled
     values, activations and dropout masks (``probe_keys`` picks fewer) on each
     recorded step's minibatch; ``grid`` ``(G, inputs)`` records ``p(class 1)``
-    at those inputs.  Everything a
-    recorded step shows is measured *before* that step's update.
+    at those inputs; ``sparse`` records :func:`sparsity` of every hidden
+    layer on each recorded step's minibatch.  Everything a recorded step
+    shows is measured *before* that step's update.
     """
     settings = dict(spec.settings(), steps=steps, batch=batch, lr=lr, opt=opt, seed=seed,
                     every=every, probe_layer=probe_layer, data=data.settings(),
                     grid=None if grid is None else [list(grid.shape), float(np.abs(grid).sum())])
     if tuple(probe_keys) != PROBE_KEYS:
         settings["probe_keys"] = list(probe_keys)
+    if sparse:
+        settings["sparse"] = True
     n = len(data.x_train)
     if every:
         marks = np.unique(np.concatenate([np.arange(0, steps, every), [steps]]))
@@ -423,6 +508,9 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
                     rec["probe_beta"].append(P["beta%d" % probe_layer].copy())
             if grid is not None:
                 rec["field"].append(forward(spec, P, grid, stats=stats)["p"][:, 1])
+            if sparse:
+                for k, v in zip(("sparse_zero", "sparse_small", "sparse_flat"), sparsity(spec, f)):
+                    rec[k].append(v)
 
         per_epoch = -(-n // batch)
         epochs = -(-(steps + 1) // per_epoch)
@@ -452,6 +540,7 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
     P0 = {k[3:]: v for k, v in d.items() if k.startswith("P0_")}
     stats = {k[6:]: v for k, v in d.items() if k.startswith("stats_")}
     probe = {k[6:]: d[k] for k in d if k.startswith("probe_")}
+    sparse_ = {k[7:]: d[k] for k in d if k.startswith("sparse_")}
     return Run(spec, d["steps"], d["batch_loss"], d["train_loss"], d["test_loss"],
                d["test_acc"], d.get("val_loss"), d["act_std"], d["grad_rms"], d["dz_rms"],
-               probe, d.get("field"), P, P0, stats)
+               probe, d.get("field"), P, P0, stats, sparse_)
