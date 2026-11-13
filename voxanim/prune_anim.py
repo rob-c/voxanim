@@ -152,7 +152,7 @@ MP_PPU = 9.0
 MP_TEMPLATES = (0, 1, 2, 3, 4, 5)                   # layer-1 neurons shown as templates
 MP_TPL_AT, MP_TPL_SCALE = (0.20, 0.615), 0.45      # the 2 x 3 grid of templates
 MP_AXIS_PAD = 0.25                                 # chart x before the dense point (levels)
-MP_W1_AT, MP_W2_AT, MP_MAT_SCALE = (0.435, 0.615), (0.545, 0.615), 0.42
+MP_W1_AT, MP_W2_AT, MP_MAT_SCALE = (0.43, 0.615), (0.565, 0.615), 0.42
 MP_HIST_AT = (0.79, 0.345)
 HBINS, HROWS, HRANGE, HFULL = 20, 12, 0.4, 0.21    # bins over (0, 0.4); a bin of 21% fills
 HSCALE, HPITCH = 0.85, (1.0, 1.15)
@@ -314,7 +314,7 @@ class MagnitudePruning(NetAnimation):
         self.caption(sc, around(self.tpls), "layer 1: %d of %d templates (%d weights each)"
                      % (len(MP_TEMPLATES), SIZES[1], SIZES[0]), op, above=True, max_width=0.4)
         self.caption(sc, self.W1, "layer 2  %d%s%d" % (SIZES[1], TIMES, SIZES[2]), op)
-        self.caption(sc, self.W2, "layer 3  %d%s%d" % (SIZES[2], TIMES, SIZES[3]), op)
+        self.caption(sc, self.W2, "layer 3  %d%s%d" % (SIZES[2], TIMES, SIZES[3]), op, above=True)
         im = self.iter_mix(t)
         if im > 0:
             kept = sum(int((self.iter[k] != 0).sum()) for k in weight_keys(self.P))
@@ -492,9 +492,9 @@ class LotteryTicket(NetAnimation):
         if reset <= 0 and t >= self.Tm["seed2"][0]:
             win = a0["ticket"] > a0["random"] and a1["ticket"] > a1["random"]
             self.subtitle[4] = (
-                "seed 1 agrees: ticket %s, random mask %s, dense %s: the ticket %s, and learns "
-                "fastest early on" % (pct(a1["ticket"], 1), pct(a1["random"], 1),
-                                      pct(a1["dense"], 1), "wins" if win else "does not win"))
+                "seed 1 agrees: ticket %s, random mask %s, dense %s; the ticket %s and learns "
+                "fastest" % (pct(a1["ticket"], 1), pct(a1["random"], 1), pct(a1["dense"], 1),
+                             "wins" if win else "does not win"))
         self.subtitle = self.subtitle[ph]
         back = 1.0 - ease_in_out(remap(reset, 0.0, 0.7))
         op = smoothstep(0.0, 0.6, t) * back
@@ -771,9 +771,8 @@ class StructuredPruning(NetAnimation):
             else:
                 text = "energy %.2f, %s" % (self.f_energy[f], ORDINALS[rank])
             self.caption_side(sc, m, text, op * focus * (1.0 if g < 1 else 0.7))
-        self.caption(sc, around([self.ks[0], self.ms[0]]), "%d filters 3%s3 and their %d%s%d maps "
-                     "after ReLU" % (CNN_FILTERS, TIMES, CONV_HW, TIMES, CONV_HW), op * focus,
-                     above=True, max_width=0.3)
+        self.caption(sc, around([self.ks[0], self.ms[0]]), "%d filters 3%s3, their maps after ReLU"
+                     % (CNN_FILTERS, TIMES), op * focus, above=True, max_width=0.3)
         if n > 0 and t < Tm["units"][0]:
             self.caption(sc, self.ms[-1], "%d removed: %s at once, %s fine-tuned"
                          % (n, pct(self.f_acc[n]), pct(self.f_tuned[n])), op * focus,
@@ -847,8 +846,8 @@ class StructuredPruning(NetAnimation):
 DS_PPU = 9.0
 DS_IMAGE = 18                                       # the 3 that looks like an 8
 DS_X_AT, DS_X_SCALE = (0.105, 0.56), 0.62
-DS_BARS_AT = ((0.33, 0.54), (0.56, 0.54))           # the T = 1 and T = T bars
-DS_BAR_SCALE, DS_BAR_ROWS = 0.72, 20                # a bar of p = 1 is 20 cells tall
+DS_BARS_AT = ((0.315, 0.55), (0.56, 0.55))          # the T = 1 and T = T bars
+DS_BAR_SCALE, DS_BAR_ROWS = 0.85, 20                # a bar of p = 1 is 20 cells tall
 DS_COLUMN_PX = 17.0                                 # on-screen column spacing, reference px
 DS_CHART = ((0.715, 0.935), (0.30, 0.80))
 DS_LEGEND = (0.745, 0.34)
