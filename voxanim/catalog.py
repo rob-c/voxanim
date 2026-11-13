@@ -748,3 +748,16 @@ register("learning-rate-schedule", _lr_schedule,
          "Constant, step decay, cosine with warmup and one-cycle schedules training the MNIST "
          "MLP: the schedules, the loss curves, the same schedules on the two-weight landscape, "
          "and why warmup tames Adam's first steps.")
+# ------------------------------------------------------------------ fine-tuning: LoRA on GPT-2
+
+
+def _lora():
+    from .lora_anim import LoRA
+    return LoRA()
+
+
+register("gpt2-lora", _lora,
+         "LoRA on the real GPT-2 small: a frozen 768x768 weight matrix and the two thin matrices "
+         "(768x4 and 4x768) trained beside it, 147,456 adapter numbers in all (0.12% of 124M), "
+         "teaching the model one new fact in 40 Adam steps; the update's rank, what did not "
+         "change, and the merge back into one matrix for inference.")
