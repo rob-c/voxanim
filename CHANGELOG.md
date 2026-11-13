@@ -1,6 +1,32 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
+
+Twenty-five new animations on the details of training, in seven families,
+every one a real model trained in plain numpy with its claims tested; the
+88 animations of 1.2.0 are pixel-identical.
+
+- **Generalisation** (`generalise.py`): `double-descent`, `memorising-noise`,
+  `data-vs-model-size`, `augmentation`, `sharp-vs-flat-minima`.
+- **Activation functions** (`actfun.py`; `deepnet.py` gains sigmoid, Leaky
+  ReLU, GELU, SiLU and ELU): `activation-race`, `activation-gradients`,
+  `activation-sparsity`, `activation-smoothness`, `activation-depth`.
+- **Capacity and bottlenecks** (`capacity.py`): `bottleneck-sweep`,
+  `information-bottleneck`, `rank-of-a-layer`, `width-vs-depth`.
+- **Trimming** (`prune.py`): `magnitude-pruning`, `lottery-ticket`,
+  `structured-pruning`, `distillation`.
+- **Fine-tuning and transfer** (`transfer.py`, `lora.py`): `transfer-learning`,
+  `catastrophic-forgetting`, `learning-rate-finder-and-restarts`, `gpt2-lora`
+  (a hand-written backward pass through GPT-2, checked against finite
+  differences).
+- **Quantization and precision** (`quant.py`): `quantization`,
+  `quantization-aware-training`, `mixed-precision`.
+- **Website:** every section on view (the bar wraps; a menu button on phones);
+  every clip animates cheaply (a 320 px, 12 fps thumbnail of its first half
+  with a pause before the loop; the full-rate preview on hover; the full file
+  on click, with a visible cue); dark mode; the Pages workflow caches media.
+
+## 1.2.0 (website changes shipped later, unreleased at the time)
 
 - **Website:** light on weak machines and slow connections while every clip
   still animates: the grid plays thumbnails (the first half of each

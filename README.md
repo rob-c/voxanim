@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 88 animations, from a 3×3 convolution to the inside of GPT-2, all from
+numpy. 113 animations, from a 3×3 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
 
@@ -25,7 +25,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 88 animations
+python3 -m voxanim list --names                   # the 113 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
@@ -277,6 +277,99 @@ Four animations on one model: `deepnet.py` is a deep MLP in plain numpy with eve
 **`normalisation`** (about 38 s): layer 6 of a 12-layer tanh MLP (24 units) at step 500 of training, one real minibatch's pre-activations as a 32 × 24 sheet. Batch norm standardises down each column, over the 32 examples (the column's μ and σ appear under it); layer norm, on the same layer of the network trained with it, across each row, over the 24 units; then the learned γ (0.50 to 1.55) and β (−0.15 to 0.16) are applied, y = γ ẑ + β. The histograms before and after are live, and the normalisation drawn is recomputed from the recorded values and agrees with the network's own output. Training at learning rate 0.01 (Adam): the plain network's loss climbs back to chance, batch norm reaches 93% test accuracy, layer norm 75%; at 0.003 all three learn, so what normalisation buys is the higher rate.
 
 Tests (`tests/test_deepnet.py`) check every option's gradients against finite differences and every number the subtitles state.
+
+### Generalisation (`generalise.py`, `gen_common.py`; `ddescent_anim.py`, `memorise_anim.py`, `datasize_anim.py`, `augment_anim.py`, `minima_anim.py`)
+
+Five animations on why a network works on data it has not seen, every one a real MNIST training of the deep MLP of `deepnet.py` (three options were added to its `train()`, each off by default and absent from the cache key when off: an augmentation hook that draws from its own seeded stream so the minibatches and initial weights are those of the plain run, the loss of every training example at every recorded step, and a cap on the probe's rows). `generalise.py` measures what is shown: label corruption, error rates and confusion matrices, a bilinear random affine transform of 28×28 images, the output's sensitivity to pixel noise, and slices of the loss between and around trained weights.
+
+**`double-descent`** (about 47 s): 1,000 training images with 20% of the labels replaced by a wrong class, a 784-w-10 ReLU network for twelve widths from 2 to 200, each trained by Adam for 1,000 epochs so that every width from 8 up fits all 1,000 labels. The double descent is in the test loss: 2.4 at w = 3, a peak of 3.6 at w = 6 (the width that just about fits the labels is confidently wrong), then down to 1.5 at w = 200; the test error only falls, 65% → 45% → 24%, and the animation says so (a sweep over 100/300/1,000 epochs, Adam and SGD, 20% and 30% noise and 1,000/2,000 images never produced an error peak above 1.5 points, so none is claimed). The output's response to pixel noise peaks at the threshold (1.07 at w = 4) and is 0.28 for the widest fit: of all the interpolators, the wide one is the smoothest.
+
+**`memorising-noise`** (about 45 s): 5,000 training images with 0%, 25% and 50% of the labels false; a 784-256-10 network trained 120 epochs reaches a training loss of 0.0001, 0.0075 and 0.0203 on all three, and 94%, 80% and 58% test accuracy. Every example's recorded loss, sorted clean | shuffled, as an image with one row per recorded step: the clean half is learned first (mean loss 0.40 at step 1,068 against 1.23), the shuffled half memorised last; the 50% run's validation loss bottoms out at step 498, where the test accuracy is 83% instead of 58%.
+
+**`data-vs-model-size`** (about 45 s): learning curves of 784-8-10, 784-32-10 and 784-256-10 networks on 100 to 60,000 images, eighteen runs of the same 2,000 Adam steps. The small network goes from 25.7% to 8.7% error and its last sixfold of data buys 0.6 points; the large one from 21.5% to 2.8%, a third of the small one's mistakes; with 100 images the three are within 4 points. Then the first eight test digits each regime gets wrong.
+
+**`augmentation`** (about 42 s): one training digit shifted (±3 px), rotated (±15°) and scaled (±15%) ten times by the generator training uses; a 500-image, ten-class 784-128-10 classifier trained 200 epochs with and without it, the live recorded minibatch as stored and as augmented. Without: training loss 0.0005, test loss rising from 0.38 to 0.48; with: 0.18. Test accuracy 86.8 → 94.0%, on shifted test digits 46.6 → 92.2%, on rotated 85.7 → 93.0%.
+
+**`sharp-vs-flat-minima`** (about 37 s): the 784-128-10 network trained for the same 40 epochs with minibatches of 8 (50,000 steps, lr 0.001) and of 1,024 (400 steps, lr 0.01): test error 3.5% and 4.2%. The training loss on the plane through both minima as a voxel height-field; along the straight line between them the training loss climbs to 0.014 (the test loss runs from 0.27 to 0.20: the flat network is the more confident); along six random directions the loss rises by 0.01 within 29.5 units of the flat minimum and 14.6 of the sharp one; weight noise of norm 32 takes the test error to 5.0% and 7.9%.
+
+Tests (`tests/test_generalisation.py`) check the model's gradients and the new options, every measurement helper, that the cache files store the settings the modules state, and every claim above as a relative claim.
+
+### Activation functions (`actfun.py`; `actfun_race.py`, `actfun_gradients.py`, `actfun_sparsity.py`, `actfun_smoothness.py`, `actfun_depth.py`)
+
+Five animations on what the activation function does to training, all on `deepnet.py`, which now knows sigmoid, tanh, ReLU, Leaky ReLU (slope 0.01), GELU (the tanh form, as GPT-2), SiLU and ELU, each gradient-checked, and can record how much of every layer is switched off. Every network is trained seven times under identical conditions — the same data order, batches, steps and optimiser — with Xavier weights for the squashing pair and He weights for the rectifiers.
+
+**`activation-race`** (about 43 s): the seven functions drawn with their slopes, then 784 → 128 → 64 → 10 trained 1,500 Adam steps (lr 0.001, batches of 64) on 10,000 MNIST images, the training loss and test accuracy racing on a log time axis. Honest about ties: ReLU, Leaky ReLU, GELU, SiLU and ELU finish within 0.5% of each other (95.5–96.0%), tanh 95.3%, sigmoid 94.5% and much the slowest to start (71% at step 100 against 90%). The time per training step is measured, not estimated (interleaved blocks, the minimum kept): ReLU 7.5 ms, GELU 8.5, sigmoid 8.9 on this machine; the function alone costs 37 µs for ReLU and 645 for GELU on a 64 × 128 layer, so in a network this small the matrix products dominate.
+
+**`activation-gradients`** (about 41 s): 784 → 64 × 8 → 10, the gradient reaching each layer as a 7 × 8 grid on a log colour scale, flowing back layer by layer. Untrained, sigmoid's shrinks about four-fold a layer (its slope is at most 0.25) to 4×10⁻⁵ of what left layer 8; ReLU's and Leaky ReLU's arrive at 0.91 of it; GELU's and SiLU's sit in between (0.14 and 0.09: their slope is ½ around 0, where He-initialised pre-activations sit); ELU's grows to 2.7×. Each slope is drawn over the real histogram of layer 4's pre-activations on 256 test images with the share on a flat part (|f′| < 0.05) read out. After 1,000 Adam steps no gradient shrinks on the way back any more, but the sigmoid network has reached 42% test accuracy against 94% for the others.
+
+**`activation-sparsity`** (about 43 s): the trained race networks' layer 1 on 32 test images as a sheet, one network after another, with "off" defined per family and said on screen: ReLU leaves 35% of the layer exactly 0, Leaky ReLU 22% within 0.01 of 0, GELU 4%, SiLU and ELU 1%; tanh saturates 10%, sigmoid 38%. Bars follow the recorded run: ReLU starts 51% zeros (He weights), dips to 25%, settles at 36%. One test digit uses 146 of 192 hidden units under ReLU, 171 under Leaky ReLU, 187 under GELU, all 192 under tanh. Dead units, off on every one of the 2,000 test images: ReLU 3, every other network none — a slope that is never exactly 0 keeps every unit trainable.
+
+**`activation-smoothness`** (about 44 s): the straight line between a 3 and an 8 in pixel space, sampled at 401 points. Every network's logit for "8" rises along it, but its slope is a staircase under ReLU — 50 steps, one per hidden unit switching on or off along the line (57 under Leaky ReLU), the largest jump 13% of the mean slope — and a curve under GELU, SiLU and tanh (under 1%). Then one minibatch's loss along a random weight direction (each layer moved by the same fraction of its size): at ±0.6 all seven slices are smooth bowls; zoomed sixty-fold the slope of ReLU's loss is a staircase (jumps 11%, Leaky ReLU 24%) while GELU's, SiLU's and tanh's stay curves (under 0.1%). That is the smoother ground a smooth activation gives the optimiser, and the wide view shows why ReLU trains fine anyway.
+
+**`activation-depth`** (about 40 s): the 20-layer network of `initialisation` (784 → 100 × 20 → 10) under each activation with its matching init, no normalisation, 400 SGD steps at learning rate 0.1. The activation std per layer as a grid: tanh and ReLU hold their scale (0.13, 0.20 at layer 20), sigmoid's sits at 0.11 from the start (everything squashed towards ½), GELU's and SiLU's shrink by a third a layer to 4×10⁻⁴, ELU's grow to 1.7. Training: tanh 89% test accuracy, ReLU 73%, Leaky ReLU 57%; sigmoid, GELU and SiLU never leave chance; ELU's loss overflows at step 5. Inside, layer 10 after training: sigmoid's activations all ≈ ½, GELU's and SiLU's all ≈ 0, so nothing downstream can tell the digits apart — what `skip-connections` and `normalisation` were invented for.
+
+Tests (`tests/test_activation.py`) check every activation's derivative and every network gradient against finite differences, the recorded runs against their settings, and each claim above as a relative claim.
+
+### Capacity and bottlenecks (`capacity.py`; `bottleneck_anim.py`, `rank_anim.py`, `widthdepth_anim.py`)
+
+Four animations on how much a layer can carry. `capacity.py` holds the models: the dense autoencoder of `autoencoder.py` trained at six latent widths, a classifier squeezed through a linear middle layer with its 2-D coordinates recorded at geometric snapshots, the SVD of the trained MNIST MLP's matrices, and three ReLU MLPs of one parameter budget trained alike by `deepnet.train` with the wall-clock time of a training step measured, not derived.
+
+**`bottleneck-sweep`** (about 43 s): the dense autoencoder 784 → 256 → 64 → L → 64 → 256 → 784 trained six times alike (2 epochs, batch 256) with L = 1, 2, 3, 8, 32 and 256. Four test digits rebuilt by each width side by side; the test error against L on a log axis, 0.056, 0.047, 0.039, 0.025, 0.015, 0.014 — steep to 8 and flat past 32, where 256 numbers gain 8% over 32; then the codes of 600 test digits for L = 1 (a line: where codes coincide they stack into a histogram), 2 (a plane) and 3 (a cube), coloured by label, with a nearest-centroid read-out of what the code keeps about the digit: 36%, 46%, 67% (77% at L = 256).
+
+**`information-bottleneck`** (about 42 s): 784 → 64 → 2 → 10 against 784 → 64 → 64 → 10, the middle layer linear (a tanh pair saturates at the four corners and learns 42%, a ReLU pair switches half its values off and learns 65%; the linear pair reaches 90%). The 600 test digits' two coordinates move and sort themselves into wedges round the origin as the run plays back from its snapshots, the two networks' layers on one digit live, both accuracy curves (89.5% through two numbers, 96.3% through 64), and the squeezed network's confusion matrix on the 10,000 test digits: 4 ↔ 9 (171), 5 ↔ 8 (147), 5 ↔ 6 (100); 1,049 wrong against 373.
+
+**`rank-of-a-layer`** (about 42 s): W₁ (784 × 64, sixteen of its columns drawn as 28×28 weight images) and W₂ (64 × 32) of the trained MLP under W = U Σ Vᵀ. The singular values as bars (4.91 … 1.16; the top 8 hold 39% of ‖W₁‖²), then both matrices rebuilt from their top 1, 2, 4, 8, 16 and 32 components, the images re-forming: test accuracy 7.6%, 22%, 26%, 62%, 89%, 96.3% against 96.8% whole, with 2%, 4%, 7%, 15%, 29%, 56% of the parameters (two thin factors, k(m + n) numbers). The fact LoRA relies on: a rank-4 to 16 update added to a frozen matrix carries most of what fine-tuning changes (`gpt2-lora`).
+
+**`width-vs-depth`** (about 41 s): about 50,000 parameters as 784 → 64 → 10 (50,890), 784 → 52 × 4 → 10 (49,618) or 784 → 37 × 16 → 10 (50,515), ReLU, He weights, 1,500 Adam steps on 20,000 digits. One digit's activations through the untrained weights as bands (std 0.12–0.29 at every layer), the gradient flowing back on a log colour scale (it reaches layer 1 of the 16-layer network at 0.68× what left layer 16: He keeps it where `skip-connections`' Xavier weights lose it), then training: 95.5%, 95.5% and 94.8%, the bands showing each layer's activation std growing through the deep network, and a training step measured at 6.8, 8.7 and 16.5 ms (sixteen small matrix products cost more than one). A tie within a point: which wins depends on the data, the budget and the recipe; on MNIST width is enough.
+
+Tests (`tests/test_capacity.py`) check the squeezed classifier's gradients against finite differences, the SVD identities, every recorded run against its settings, and the claims as relative ones (the error falls then flattens; two units lose to 64 by a margin; rank 32 loses little and rank 4 most; the deep network is slower a step).
+
+### Trimming: pruning and distillation (`prune.py`, `prune_anim.py`)
+
+Four animations on making a trained network smaller, on the MNIST MLP and CNN of `mnist.py`. `prune.py` holds the machinery: global magnitude masks (the threshold is the k-th smallest |w|, so a mask drops exactly the count asked for), retraining with a mask held (pruned weights get no gradient and are zeroed again after every Adam step, so they stay exactly 0), random masks of a given per-layer density, structured masks that silence a hidden unit or a conv filter, activation energies (mean squared activation over the test set) and the distillation loss (1−α)·CE + α·T²·KL(teacher‖student) with its gradient (1−α)(p−y) + αT(p_T−q_T) at the logits, checked against finite differences. Every run is seeded and cached under its settings.
+
+**`magnitude-pruning`** (about 44 s): the trained 784-64-32-10 MLP (52,544 weights, 96.8%) as sheets — six of layer 1's templates, the 64×32 and 32×10 matrices — beside the histogram of |w|. A threshold sweeps up the histogram and every weight below it goes dark. At 50, 80, 90, 95 and 99% pruned the test accuracy without retraining is 96.3, 93.2, 67.3, 33.9 and 8.9%; after 400 Adam steps with the mask held it is 96.9, 96.7, 95.6, 92.6 and 38.6% (the sheets show the 90% network recovering); pruning iteratively — prune, fine-tune, prune further — gives 97.0, 96.8, 96.1, 94.0 and 64.6%, and what is left at 99% is 525 weights, almost all in layers 2 and 3.
+
+**`lottery-ticket`** (about 43 s): the 20%-dense mask from pruning the trained network (17.9% of layer 1, 63% of layer 2, 74% of layer 3) laid over that network's *original* initialisation, and the sparse network retrained for 1,500 steps against a random mask of the same per-layer density and the dense network, all from the same initial weights on the same minibatches. The ticket reaches 96.6% (seed 1: 96.4%), the random mask 94.0% (94.1%), the dense network 96.3% (96.3%), and the ticket is ahead from the first 25 steps (82% against 65% dense and 40% random). At this scale the ticket wins, in both seeds.
+
+**`structured-pruning`** (about 44 s): the CNN's four filters ranked by activation energy on the test set (0.12, 0.27, 0.16, 0.16) and removed one at a time, least active first: the kernel and its feature map go dark and the accuracy falls to 58, 53 and 64% at once — the dense layer was reading all four — but recovers to 95, 95 and 91% with 300 fine-tune steps after each cut. Then the MLP's 64 hidden units (energies 0.05 to 15.3), the layer-2 matrix drawn with one row per unit, removed one at a time: with 100 fine-tune steps after each cut the network barely notices until past 40; with half gone, 2 filters and 32 units give 95.2% and 95.9% after fine-tuning (53% and 54% without).
+
+**`distillation`** (about 42 s): a 784-256-256-10 teacher (269,322 weights, 97.8%) looks at a 3 that looks like an 8: its softmax puts 0.88 on 3 and 0.12 on 8; divided by T = 4 the logits give 0.36, 0.22 and 0.08 on 3, 8 and 2 — the dark knowledge. A 784-32-10 student (25,450 weights) trained on a 3,000-image transfer set reaches 91.5% on hard labels, 93.8% on the soft targets and 93.7% on both. On all 60,000 images the hard labels alone do as well (94.8% against 94.0%): soft targets pay when data is scarce, and the animation says so.
+
+Tests (`tests/test_prune.py`) check the masks and energies as computed, that retraining keeps pruned weights exactly zero, the distillation gradient against finite differences, and every claim above as a relative claim.
+
+### Fine-tuning and transfer (`transfer.py`, `transfer_anim.py`)
+
+Split MNIST: the digits 0–4 (30,596 training images) are the old task, 5–9 the new one, with a few-shot set of 100 images a class and a rehearsal buffer of 100 old images a class drawn once with a seed. The network is a CNN with two convolutional layers, conv 3×3×8 → ReLU → pool → conv 3×3×16 → ReLU → pool → dense 400 → 10 (two, because that is where transfer is honest: with the one-conv CNN's 36 filter weights frozen and scratch tie within a point, and a frozen dense hidden layer trained on 0–4 loses 13 points to scratch). Pretrained for one epoch on 0–4 with a 10-way head it gets 99.3% of those digits and has only ever pushed the other five outputs down. Adam here has a learning rate per layer; a rate of 0 freezes the layer, bit for bit. The gradients are checked against finite differences; every run is recorded and cached under its settings.
+
+**`transfer-learning`** (about 49 s): the first-layer filters settle during pretraining, then the digits 5–9 are learned from 100 images a class in three ways, each row of filters live and each accuracy curve drawn as its run plays: from scratch (a fresh network), with both conv layers frozen and a new 5-way head, and fine-tuned with the pretrained layers at η/10 (the filters change by under 2%). After 200 steps of batch 50: frozen 95.2%, fine-tuned 95.1%, from scratch 93.7% on the 4,861 test images of 5–9: the strokes learned on 0–4 carry over, and 500 images are too few to learn them as well.
+
+**`catastrophic-forgetting`** (about 50 s): a bar per digit (test accuracy) while the pretrained network is fine-tuned on 5–9 (batch 64, Adam 2·10⁻³), the minibatch's own images underneath. Plain: 0–4 falls from 99.3% to 34% by step 20 and 5.1% by step 200 while 5–9 reaches 95.9%; every minibatch says "not a 0–4" and nothing says otherwise. With rehearsal, 16 of every 64 images from the buffer of 500 old digits: 0–4 94.0%, 5–9 95.3%. With lower rates, the conv layers at η/50 and the head at η/5 (the head must slow down too; at η it forgets on its own): 0–4 64.7%, 5–9 81.5%, what is kept paid for in slower learning.
+
+**`learning-rate-finder-and-restarts`** (about 51 s): the range test on the MLP (784-64-32-10, Adam): 300 steps while η rises 4% a step from 10⁻⁵ to 1, the minibatch loss drawn live and smoothed over 21 steps. The knee, the steepest fall against log η, is at η = 8.4×10⁻⁴ (the usual 10⁻³); the lowest loss 0.38 at 0.023; above 0.19 the loss is back above where it started. Then three epochs with a cosine from the knee rate restarted every epoch, against one cosine: at this rate a restart is gentle (the loss pauses at 0.27, rises from 0.19 to 0.21 at the second) and leaves a model at every cycle's end, 92.8 → 94.3 → 95.2% against 95.1%. Beside it, minibatch SGD (B = 4, peak η = 8) walks the two-weight landscape under the same shape of schedule: only noise can take a walker out of a minimum (full-batch descent and Adam sit still when the rate jumps), so each restart throws it 2.7 units up the bowl (loss 0.137 → 0.23) and the falling rate brings it back.
+
+Tests (`tests/test_transfer.py`) check the split, the gradients, exact freezing, the rehearsal mix, the finder's rules and every claim above as a relative claim.
+
+### LoRA: fine-tuning with two thin matrices (`lora.py`, `lora_anim.py`, `gpt2-lora`)
+
+One flat diagram, about 57 s, on the real GPT-2 small. A weight matrix stays frozen and learns a rank-r correction beside it: h = x·W + (α/r)·(x·A)·B with A (768 × 4) random and B (4 × 768) zero, so at step 0 the adapted model *is* the base model. Here the adapters sit on the query and value projections of all 12 layers (rank 4, α = 8): 147,456 trainable numbers against 124,439,808, 0.118%, drawn to scale — the two thin matrices are hairlines beside the 768 × 768 square and a sliver at the left end of a bar for the whole model.
+
+The task is one new fact, "The capital of Freedonia is Avalon.", phrased six ways, trained with ten true capitals in the same form ("The capital of Japan is Tokyo." …) — without them forty steps teach the model that every capital is Avalon. Forty Adam steps (lr 5·10⁻⁴) on the plain language-model loss over the sixteen sentences: the loss falls 4.43 → 1.13 and p(Avalon) after "The capital of Freedonia is" rises from 0.00003 to 0.98 (×33,400), the top token from step 31. On screen B fills in from zero, the update (α/r)·A·B appears as a sheet whose singular values are 1.31, 0.75, 0.37, 0.28 and then zero (rank 4), the next-token bars move step by step. What did not change, measured: after "The capital of Germany is Berlin. The capital of France is" Paris stays on top, 0.72 → 0.62 (Berlin rises to 0.25). What did: "The cat sat on the" now says "throne" (0.21, was "floor" 0.08), Madrid for Spain goes 0.11 → 0.64 and the bare "The capital of France is" from "the" to "Paris" 0.85 — a fine-tune never moves only the fact you aimed at. Finally the merge: W′ = W + (α/r)·A·B is one 768 × 768 matrix again, the same logits to 5·10⁻⁵, nothing extra at inference.
+
+- **Gradients:** `lora.py` is GPT-2's forward pass over a right-padded batch (one GEMM per weight) keeping what the backward needs, and a hand-written reverse pass through the unembedding, both LayerNorms of each layer, the GELU MLP, softmax attention with its causal mask, and the residual stream, down to A and B. With `frozen=True` it also returns every base weight's gradient; tests check all of them against finite differences on a 2-layer, 8-wide random model built with the same code, and the real adapters' gradients on the real loss in float64.
+- **Checks:** zero adapters leave the logits bit-identical; the merged weights reproduce the adapted output; the parameter count; every claim above as a relative claim.
+
+### Quantization and precision (`quant.py`; `quant_anim.py`, `precision_anim.py`)
+
+Three animations on fewer bits per number, all on real models: the MNIST MLP of `mnist.py` (784-64-32-10, 96.8% test accuracy) and the deep tanh MLP of `deepnet.py`. `quant.py` holds the numerics: uniform quantizers (symmetric or asymmetric, one scale per tensor or per channel), min-max and MSE-clip calibration, post-training quantization of every weight matrix, quantization-aware fine-tuning with fake quantization in the forward pass and the clipped straight-through estimator in the backward, float16 through numpy and bfloat16 emulated by rounding float32 to a 7-bit mantissa (round half to even), training in a format with float32 accumulation (as tensor cores do) with or without float32 master weights, and loss scaling. Every run is seeded and cached under its settings.
+
+**`quantization`** (about 56 s): W₁ (64 × 32) as a sheet with the histogram of its 2,048 weights. int8: 255 levels, one scale per matrix from its largest weight (step 0.0058), the weights snap row by row, the error sheet W − Q(W) is invisible (at most 0.003), accuracy 96.8% — unchanged. int4: 15 levels, step 0.105, 96.3%. 2 bits: three levels −s, 0, +s with s the largest weight: 90% of W₁ rounds to 0 and the network falls to chance, 13.1%; one scale per output channel, 29.2%; a calibrated clip (the fraction of the range that minimises the squared error, per channel, 0.3–0.8 of the max), 82.4%. Then the bytes: 211 kB in float32, 53, 27 and 14 kB (weights packed, biases and scales float32); with int8 activations too, 96.8%; int4 weights and activations, 96.1%.
+
+**`quantization-aware-training`** (about 50 s): Q(x) = s·round(x/s) is a staircase whose derivative is 0 almost everywhere; the straight-through estimator uses 1 inside the clipping range. The network computes with Q(W) (2 bits, s = 0.264 for W₁, calibrated: 76.4%); ∂L/∂Q(W) on a real minibatch of 128 passes straight through to the float weights (7% of them saturate at ±s and get 0), Adam moves them a little and the ones that cross ±s/2 change level: 5, 4, 5, 6, 3 of 2,048 in the first five steps. Two epochs of this take 2 bits from 76.4% to 96.1% (int4 96.4% → 96.4%, float32 96.8%). The float weights do not gather at the levels: 27% of them end within a tenth of a step of a boundary, oscillating across it, against 17% near a level. Tests check the STE gradient against its definition — the rounded loss is flat, so finite differences cannot — and the bias gradients against finite differences.
+
+**`mixed-precision`** (about 56 s): the bit layouts 1|8|23, 1|5|10 and 1|8|7 holding the trained weight W₁[0,0] = 0.4254688 (float16 keeps 0.4255371, bfloat16 0.4257812); the representable numbers within 1% of 1, 10⁻³ and 10⁻⁵ as ticks (float16 steps by the value/1024 until its subnormals, where the step freezes at 6×10⁻⁸; bfloat16 by the value/128 everywhere); a real gradient of layer 11 of a 20-layer tanh MLP with weights of std 0.05 (RMS 2.7×10⁻⁸): cast to float16, 7,938 of its 10,000 values become 0 and the rest are subnormal with a median error of 40%, while bfloat16 keeps them all; loss scaling by 2¹⁶ before the cast and back in float32 loses none (median error 1.7×10⁻⁴). Then the MLP trained two epochs in each format: float32 95.6%, bfloat16 alone 95.0%, float16 with float32 master weights 95.6%; float16 alone diverges at its first update (Adam's ε = 10⁻⁸ and the small squared gradients are 0 in float16).
+
+Tests (`tests/test_quant.py`) check the quantizers and calibration, the STE, bfloat16 rounding against an integer reference, the underflow example and every number above as a relative claim.
 
 ### A strided-convolution classifier (`strided.py`, `strided-cnn-classifier`)
 
@@ -860,6 +953,11 @@ The tests:
   `test_pca.py`:** one file per family added in 1.2.0: every new gradient
   against finite differences, the update rules and formulas against hand
   computations, and every number the subtitles quote.
+- **`tests/test_generalisation.py`, `test_activation.py`, `test_capacity.py`,
+  `test_prune.py`, `test_transfer.py`, `test_lora.py`, `test_quant.py`:** the
+  families of 1.3.0, the same way; their trained-outcome claims are relative
+  (which network wins, by at least how much), because CI retrains every model
+  on another CPU and exact numbers differ there in the last bits.
 
 A test that needs MNIST or GPT-2 is skipped, with the reason, until
 `prepare` has run. CI (`.github/workflows/ci.yml`) runs the lint and the
@@ -939,6 +1037,7 @@ voxanim/
     strided.py vit.py sequence.py memory.py autoencoder.py deep_models.py   the other models
     landscape.py mlp_runs.py autodiff.py deepnet.py gpt2_probe.py seq2seq.py gridworld.py
     gp.py ssm.py mamba.py moe.py diffusion.py pca_kmeans.py                  (1.2.0)
+    generalise.py actfun.py capacity.py prune.py transfer.py lora.py quant.py (1.3.0)
     model_io.py    load / save dense models (.npz, PyTorch, Keras, JSON)
     gpt2.py        GPT-2 small: safetensors reader, BPE tokenizer, forward pass
   animations
@@ -956,6 +1055,12 @@ voxanim/
     ssm_anim.py mamba_anim.py cost_anim.py moe_anim.py rope_anim.py   modern sequence models
     diffusion_anim.py pca_anim.py
     losschart.py sweep.py prob_bars.py                    shared drawing helpers
+    ddescent_anim.py memorise_anim.py datasize_anim.py augment_anim.py minima_anim.py   generalisation
+    actfun_race.py actfun_gradients.py actfun_sparsity.py actfun_smoothness.py actfun_depth.py
+    bottleneck_anim.py rank_anim.py widthdepth_anim.py   capacity and bottlenecks
+    prune_anim.py transfer_anim.py lora_anim.py           trimming, fine-tuning, LoRA
+    quant_anim.py precision_anim.py                       quantization and precision
+    gen_common.py actfun_plots.py                         shared drawing helpers (1.3.0)
   __main__.py      the command line
 ```
 
