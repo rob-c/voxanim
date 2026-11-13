@@ -1,29 +1,38 @@
-"""Double descent: test error against width for a one-hidden-layer MLP
-trained to interpolation on a small, noisily labelled MNIST subset.
+"""Double descent: a one-hidden-layer MLP of every width trained to
+interpolation on a small, noisily labelled MNIST subset.
 
-The setting (chosen by sweeping, see the report in the README): 1,000
-training images, 20% of their labels replaced by a random wrong class
-(:func:`voxanim.generalise.corrupt`), a 784-w-10 ReLU network (He init) for
-each width ``w`` in :data:`WIDTHS`, every one trained by Adam (lr 0.001,
-minibatches of 100) for 1,000 epochs (10,000 steps) -- long enough that
-every width from 8 up fits all 1,000 labels, the false ones included.  The
-test error is on all 10,000 test digits.  A 784-w-10 network has
-``795 w + 10`` parameters; ``n x classes = 10,000`` labels' worth of
-constraints puts the interpolation threshold near ``w = 12``, and the
-networks here first reach zero training error at ``w = 8``.
+The setting: 1,000 training images, 20% of their labels replaced by a random
+wrong class (:func:`voxanim.generalise.corrupt`), a 784-w-10 ReLU network
+(He init) for each width ``w`` in :data:`WIDTHS`, every one trained by Adam
+(lr 0.001, minibatches of 100) for 1,000 epochs (10,000 steps) -- long
+enough that every width from 8 up fits all 1,000 labels, the false ones
+included.  The test loss and error are on all 10,000 test digits.  A
+784-w-10 network has ``795 w + 10`` parameters, and ``n x classes = 10,000``
+labels' worth of constraints puts the interpolation threshold near
+``w = 13``; the networks here first reach zero training error at ``w = 8``.
+
+**What the sweep found.**  The double descent is in the test *loss*
+(cross-entropy): 2.4 at w = 3, a peak of 3.6 at w = 6 -- the width that just
+manages to fit the labels is confidently wrong on the test set -- then down
+to 1.5 at w = 100 and 200.  The test *error* has no U in this
+setting: it only falls, 65% at w = 2, 45% at the peak, 24% at w = 100
+(100, 300 and 1,000 epochs, Adam and SGD, 20% and 30% noise, 1,000 and
+2,000 images were swept; the error bump at the threshold never exceeded
+1.5 points, so it is not claimed).  The animation says exactly this.
 
 1. **setup** -- the data: training digits with their labels, the false ones
-   in red; the model,
-2. **sweep** -- the widths one by one: each trained network's hidden layer
-   to size, its confusion matrix on the test set, and its training and test
-   error dropping onto the chart (log width axis),
-3. **the U** -- the classic curve: error falls with width, then rises to its
-   peak at the width that just manages to fit every label,
-4. **second descent** -- past the peak the error falls again, below the U's
-   minimum, with the training error at zero throughout,
+   in red; the model and where its threshold lies,
+2. **sweep** -- the widths one by one: each trained network's hidden layer to
+   size, its confusion matrix on the test set, and its losses and errors
+   dropping onto the two charts (log width axis),
+3. **the U** -- the test loss falls with width, then rises to its peak at the
+   width that just fits every label,
+4. **second descent** -- past the peak the training error stays at zero and
+   the test loss falls again, below the U's minimum; the test error with it,
 5. **why** -- how smooth the function is: the output's response to pixel
-   noise (mean L1 change of the softmax under noise of std 0.1 on 2,000 test
-   images), per width: the wide interpolators are the smoothest.
+   noise (mean L1 change of the softmax under noise of std 0.1 on 2,000
+   test images) per width peaks at the threshold and is smallest for the
+   widest interpolators.
 
 (The numbers are this machine's; CI retrains.)
 """
@@ -51,13 +60,13 @@ from .gen_common import (
     readout,
     strong,
 )
-from .generalise import confusion, corrupt, error_rate, predictions, sensitivity
+from .generalise import confusion, corrupt, error_rate, loss_on, predictions, sensitivity
 from .losschart import LossChart
 from .sweep import Sweep
 
 N_TRAIN, N_TEST, SEED = 1000, 10000, 0
 NOISE, NOISE_SEED = 0.2, 0
-WIDTHS = (2, 3, 4, 6, 8, 12, 16, 25, 40, 64, 100, 200, 400)
+WIDTHS = (2, 3, 4, 6, 8, 12, 16, 25, 40, 64, 100, 200)
 EPOCHS = 1000
 TRAIN = dict(batch=100, lr=0.001, opt="adam")
 INTERPOLATES = 0.005                              # training error counted as zero below this
@@ -65,13 +74,15 @@ SENS_SIGMA, SENS_N, SENS_SEED = 0.1, 2000, 1      # the smoothness measurement
 INK_WIDTH = C.rgb("#3d9e45")
 GRID_COLS, GRID_ROWS, GRID_PX = 10, 4, 28.0       # training digits of the setup phase
 GRID_AT = (0.74, 0.50)
-CHART = ((0.09, 0.45), (0.30, 0.74))              # error against width
-ERR_RANGE = (0.0, 0.7)
-GLYPH_AT, GLYPH_PX, GLYPH_COLS = (0.63, 0.46), 7.0, 20   # the hidden layer, sweep phase
-CONF_AT, CONF_PX = (0.84, 0.46), 130.0            # the confusion matrix, sweep phase
+LOSS_CHART = ((0.09, 0.45), (0.30, 0.56))         # test and training loss against width
+ERR_CHART = ((0.09, 0.45), (0.68, 0.90))          # test and training error against width
+LOSS_RANGE, ERR_RANGE = (0.0, 4.0), (0.0, 0.7)
+GLYPH_AT, GLYPH_PX, GLYPH_COLS = (0.63, 0.42), 7.0, 20   # the hidden layer, sweep phase
+CONF_AT, CONF_PX = (0.84, 0.44), 130.0            # the confusion matrix, sweep phase
 TRIO_Y, TRIO_PX, TRIO_X = 0.50, 110.0, (0.60, 0.76, 0.92)   # three matrices, later phases
-WHY_CHART = ((0.60, 0.94), (0.32, 0.64))          # sensitivity against width
-NOTE_AT = (0.60, 0.80)
+WHY_CHART = ((0.60, 0.94), (0.34, 0.66))          # sensitivity against width
+NOTE_AT = (0.58, 0.70)
+WIDTH_TICKS = (2, 10, 100, 200)
 
 
 def dataset(cache_dir=None):
@@ -102,17 +113,17 @@ def threshold_width():
     return (N_TRAIN * 10 - 10) / 795.0
 
 
-def landmarks(train_err, test_err):
+def landmarks(train_err, test_loss):
     """``(u_min, peak, wide)``: indices of the U's lowest point, the peak and
-    the widest network.  The peak is the largest test error among the widths
+    the widest network.  The peak is the largest test loss among the widths
     within a factor of two of the first that interpolates; the U's minimum
-    the smallest test error at a narrower width than the peak."""
+    the smallest test loss at a narrower width than the peak."""
     widths = np.asarray(WIDTHS, float)
     fits = np.nonzero(train_err <= INTERPOLATES)[0]
     first = widths[fits[0]] if len(fits) else widths[-1]
     near = np.nonzero((widths >= first / 2) & (widths <= first * 2))[0]
-    peak = int(near[np.argmax(test_err[near])])
-    u_min = int(np.argmin(test_err[:peak])) if peak > 0 else 0
+    peak = int(near[np.argmax(test_loss[near])])
+    u_min = int(np.argmin(test_loss[:peak])) if peak > 0 else 0
     return u_min, peak, len(WIDTHS) - 1
 
 
@@ -129,8 +140,8 @@ class Frame:
 
 
 class DoubleDescent(Diagram):
-    """Test error against width through the interpolation threshold (see the
-    module docstring)."""
+    """Test loss and error against width through the interpolation threshold
+    (see the module docstring)."""
 
     PHASES = ("setup", "sweep", "the U", "second descent", "why")
 
@@ -139,16 +150,18 @@ class DoubleDescent(Diagram):
         self.data, self.mask, self.runs = data, mask, runs
         self.hold = 2.5
         x, y = data.x_train, data.y_train
+        xt, yt = data.x_test, data.y_test
         self.train_err = np.array([error_rate(r.spec, r.P, x, y) for r in runs])
-        self.test_err = np.array([error_rate(r.spec, r.P, data.x_test, data.y_test)
-                                  for r in runs])
-        self.sens = np.array([sensitivity(r.spec, r.P, data.x_test[:SENS_N],
+        self.test_err = np.array([error_rate(r.spec, r.P, xt, yt) for r in runs])
+        self.train_loss = np.array([loss_on(r.spec, r.P, x, y, 10) for r in runs])
+        self.test_loss = np.array([loss_on(r.spec, r.P, xt, yt, 10) for r in runs])
+        self.sens = np.array([sensitivity(r.spec, r.P, xt[:SENS_N],
                                           np.random.default_rng(SENS_SEED), SENS_SIGMA)
                               for r in runs])
-        self.conf = [confusion(predictions(r.spec, r.P, data.x_test), data.y_test, 10)
-                     for r in runs]
-        self.u_min, self.peak, self.wide = landmarks(self.train_err, self.test_err)
-        self.chart = LossChart(CHART, (WIDTHS[0], WIDTHS[-1]), ERR_RANGE, xlog=True)
+        self.conf = [confusion(predictions(r.spec, r.P, xt), yt, 10) for r in runs]
+        self.u_min, self.peak, self.wide = landmarks(self.train_err, self.test_loss)
+        self.loss_chart = LossChart(LOSS_CHART, (WIDTHS[0], WIDTHS[-1]), LOSS_RANGE, xlog=True)
+        self.err_chart = LossChart(ERR_CHART, (WIDTHS[0], WIDTHS[-1]), ERR_RANGE, xlog=True)
         self.why = LossChart(WHY_CHART, (WIDTHS[0], WIDTHS[-1]),
                              (0.0, float(self.sens.max()) * 1.15), xlog=True)
         Tm, t = {}, 0.0
@@ -187,7 +200,7 @@ class DoubleDescent(Diagram):
         else:
             self._why(sc, f, op)
         if f.phase >= 1:
-            self._chart(sc, f, op)
+            self._charts(sc, f, op)
         self.step_indicator(sc, f.phase, self.PHASES)
 
     def _setup(self, sc, t, op):
@@ -209,14 +222,15 @@ class DoubleDescent(Diagram):
                    % (f"{N_TRAIN:,}", round(100 * NOISE), int(self.mask.sum())),
                    anchor="mb", opacity=op * pop)
         lines = [strong("784-w-10 ReLU networks, w from %d to %d" % (WIDTHS[0], WIDTHS[-1])),
-                 note("%d epochs of Adam each: trained until the labels are fitted"
-                      % EPOCHS),
-                 note("parameters 795 w + 10; labels' constraints %s: threshold near w = %.0f"
-                      % (f"{N_TRAIN * 10:,}", threshold_width()))]
+                 note("%s Adam steps each (%d epochs):"
+                      % (f"{EPOCHS * N_TRAIN // TRAIN['batch']:,}", EPOCHS)),
+                 note("long enough to fit every label, false ones too"),
+                 note("795 w + 10 parameters against %s labels:" % f"{N_TRAIN * 10:,}"),
+                 note("the interpolation threshold is near w = %.0f" % threshold_width())]
         readout(self, sc, 0.09, 0.40, lines, op * smoothstep(0.4, 0.8, pop), step=0.05)
 
     def _glyph(self, sc, c, w, op, px=GLYPH_PX, cols=GLYPH_COLS):
-        """A hidden layer of ``w`` units as a grid of cells."""
+        """A hidden layer of ``w`` units as a grid of cells; returns its height in px."""
         rows = -(-w // cols)
         cells = np.zeros((rows, cols, 3), np.float32) + np.asarray(PAPER, np.float32)
         on = np.arange(rows * cols) < w
@@ -253,7 +267,9 @@ class DoubleDescent(Diagram):
         self._confusion(sc, self.P(*CONF_AT), k, on, CONF_PX)
         lines = [note("after %s steps" % f"{EPOCHS * N_TRAIN // TRAIN['batch']:,}"),
                  strong("training error %.1f%%   test error %.1f%%"
-                        % (100 * self.train_err[k], 100 * self.test_err[k]))]
+                        % (100 * self.train_err[k], 100 * self.test_err[k])),
+                 strong("training loss %.4f   test loss %.2f"
+                        % (self.train_loss[k], self.test_loss[k]))]
         readout(self, sc, NOTE_AT[0], NOTE_AT[1], lines, on, step=0.05)
 
     def _trio(self, sc, f, op):
@@ -261,90 +277,106 @@ class DoubleDescent(Diagram):
         for fx, k, name in zip(TRIO_X, (self.u_min, self.peak, self.wide),
                                ("the U's low point", "the peak", "far past")):
             c = self.P(fx, TRIO_Y)
-            dim = 1.0
-            if f.phase == 2 and k == self.wide:
-                dim = 0.35
+            dim = 0.35 if f.phase == 2 and k == self.wide else 1.0
             self._confusion(sc, c, k, op * dim, TRIO_PX)
-            self.label(sc, self.shift(c, 0, -TRIO_PX / 2 - 26), name, anchor="mb",
+            self.label(sc, self.shift(c, 0, -TRIO_PX / 2 - 44), name, anchor="mb",
                        opacity=op * dim, ink=layout.STRONG_INK)
-            self.label(sc, self.shift(c, 0, -TRIO_PX / 2 - 8), "w = %d: %.1f%% wrong"
-                       % (WIDTHS[k], 100 * self.test_err[k]), anchor="mb", opacity=op * dim)
+            self.label(sc, self.shift(c, 0, -TRIO_PX / 2 - 26), "w = %d: test loss %.2f"
+                       % (WIDTHS[k], self.test_loss[k]), anchor="mb", opacity=op * dim)
+            self.label(sc, self.shift(c, 0, -TRIO_PX / 2 - 8), "%.1f%% wrong"
+                       % (100 * self.test_err[k]), anchor="mb", opacity=op * dim)
 
     def _why(self, sc, f, op):
         """Sensitivity to pixel noise against width."""
         place = lambda fx, fy: self.P(fx, fy, 0.3)                          # noqa: E731
-        ticks = [(w, str(w)) for w in (2, 10, 100, 400)]
+        ticks = [(w, str(w)) for w in WIDTH_TICKS]
         top = self.why.y_range[1]
         self.why.axes(sc, self.cam, place, op, "hidden units w (log scale)",
                       "output change under pixel noise", ticks,
-                      [(v, "%.1f" % v) for v in np.arange(0, top, 0.2)])
+                      [(v, "%.1f" % v) for v in np.arange(0, top, 0.4)])
         xs = np.array(WIDTHS, float)
         upto = xs[0] * (xs[-1] / xs[0]) ** f.grow
         self.why.curve(sc, place, xs, self.sens, upto, INK_WIDTH, op)
-        for k, name in ((self.peak, "peak"), (self.wide, "w = %d" % WIDTHS[self.wide])):
+        top_k = int(np.argmax(self.sens))
+        for k in (top_k, self.wide):
+            name = "w = %d" % WIDTHS[k]
             if xs[k] <= upto:
                 p = place(self.why.fx(xs[k]), self.why.fy(self.sens[k]))
                 self.disk(sc, p, 3.8, INK_WIDTH, op, lift=0.6, outline=0.3)
-                self.label(sc, self.shift(p, 0, -8), "%s: %.2f" % (name, self.sens[k]),
-                           anchor="mb", opacity=op)
+                self.label(sc, self.shift(p, 0 if k == self.wide else 12, -8),
+                           "%s: %.2f" % (name, self.sens[k]),
+                           anchor="mb" if k == self.wide else "lb", opacity=op)
         lines = [note("mean L1 change of the softmax output when pixel noise"),
                  note("of std %.1f is added to %s test images" % (SENS_SIGMA, f"{SENS_N:,}"))]
-        readout(self, sc, NOTE_AT[0], NOTE_AT[1], lines, op, step=0.045)
+        readout(self, sc, NOTE_AT[0], NOTE_AT[1] + 0.06, lines, op, step=0.045)
 
-    def _chart(self, sc, f, op):
-        """Training and test error against width."""
+    def _points(self, sc, place, chart, xs, values, ink, op, f):
+        """A curve with a dot per width, dimmed outside the phase's focus."""
+        chart.curve(sc, place, xs, values, xs[-1], ink, op, dot=False)
+        for x, y in zip(xs, values):
+            dim = 1.0
+            if f.phase == 2 and x > WIDTHS[self.peak]:
+                dim = 0.3
+            if f.phase == 3 and x < WIDTHS[self.peak]:
+                dim = 0.3
+            self.disk(sc, place(chart.fx(x), chart.fy(y)), 3.2, ink, op * dim, lift=0.6,
+                      outline=0.3)
+
+    def _charts(self, sc, f, op):
+        """Losses (top) and errors (bottom) against width."""
         place = lambda fx, fy: self.P(fx, fy, 0.3)                          # noqa: E731
-        ticks = [(w, str(w)) for w in (2, 10, 100, 400)]
-        self.chart.axes(sc, self.cam, place, op, "hidden units w (log scale)", "error",
-                        ticks, [(v, "%d%%" % round(100 * v)) for v in (0, 0.2, 0.4, 0.6)])
+        ticks = [(w, str(w)) for w in WIDTH_TICKS]
+        self.loss_chart.axes(sc, self.cam, place, op, "", "loss", ticks,
+                             [(v, "%d" % v) for v in (1, 2, 3, 4)])
+        self.err_chart.axes(sc, self.cam, place, op, "hidden units w (log scale)", "error",
+                            ticks, [(v, "%d%%" % round(100 * v)) for v in (0.2, 0.4, 0.6)])
         done = min(f.done, len(WIDTHS))
         if done == 0:
             return
         xs = np.array(WIDTHS[:done], float)
-        for values, ink in ((self.train_err, TRAIN_INK), (self.test_err, TEST_INK)):
-            self.chart.curve(sc, place, xs, values[:done], xs[-1], ink, op, dot=False)
-            for x, y in zip(xs, values[:done]):
-                dim = 1.0
-                if f.phase == 2 and x > WIDTHS[self.peak]:
-                    dim = 0.3
-                if f.phase == 3 and x < WIDTHS[self.peak]:
-                    dim = 0.3
-                self.disk(sc, place(self.chart.fx(x), self.chart.fy(y)), 3.4, ink, op * dim,
-                          lift=0.6, outline=0.3)
+        self._points(sc, place, self.loss_chart, xs, self.train_loss[:done], TRAIN_INK, op, f)
+        self._points(sc, place, self.loss_chart, xs, self.test_loss[:done], TEST_INK, op, f)
+        self._points(sc, place, self.err_chart, xs, self.train_err[:done], TRAIN_INK, op, f)
+        self._points(sc, place, self.err_chart, xs, self.test_err[:done], TEST_INK, op, f)
         if 0 <= f.cur < len(WIDTHS):
             x = WIDTHS[f.cur]
             u = ease_out(f.cu)
-            for values, ink in ((self.train_err, TRAIN_INK), (self.test_err, TEST_INK)):
-                p = place(self.chart.fx(x), self.chart.fy(values[f.cur]))
-                self.disk(sc, p, 3.4 + 6 * (1 - u), ink, op * u, lift=0.7, glow=0.4 * (1 - u),
+            for chart, values, ink in ((self.loss_chart, self.train_loss, TRAIN_INK),
+                                       (self.loss_chart, self.test_loss, TEST_INK),
+                                       (self.err_chart, self.train_err, TRAIN_INK),
+                                       (self.err_chart, self.test_err, TEST_INK)):
+                p = place(chart.fx(x), chart.fy(values[f.cur]))
+                self.disk(sc, p, 3.2 + 6 * (1 - u), ink, op * u, lift=0.7, glow=0.4 * (1 - u),
                           outline=0.3)
         if f.phase >= 2:
             x = WIDTHS[self.peak]
-            self.chart.mark(sc, place, x, layout.CAPTION_INK, 0.8 * op)
-            self.label(sc, place(self.chart.fx(x), CHART[1][0] - 0.02), "peak: w = %d" % x,
-                       anchor="mb", opacity=op)
-        self.chart.legend(sc, self.cam, [("test error", TEST_INK), ("training error", TRAIN_INK)],
-                          op, (CHART[0][1] - 0.01, CHART[1][0] + 0.03), step=0.038, anchor="rm")
+            for chart in (self.loss_chart, self.err_chart):
+                chart.mark(sc, place, x, layout.CAPTION_INK, 0.8 * op)
+            self.label(sc, place(self.loss_chart.fx(x), LOSS_CHART[1][0] - 0.02),
+                       "peak: w = %d" % x, anchor="mb", opacity=op)
+        self.loss_chart.legend(sc, self.cam, [("test", TEST_INK), ("training", TRAIN_INK)],
+                               op, (LOSS_CHART[0][1] - 0.01, LOSS_CHART[1][0] + 0.03),
+                               step=0.038, anchor="rm")
 
     # ------------------------------------------------------------------ words
     def _words(self, f):
         """The subtitle for frame ``f``."""
-        te, tr = self.test_err, self.train_err
+        te, tr, tl = self.test_err, self.train_err, self.test_loss
         u, p, w = self.u_min, self.peak, self.wide
+        top = int(np.argmax(self.sens))
         return [
             "%s MNIST images with %d%% of the labels false; 784-w-10 ReLU networks trained %d "
             "epochs each, until they fit every label" % (f"{N_TRAIN:,}", round(100 * NOISE),
                                                           EPOCHS),
-            "width by width: the training error (teal) and the error on %s test digits (red)"
-            % f"{N_TEST:,}",
-            "the classic U: test error %.1f%% at w = %d, %.1f%% at w = %d, then up to %.1f%% at "
-            "w = %d, the width that just fits all %s labels"
-            % (100 * te[0], WIDTHS[0], 100 * te[u], WIDTHS[u], 100 * te[p], WIDTHS[p],
-               f"{N_TRAIN:,}"),
-            "past the peak the training error stays at %.0f%% and the test error falls again, to "
-            "%.1f%% at w = %d: wider interpolators generalise better"
-            % (100 * tr[w], 100 * te[w], WIDTHS[w]),
-            "why: the output's change under pixel noise is %.2f at the peak and %.2f at w = %d: "
-            "of all the networks that fit the labels, the wide one is the smoothest"
-            % (self.sens[p], self.sens[w], WIDTHS[w]),
+            "width by width: training (teal) and test (red) loss above, error below, the test "
+            "set %s digits" % f"{N_TEST:,}",
+            "the classic U, in the test loss: %.2f at w = %d, up to %.2f at w = %d, the width "
+            "that just fits all %s labels: confidently wrong"
+            % (tl[u], WIDTHS[u], tl[p], WIDTHS[p], f"{N_TRAIN:,}"),
+            "past the peak the training error stays at %.0f%% and the test loss falls to %.2f at "
+            "w = %d; the test error only ever falls: %.0f%% → %.0f%% → %.0f%%"
+            % (100 * tr[w], tl[w], WIDTHS[w], 100 * te[0], 100 * te[p], 100 * te[w]),
+            "why: the output's change under pixel noise peaks at the threshold (%.2f at w = %d) "
+            "and is %.2f at w = %d: the widest fit is the smoothest"
+            % (self.sens[top], WIDTHS[top], self.sens[w], WIDTHS[w]),
         ][f.phase]

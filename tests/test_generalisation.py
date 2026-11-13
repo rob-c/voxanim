@@ -6,7 +6,7 @@ relative claims (CI retrains every model on another CPU)."""
 from __future__ import annotations
 
 import numpy as np
-from conftest import fd_check
+from conftest import fd_check, needs_mnist
 
 from voxanim import deepnet as D
 from voxanim import generalise as G
@@ -141,3 +141,178 @@ def test_slices_of_the_loss_agree_with_direct_evaluation():
     assert np.isclose(G.param_distance(Pa, G.moved(Pa, d, 2.5)), 2.5)
     a = G.around(spec, Pa, rng, [0.0, 1.0], x, y, 2, directions=2)
     assert a.shape == (2, 2) and np.allclose(a[:, 0], line[0])
+
+
+# ------------------------------------------------------------------ the animations' claims
+#
+# Relative claims only: CI retrains every run on another CPU, and after
+# thousands of Adam steps the last bits differ.
+
+
+def _settings(run):
+    """The settings stored in a run's cache file (what ``train`` keyed it by)."""
+    import json
+    import os
+
+    from voxanim.cache import DEFAULT_CACHE, settings_key
+    for name in os.listdir(DEFAULT_CACHE):
+        if not name.startswith("deepnet-") or not name.endswith(".npz"):
+            continue
+        with np.load(os.path.join(DEFAULT_CACHE, name), allow_pickle=False) as d:
+            s = json.loads(str(d["_settings"]))
+        if settings_key(s) == name[len("deepnet-"):-len(".npz")] and \
+                s["sizes"] == list(run.spec.sizes) and len(run.batch_loss) == s["steps"]:
+            yield s
+
+
+@needs_mnist
+def test_double_descent_claims():
+    """The test loss peaks at the first widths that fit every label and falls
+    again past them, below the U's minimum; the training error reaches zero
+    from the threshold on; the widest interpolator is the smoothest."""
+    from voxanim import ddescent_anim as A
+    data, mask, runs = A.runs()
+    anim = A.DoubleDescent(data, mask, runs)
+    assert mask.sum() == round(A.NOISE * A.N_TRAIN)
+    assert all(len(r.batch_loss) == A.EPOCHS * A.N_TRAIN // A.TRAIN["batch"] for r in runs)
+    u, p, w = anim.u_min, anim.peak, anim.wide
+    widths = np.array(A.WIDTHS, float)
+    assert widths[u] < widths[p] < widths[w]
+    # the peak sits within a factor of three of the parameter-count threshold
+    assert 1 / 3 < widths[p] / A.threshold_width() < 3
+    tl = anim.test_loss
+    assert tl[p] > 1.25 * tl[u] and tl[p] > 1.5 * tl[w] and tl[w] < tl[u]
+    # trained to interpolation from the threshold on
+    assert (anim.train_err[p:] <= A.INTERPOLATES).all()
+    # the test error only falls here (no U is claimed for it)
+    assert anim.test_err[0] > anim.test_err[p] > anim.test_err[w]
+    # smoothness: most sensitive near the threshold, least at the widest
+    top = int(np.argmax(anim.sens))
+    assert widths[top] <= 2 * widths[p] and anim.sens[top] > 2 * anim.sens[w]
+
+
+@needs_mnist
+def test_memorising_noise_claims():
+    """All three runs fit their labels (training loss far below chance,
+    training error under 1%); the test accuracy falls with the noise; clean
+    examples are learned before shuffled ones; early stopping beats the end."""
+    from voxanim import memorise_anim as A
+    sets, runs = A.runs()
+    anim = A.MemorisingNoise(sets, runs)
+    masks = [m for _d, m in sets]
+    assert [int(m.sum()) for m in masks] == [round(n * A.N_TRAIN) for n in A.NOISES]
+    for r, (d, _m) in zip(runs, sets):
+        assert r.example_loss.shape == (len(r.steps), A.N_TRAIN)
+        assert r.example_loss[-1].mean() < 0.05
+        assert A.error_rate(r.spec, r.P, d.x_train, d.y_train) < 0.01
+    acc = [1 - e for e in anim.test_err]
+    assert acc[0] > 0.9 and acc[0] > acc[1] + 0.1 > acc[2] + 0.2
+    # the 50% run: at every recorded step the clean half has the lower loss
+    # once learning has started, and half-way through it is far lower
+    k = int(np.searchsorted(runs[-1].steps, 1000))
+    assert anim.clean_curve[k] < 0.5 * anim.shuffled_curve[k]
+    assert (anim.clean_curve[5:] < anim.shuffled_curve[5:]).all()
+    b = anim.best
+    assert runs[-1].steps[b] < A.TRAIN["steps"] / 4
+    assert runs[-1].test_acc[b] > acc[2] + 0.15
+    assert anim.heat.shape == (len(runs[-1].steps), A.HEAT_COLS, 3)
+
+
+@needs_mnist
+def test_data_vs_model_size_claims():
+    """More data helps every model; the small one saturates (its last
+    sixfold of data buys under a point) while the large one keeps gaining;
+    with all the data the models rank by size; with 100 images they are
+    within a few points."""
+    from voxanim import datasize_anim as A
+    data, table = A.runs()
+    anim = A.DataVsModelSize(data, table)
+    e = anim.err
+    assert e.shape == (3, 6)
+    for row in e:
+        assert row[0] > row[2] > row[5]                      # more data helps
+    assert e[0, 4] - e[0, 5] < 0.01                          # the small one saturates
+    assert e[2, 4] - e[2, 5] > 0.008                         # the large one keeps gaining
+    assert e[0, 5] > e[1, 5] > e[2, 5]                       # ranked by size at 60,000
+    assert e[0, 5] > 2.5 * e[2, 5]
+    assert abs(e[0, 0] - e[2, 0]) < 0.08                     # close at 100 images
+    assert all(len(idx) == A.N_WRONG for idx, _p in anim.wrong)
+    assert all((p != data.y_test[idx]).all() for idx, p in anim.wrong)
+
+
+@needs_mnist
+def test_augmentation_claims():
+    """The plain run memorises (training loss near zero, test loss rising
+    from its low); the augmented run generalises better and is far more
+    invariant to shifts and rotations."""
+    from voxanim import augment_anim as A
+    data, plain, aug = A.runs()
+    assert plain.probe["h"].shape == (len(plain.steps), A.PROBE_ROWS, 784)
+    assert np.allclose(plain.P0["W0"], aug.P0["W0"])         # the same start
+    assert plain.train_loss[-1] < 0.01
+    assert plain.test_loss[-1] > 1.15 * plain.test_loss.min()
+    assert aug.test_loss[-1] < 0.6 * plain.test_loss[-1]
+    pa, aa = A.invariance(data, plain), A.invariance(data, aug)
+    assert aa[0] > pa[0] + 0.04                              # clean test accuracy
+    assert pa[1] < 0.7 and aa[1] > pa[1] + 0.3               # shifted test digits
+    assert aa[2] > pa[2] + 0.03                              # rotated ones
+    # the recorded augmented minibatch differs from the stored images, the plain one does not
+    assert np.abs(aug.probe["h"][1] - plain.probe["h"][1]).max() > 0.1
+    rows = plain.probe["h"][1]
+    assert all(any(np.allclose(r, x) for x in data.x_train) for r in rows[:2])
+
+
+@needs_mnist
+def test_sharp_vs_flat_claims():
+    """Both runs reach a low training loss; the large-batch minimum is the
+    sharper one (narrower bowl, more loss at the same distance), has the
+    higher test error and suffers more from weight noise; the line between
+    them has a barrier in the training loss."""
+    from voxanim import minima_anim as A
+    data, small, large, m = A.runs()
+    anim = A.SharpVsFlat(data, small, large, m)
+    assert len(small.batch_loss) == A.EPOCHS * (A.N_TRAIN // A.SMALL["batch"])
+    assert len(large.batch_loss) == A.EPOCHS * (A.N_TRAIN // A.LARGE["batch"])
+    assert m["train_loss"].max() < 0.02
+    assert m["test_err"][1] > m["test_err"][0] + 0.003
+    w_small, w_large = anim.width
+    assert w_large < 0.7 * w_small
+    radii = m["radii"]
+    far = np.abs(radii) >= A.RADIUS / 2
+    assert (anim.prof[1][far] > anim.prof[0][far]).all()
+    assert m["perturbed"][1, -1] - m["test_err"][1] > m["perturbed"][0, -1] - m["test_err"][0]
+    us = m["us"]
+    inside = (us > 0) & (us < 1)
+    assert m["line_train"][inside].max() > 2 * max(m["line_train"][np.argmin(np.abs(us))],
+                                                   m["line_train"][np.argmin(np.abs(us - 1))])
+    assert m["grid"].shape == (A.GRID_N, A.GRID_N)
+    # the plane's u axis passes through both minima: the grid agrees with the line
+    j0 = int(np.argmin(np.abs(m["gv"])))
+    for u in (0.0, 1.0):
+        i = int(np.argmin(np.abs(m["gu"] - u)))
+        k = int(np.argmin(np.abs(us - u)))
+        assert abs(m["grid"][i, j0] - m["line_train"][k]) < 1e-6
+
+
+def _stored(run, **expect):
+    """True when a cache file of ``run``'s shape stores settings with every
+    item of ``expect`` (nested dicts compared whole)."""
+    return any(all(s.get(k) == v for k, v in expect.items()) for s in _settings(run))
+
+
+@needs_mnist
+def test_runs_match_their_stored_settings():
+    """What each animation says it trained is what its cache files say they
+    hold: optimiser, batch, rate, the augmentation, the per-example record."""
+    from voxanim import augment_anim as AU
+    from voxanim import memorise_anim as ME
+    _data, plain, aug = AU.runs()
+    assert _stored(plain, opt="adam", batch=AU.TRAIN["batch"], lr=AU.TRAIN["lr"],
+                   probe_layer=0, probe_rows=AU.PROBE_ROWS, probe_keys=["h"])
+    assert _stored(aug, augment=dict(kind="affine", shift=AU.SHIFT, degrees=AU.DEGREES,
+                                     scale=AU.SCALE), batch=AU.TRAIN["batch"])
+    assert not _stored(plain, augment=AU.augmentation().settings())
+    _sets, runs = ME.runs()
+    for r in runs:
+        assert _stored(r, example_loss=True, opt="adam", batch=ME.TRAIN["batch"],
+                       lr=ME.TRAIN["lr"], steps=ME.TRAIN["steps"])

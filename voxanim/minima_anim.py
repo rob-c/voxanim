@@ -2,10 +2,10 @@
 of 8 and of 1,024, and the loss landscape between and around them.
 
 The network, 784-128-10 ReLU (He init), is trained by Adam on 10,000 MNIST
-images for the same 20 epochs twice: with minibatches of 8 (25,000 steps,
-lr 0.001) and of 1,024 (200 steps, lr 0.01, ten times the rate so that the
+images for the same 40 epochs twice: with minibatches of 8 (50,000 steps,
+lr 0.001) and of 1,024 (400 steps, lr 0.01, ten times the rate so that the
 few steps reach a comparable training loss).  Both end near zero training
-loss: two minima, 44 units apart in weight space.  Everything else is
+loss: two minima, 56 units apart in weight space.  Everything else is
 measured on the trained weights (:mod:`voxanim.generalise`, cached):
 
 * the **plane** through both minima: ``P_8 + u (P_1024 - P_8) + v d`` with
@@ -17,13 +17,17 @@ measured on the trained weights (:mod:`voxanim.generalise`, cached):
   small barrier between the two, the test loss does not rise;
 * the loss **around each** along six random unit directions, averaged: the
   bowl's width, as the radius at which the training loss has risen by
-  :data:`RISE` -- the large-batch minimum is the sharper one;
-* a **weight perturbation**: Gaussian noise of norm 4, 8 and 16 added to all
-  the weights (five draws each): the test error of the sharp minimum
+  :data:`RISE` (0.01) -- the large-batch minimum is the sharper one;
+* a **weight perturbation**: Gaussian noise of norm 8, 16 and 32 added to
+  all the weights (five draws each): the test error of the sharp minimum
   climbs faster.
 
+The test *loss* is lower at the sharp minimum even though its test *error*
+is higher: the flat, small-batch network is the more confident of the two,
+so its mistakes cost more cross-entropy.  The animation says so.
+
 1. **two minima** -- the height-field rises; the two minima, their training
-   loss and test error (4.0% for batch 8, 4.3% for batch 1,024),
+   loss and test error (3.5% for batch 8, 4.2% for batch 1,024),
 2. **the line between** -- a walker crosses from one to the other, the chart
    draws the training and test loss along the way,
 3. **around each** -- the two bowls, loss against distance,
@@ -61,22 +65,22 @@ from .netanim import NetAnimation
 
 N_TRAIN, N_TEST, SEED = 10000, 10000, 0
 SIZES = (784, 128, 10)
-EPOCHS = 20
+EPOCHS = 40
 SMALL = dict(batch=8, lr=0.001)                   # the small-batch run
 LARGE = dict(batch=1024, lr=0.01)                 # the large-batch run
 OPT = "adam"
 N_SLICE = 2000                                    # training images the slices are measured on
 LINE_U = (-0.25, 1.25, 31)                        # the line: from, to, points
-RADIUS, N_RADII, N_DIRS, DIR_SEED = 24.0, 25, 6, 3   # the bowls: +-radius, points, directions
-NORMS, N_TRIALS, NOISE_SEED = (4.0, 8.0, 16.0), 5, 5  # the perturbations
-RISE = 0.05                                       # bowl width: where the loss has risen by this
+RADIUS, N_RADII, N_DIRS, DIR_SEED = 48.0, 25, 6, 3   # the bowls: +-radius, points, directions
+NORMS, N_TRIALS, NOISE_SEED = (8.0, 16.0, 32.0), 5, 5  # the perturbations
+RISE = 0.01                                       # bowl width: where the loss has risen by this
 GRID_N, GRID_U, GRID_V = 36, (-0.3, 1.3), (-RADIUS, RADIUS)
 INK_SMALL, INK_LARGE = C.rgb("#1f6fb5"), C.rgb("#d84e4e")
 TEST_INK = (0.40, 0.42, 0.46)
 LAND_AT = (0.35, 0.60)
 CHART = ((0.715, 0.945), (0.28, 0.56))
 READ_X, READ_Y = 0.715, 0.63
-CAP = 0.5                                         # loss at the top of the tallest column
+CAP = 0.3                                         # loss at the top of the tallest column
 WALKER = (0.98, 0.98, 0.97)
 
 
@@ -145,11 +149,11 @@ def runs(cache_dir=None):
 
 def bowl_width(radii, profile, rise=RISE):
     """The smallest ``|r|`` at which ``profile`` (loss against ``radii``,
-    averaged over directions) exceeds its centre value by ``rise``;
-    interpolated between grid points."""
+    averaged over directions) exceeds its centre value by ``rise``,
+    interpolated between grid points; the largest radius when it never does."""
     c = int(np.argmin(np.abs(radii)))
     base = profile[c]
-    best = float(radii[-1])
+    best = float(abs(radii[-1]))
     for side in (slice(c, None, 1), slice(c, None, -1)):
         r, p = radii[side], profile[side] - base
         k = np.nonzero(p >= rise)[0]

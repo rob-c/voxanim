@@ -45,9 +45,9 @@ N_TEST, SEED = 10000, 0
 MODELS = (("small", 8), ("medium", 32), ("large", 256))      # (name, hidden units)
 TRAIN = dict(steps=2000, batch=64, lr=0.001, opt="adam")
 INKS = (C.rgb("#e0952e"), C.rgb("#1f6fb5"), C.rgb("#3d9e45"))   # small, medium, large
-GLYPH_AT = (0.74, 0.50)                          # the three networks, layout centre
-GLYPH_GAP = 0.19                                 # layout x between them
-UNIT_PX = (14.0, 9.0, 5.0)                       # cell size of each hidden layer's grid
+GLYPH_AT = (0.72, 0.50)                          # the three networks, layout centre
+GLYPH_GAP = 0.17                                 # layout x between them
+UNIT_PX = (12.0, 8.0, 4.0)                       # cell size of each hidden layer's grid
 UNIT_COLS = (8, 16, 32)                          # ... drawn this many across
 CHART = ((0.09, 0.45), (0.32, 0.74))             # the learning curves
 ERR_RANGE = (0.0, 0.30)
@@ -55,12 +55,18 @@ NOTE_AT = (0.57, 0.80)                           # read-outs under the glyphs
 SHOW = ((0, 5), (2, 0), (2, 5))                  # mistakes phase: (model, size index) rows
 N_WRONG = 8                                      # wrong test digits per row
 WRONG_PX = 30.0
-WRONG_AT = (0.74, 0.44)                          # the rows' centre
+WRONG_AT = (0.74, 0.55)                          # the rows' centre
+WRONG_PITCH = 104.0                              # px between the rows
 
 
 def params(w):
     """Parameters of a 784-w-10 network."""
     return 784 * w + w + w * 10 + 10
+
+
+def compact(n):
+    """``6370`` as ``6.4k``, ``203530`` as ``204k``."""
+    return "%.1fk" % (n / 1000) if n < 10000 else "%dk" % round(n / 1000)
 
 
 def runs(cache_dir=None):
@@ -182,7 +188,7 @@ class DataVsModelSize(Diagram):
             half = rows * px / 2
             self.label(sc, self.shift(c, 0, -half - 10), "%s: %d units" % (name, w),
                        anchor="mb", opacity=on, ink=layout.STRONG_INK)
-            self.label(sc, self.shift(c, 0, half + 10), "%s parameters" % f"{params(w):,}",
+            self.label(sc, self.shift(c, 0, half + 10), "%s parameters" % compact(params(w)),
                        anchor="mt", opacity=on, ink=layout.NOTE_INK)
         self.label(sc, self.P(GLYPH_AT[0], GLYPH_AT[1] - 0.17), "784 pixels in, 10 classes "
                    "out, one hidden layer of", anchor="mb", opacity=op * pop)
@@ -193,28 +199,24 @@ class DataVsModelSize(Diagram):
         pitch = WRONG_PX + 6
         reveal = self.progress("mistakes", t)
         for r, ((m, j), (idx, pred)) in enumerate(zip(SHOW, self.wrong)):
-            y = (r - 1) * (WRONG_PX + 44)
+            y = (r - 1) * WRONG_PITCH
             on = smoothstep(0.0, 0.3, remap(reveal, 0.25 * r, 0.25 * r + 0.3)) * op
-            name, w = MODELS[m]
-            self.label(sc, self.shift(c, 0, y - WRONG_PX / 2 - 8), "%s network (%d units), %s "
-                       "training images: %.1f%% wrong" % (name, w, f"{SIZES_N[j]:,}",
-                                                           100 * self.err[m, j]),
+            name = MODELS[m][0]
+            self.label(sc, self.shift(c, 0, y - WRONG_PX / 2 - 22), "%s network, %s images: "
+                       "%.1f%% wrong" % (name, f"{SIZES_N[j]:,}", 100 * self.err[m, j]),
                        anchor="mb", opacity=on, ink=INKS[m])
             for k, (i, p) in enumerate(zip(idx, pred)):
                 q = self.shift(c, (k - (N_WRONG - 1) / 2) * pitch, y)
                 draw_digit(self, sc, q, self.data.x_test[i], WRONG_PX, on, paper=PAPER)
                 self.label(sc, self.shift(q, 0, WRONG_PX / 2 + 4), "%d" % p, anchor="mt",
                            opacity=on, ink=WRONG_INK)
-        self.label(sc, self.shift(c, 0, (WRONG_PX + 44) + WRONG_PX / 2 + 30),
-                   "the first eight of each run's mistakes, its answer in red", anchor="mt",
-                   opacity=op, ink=layout.NOTE_INK)
 
     def _chart(self, sc, f, op):
         """Test error against training-set size, a curve per model."""
         place = lambda fx, fy: self.P(fx, fy, 0.3)                          # noqa: E731
         ticks = [(n, f"{n:,}") for n in (100, 1000, 10000, 60000)]
         self.chart.axes(sc, self.cam, place, op, "training images (log scale)", "test error",
-                        ticks, [(v, "%d%%" % round(100 * v)) for v in (0, 0.1, 0.2, 0.3)])
+                        ticks, [(v, "%d%%" % round(100 * v)) for v in (0.1, 0.2, 0.3)])
         done = min(f.done, len(SIZES_N) * len(MODELS))
         for m, ink in enumerate(INKS):
             k = sum(1 for q in range(done) if self.order(q)[0] == m)      # sizes done
@@ -273,7 +275,7 @@ class DataVsModelSize(Diagram):
             "the 256-unit network: %.1f%% with 100 images, %.1f%% with 60,000; with all the "
             "data it makes a third of the small one's mistakes"
             % (100 * e[2, 0], 100 * e[2, 5]),
-            "what each regime gets wrong: too small a model misreads clean digits; too little "
-            "data misreads the unusual ones; both fixed, the rest are hard",
+            "the first eight test digits each run gets wrong, its answer in red: too small a "
+            "model, too little data, and the hard ones that remain",
         ][f.phase]
 
