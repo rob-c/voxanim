@@ -20,6 +20,12 @@ jobs:
           cache-dependency-path: requirements-lock.txt
       - run: python -m pip install -r requirements-lock.txt
       - run: ruff check voxanim tests website tools
+      # the models trained on synthetic data (the position-encoding study
+      # takes ~10 minutes from scratch), kept between runs
+      - uses: actions/cache@v4
+        with:
+          path: build/.cache
+          key: voxanim-synthetic-${{ hashFiles('voxanim/cache.py', 'voxanim/optim.py', 'voxanim/w2v.py', 'voxanim/posenc.py', 'voxanim/moe.py') }}
       - run: python -m pytest tests -q
 
   full:
@@ -37,6 +43,6 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build/.cache
-          key: voxanim-cache-${{ hashFiles('voxanim/cache.py', 'voxanim/mnist.py', 'voxanim/strided.py', 'voxanim/sequence.py', 'voxanim/memory.py', 'voxanim/vit.py', 'voxanim/autoencoder.py', 'voxanim/deep_models.py', 'voxanim/optim.py', 'voxanim/minibatch.py') }}
+          key: voxanim-cache-${{ hashFiles('voxanim/cache.py', 'voxanim/mnist.py', 'voxanim/strided.py', 'voxanim/sequence.py', 'voxanim/memory.py', 'voxanim/vit.py', 'voxanim/autoencoder.py', 'voxanim/deep_models.py', 'voxanim/optim.py', 'voxanim/minibatch.py', 'voxanim/w2v.py', 'voxanim/patch_embed.py', 'voxanim/posenc.py') }}
       - run: python -m voxanim prepare $(python -m voxanim list --names | grep -v '^gpt2-')
       - run: python -m pytest tests -q

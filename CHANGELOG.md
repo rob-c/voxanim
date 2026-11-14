@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **Ten animations on embeddings** (`w2v.py`, `patch_embed.py`, `posenc.py`
+  and ten animation modules), in a new "Embeddings" section of the site:
+  `embedding-lookup` (a row of a table, or one-hot × table, and the rows a
+  training step touches), `word2vec-training` (skip-gram with negative
+  sampling on a generated corpus, one step in numbers, the categories
+  forming), `sentence-embeddings` (mean and SIF pooling, and why word order
+  is lost), `patch-embeddings` (a ViT's first layer on MNIST: 94.3% with
+  position vectors, 26.3% with the patches shuffled; 83.8% either way
+  without), `gpt2-position-blindness` (GPT-2's first attention layer without
+  its position table and mask gives a word the same vector in any order, to
+  5×10⁻¹⁵), `sinusoidal-positions`, `relative-position-bias` (T5's buckets),
+  `alibi`, `rope-context-extension` (position interpolation and NTK scaling)
+  and the finale, `length-extrapolation`: six tiny transformers identical but
+  for how they see position, trained on 32 symbols and tested on 128 (T5
+  holds at 1.24 nats, ALiBi at 1.40, while learned, sinusoidal and RoPE climb
+  to 2.8–3.6; the best possible is 1.19). Every gradient is checked against
+  finite differences.
+- CI keeps the models trained on synthetic data between runs.
 - **Acceleration** (`accel.py`, `deepnet_torch.py`, `raster_torch.py`):
   optional PyTorch on Metal or CUDA, chosen by `VOXANIM_DEVICE`
   (`auto`, `mps`, `cuda`, `cpu`, `numpy`). `auto` takes the fastest measured

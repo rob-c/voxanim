@@ -40,6 +40,16 @@ preset                         shows                                        modu
 ``gradient-descent``           a 2-3-1 network learning XOR                 gd_anim
 ``mlp-classifier``             a 784-32-16-10 node-and-line diagram         mlp_graph
 ``decision-tree``              CART on a 2-D, 3-class dataset               dtree
+``embedding-lookup``           a token's embedding: a row, or one-hot x E   embed_lookup_anim
+``word2vec-training``          skip-gram with negative sampling, trained    w2v_anim
+``sentence-embeddings``        mean and SIF pooling, cosine similarity      sentence_anim
+``patch-embeddings``           a ViT's patches as tokens, with positions    patch_anim
+``gpt2-position-blindness``    attention without positions is order-blind   posblind_anim
+``sinusoidal-positions``       the sinusoidal table; an offset, a rotation  sinusoid_anim
+``relative-position-bias``     T5's buckets and learned per-head biases     relbias_anim
+``alibi``                      ALiBi: a linear distance penalty per head    alibi_anim
+``rope-context-extension``     RoPE past its length: interpolation, NTK     rope_ext_anim
+``length-extrapolation``       six schemes trained short, tested long       lenx_anim
 =============================  ===========================================  ===========
 
 Options a factory accepts (``--digit``, ``--model``, ...) are its keyword
@@ -1142,3 +1152,118 @@ register("regularised-autoencoder", _regularised_autoencoder,
          "code, weight decay, denoising and a contractive penalty, each held to the same clean "
          "reconstruction error: its features forming, the code of one digit, clean and noisy "
          "digits rebuilt, and what each regulariser buys.")
+
+
+# ------------------------------------------------------------------ embeddings
+# Tokens, words, sentences and patches as vectors, and the ways a transformer
+# is told where each one is (voxanim.w2v, voxanim.patch_embed, voxanim.posenc).
+
+
+def _embedding_lookup():
+    from .embed_lookup_anim import EmbeddingLookup
+    return EmbeddingLookup()
+
+
+register("embedding-lookup", _embedding_lookup,
+         "A token's embedding is a row of a table: the lookup, the same row as a one-hot "
+         "vector times the table, what each costs, and a training step that changes only "
+         "the rows the batch used.")
+
+
+def _word2vec_training():
+    from .w2v_anim import Word2VecTraining
+    return Word2VecTraining()
+
+
+register("word2vec-training", _word2vec_training,
+         "word2vec's skip-gram with negative sampling, trained on a small generated corpus: "
+         "one step pulling a word towards its context and pushing it from random words, "
+         "then 39 words gathering into animals, people, foods and places.")
+
+
+def _sentence_embeddings():
+    from .sentence_anim import SentenceEmbeddings
+    return SentenceEmbeddings()
+
+
+register("sentence-embeddings", _sentence_embeddings,
+         "A sentence as the mean of its word vectors: cosine similarity between six "
+         "sentences, why \"the dog chases the cat\" and \"the cat chases the dog\" come "
+         "out identical, and SIF weighting, which stops 'the' and 'a' dominating.")
+
+
+def _patch_embeddings():
+    from .patch_anim import PatchEmbeddings
+    return PatchEmbeddings()
+
+
+register("patch-embeddings", _patch_embeddings,
+         "A vision transformer's first layer on MNIST: a digit cut into 16 patches, each "
+         "flattened and multiplied by one learned matrix, the filters it learns, and what "
+         "position vectors add: shuffle the patches and only the model with them notices.")
+
+
+def _position_blindness():
+    from .posblind_anim import PositionBlindness
+    return PositionBlindness()
+
+
+register("gpt2-position-blindness", _position_blindness,
+         "Attention alone cannot see order: GPT-2's first attention layer, run without its "
+         "position table and causal mask, gives the same vector for a word however the "
+         "sentence is shuffled; the position table, or the mask, tells the orders apart.")
+
+
+def _sinusoidal_positions():
+    from .sinusoid_anim import SinusoidalPositions
+    return SinusoidalPositions()
+
+
+register("sinusoidal-positions", _sinusoidal_positions,
+         "The original transformer's position encoding: sine and cosine waves at "
+         "geometrically spaced frequencies, the table they make, and why moving k places "
+         "is the same rotation of the vector wherever you start.")
+
+
+def _relative_position_bias():
+    from .relbias_anim import RelativePositionBias
+    return RelativePositionBias()
+
+
+register("relative-position-bias", _relative_position_bias,
+         "T5's relative position bias: offsets sorted into buckets, exact when near and "
+         "logarithmic when far, and the bias each head learned for each bucket in a real "
+         "trained model.")
+
+
+def _alibi():
+    from .alibi_anim import ALiBi
+    return ALiBi()
+
+
+register("alibi", _alibi,
+         "ALiBi: no position vectors at all, just a penalty on each attention score that "
+         "grows linearly with distance, steeper in some heads than others, and what it "
+         "does to a trained model's attention.")
+
+
+def _rope_context_extension():
+    from .rope_ext_anim import RopeContextExtension
+    return RopeContextExtension()
+
+
+register("rope-context-extension", _rope_context_extension,
+         "RoPE past the length it was trained on: angles no pair ever saw, position "
+         "interpolation squeezing positions back into range, and NTK scaling slowing the "
+         "slow pairs, tested on a real model at four times its training length.")
+
+
+def _length_extrapolation():
+    from .lenx_anim import LengthExtrapolation
+    return LengthExtrapolation()
+
+
+register("length-extrapolation", _length_extrapolation,
+         "Train short, test long: six tiny transformers, identical but for how they see "
+         "position, trained on 32-symbol sequences of a Markov language and tested on "
+         "128: the loss at every position against the best possible.")

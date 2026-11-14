@@ -56,7 +56,10 @@ NO_DATA = set(CONV_PRESETS) | {"rnn-training-step", "lstm-training-step", "rnn-b
                                "autodiff-graph", "seq2seq-attention", "q-learning",
                                "gp-prior", "gp-posterior", "gp-kernels", "gp-hyperparameters",
                                "gp-bayesian-optimisation", "ssm-recurrence",
-                               "mamba-selective-scan", "context-cost", "mixture-of-experts"}
+                               "mamba-selective-scan", "context-cost", "mixture-of-experts",
+                               "embedding-lookup", "word2vec-training", "sentence-embeddings",
+                               "sinusoidal-positions", "relative-position-bias", "alibi",
+                               "rope-context-extension", "length-extrapolation"}
 
 
 def data_marks(name):
