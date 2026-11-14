@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.5.0
 
 - **Ten animations on embeddings** (`w2v.py`, `patch_embed.py`, `posenc.py`
   and ten animation modules), in a new "Embeddings" section of the site:
