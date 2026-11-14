@@ -124,7 +124,7 @@ class RNNBatchTraining(NetAnimation):
         """Loss-curve point (log-log) as a frame fraction."""
         fx = 0.12 + 0.76 * np.log10(step) / np.log10(self.steps)
         lo, hi = LOSS_RANGE
-        fy = 0.885 - 0.15 * (np.clip(np.log10(loss), lo, hi) - lo) / (hi - lo)
+        fy = 0.885 - 0.15 * (np.float64(min(max(np.log10(loss), lo), hi)) - lo) / (hi - lo)
         return fx, fy
 
     def which(self, t):

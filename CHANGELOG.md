@@ -1,5 +1,67 @@
 # Changelog
 
+## Unreleased
+
+- **Acceleration** (`accel.py`, `deepnet_torch.py`, `raster_torch.py`):
+  optional PyTorch on Metal or CUDA, chosen by `VOXANIM_DEVICE`
+  (`auto`, `mps`, `cuda`, `cpu`, `numpy`). `auto` takes the fastest measured
+  path: the convolutional autoencoders train 9× faster on an M5 Max's GPU
+  and large-batch `deepnet` runs 2×; small-batch training stays numpy, bit
+  for bit.
+  Every port is checked against the numpy model in float64. Cached weights are
+  keyed by settings, not device, so earlier artefacts stay valid.
+- **A Metal kernel composites each frame** (`raster_metal.py`): primitives
+  are recorded, binned into tiles and composited by one thread per pixel in
+  the order the CPU would draw them. Voxels and lines are bit-identical to
+  the numpy renderer; 349 of 354 sampled frames are identical in 8 bits (the
+  rest: 6 pixels, one level). 8K frames are 1.8–9.8× faster (a `conv2d`
+  frame: 3.2 s instead of 31.8 s); a 960×540 animation renders 1.1–2× faster. `auto` uses it on Apple
+  GPUs at every size.
+- **Faster still, exactly:** camera matrices cached (a line-heavy frame
+  624 → 71 ms), every line of a frame rasterised in one vectorised pass, lit
+  voxels and the floor's reflection drawn by the Metal kernel, and encoding
+  overlapped with rendering (the MP4 and GIF side by side, in the background
+  while the next animation renders). Six animations rendered and encoded:
+  223 s → 95 s.
+- **Four x264 threads for the MP4** (`render.X264_THREADS`, recorded in each
+  manifest): an encode 2.5× faster (14 s → 5 s for 1,950 frames), still
+  repeatable run to run. MP4 bytes now differ from 1.4.0's single-thread
+  encodes; GIFs and WebMs are unchanged.
+- **Leaner drawing code, exactly:** motion blur's sub-frames and travel
+  probes are built without text (`layout.textless`: their text is never
+  drawn); subtitles wrap by binary search, not by measuring every split
+  (live numbers make new strings every frame); `Diagram.P` remembers its
+  points; chart helpers clip scalars without numpy; GPT-2 panels cull and
+  bound in plain floats. Scene building 1.1–1.7× faster in the costliest
+  animations (`activation-smoothness` 16 → 9 ms a frame, `gpt2-attention`
+  1.46×); twelve animations rendered and encoded in 74–81 s (582 s with the
+  original code). All exact: every checked frame of all 118 animations is
+  unchanged.
+- **Asynchronous uploads** (no GPU stall per motion-blur sub-frame:
+  1.25–1.4× on such frames), unprojected points remembered per camera
+  (`rnn-batch-training` 224 → 106 ms a frame), and six encodes in flight
+  (the encoding tail after the last frame 21 s → 9 s). All exact.
+- **Diagram quads cached on the GPU** (keyed shaders: discs, rectangles,
+  images, GPT-2 panels), every voxel lit by the kernel (no CPU tints), one
+  upload of each kind per frame. All exact. `gpt2-attention`, the costliest
+  animation, 2–4× faster; twelve animations 582 s → 98–134 s.
+- **Probe-only scene builds** for motion blur's travel measurement (the same
+  probes, checked at 4,720 instants), and the dither made once per size.
+- **Voxels as arrays, end to end:** `Scene.voxel_batch` and a whole-block
+  `Block.emit`; the renderer, shadows, reflection and layout read arrays; the
+  Metal path takes voxels in blocks. Lines cached on the GPU between frames,
+  and the resolve is a Metal kernel. All exact. Twelve animations rendered
+  and encoded: 582 s with the original code, 147 s now (4.0×).
+- **One worker pool per `render` run** (`render.render_many`): no start-up
+  or idle tail per animation; lines rasterised only in the tiles they reach;
+  sprite-pool lookups by identity. All exact.
+- **`voxanim gpucheck`**: renders every animation both ways and reports
+  identical frames, the largest differences and the speed-up.
+- **Faster rendering, exactly:** text measurement and rasterisation are
+  cached, and fully visible sprites skip their depth mask (a diagram frame
+  0.21 → 0.13 s); every frame of all 118 animations is bit-identical.
+- `pip install voxanim[gpu]`; a render manifest records its framebuffer.
+
 ## 1.4.0
 
 Five new animations on regularisation, every one a real model trained in

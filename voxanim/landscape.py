@@ -478,7 +478,7 @@ class LossChart:
         (x0, x1), (y0, y1) = self.xs, self.ys
         v = np.log10(max(loss, 1e-12)) if self.log else loss
         lo, hi = (np.log10(self.lo), np.log10(self.hi)) if self.log else (self.lo, self.hi)
-        fy = y1 - (y1 - y0) * np.clip((v - lo) / (hi - lo), 0.0, 1.0)
+        fy = y1 - (y1 - y0) * min(max((v - lo) / (hi - lo), 0.0), 1.0)
         return self.anim.cam.frac(x0 + (x1 - x0) * min(1.0, step / self.steps), fy)
 
     def frame(self, sc, op, xlabel="step", ylabel="loss"):

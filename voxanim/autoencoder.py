@@ -21,6 +21,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from . import accel
 from .cache import DEFAULT_CACHE, cached_npz
 from .minibatch import batched, chunk_mean, minibatches
 from .mnist import load
@@ -215,6 +216,57 @@ def backward(kind, P, f, x):
     return g
 
 
+# ------------------------------------------------------------------ the same model in PyTorch
+#
+# For training on a GPU (voxanim.accel).  The tensors are channels-first, as
+# torch's convolutions want; the weights keep their numpy shapes and are
+# permuted on the way in, and flattened activations are reordered to the
+# numpy (height, width, channel) layout, so the trained weights come back as
+# exactly the arrays the numpy model reads.
+
+
+def torch_forward(kind, Pt, x):
+    """``(z, recon)`` of :func:`forward`, for tensor parameters ``Pt`` and a
+    ``(N, 784)`` tensor ``x``."""
+    from .accel import torch
+    t = torch()
+    F = t.nn.functional
+    n = x.shape[0]
+    if kind == "dense":
+        a = x
+        for k in range(N_DENSE):
+            zk = a @ Pt["W%d" % k] + Pt["b%d" % k]
+            if k == N_DENSE - 1:
+                a = t.sigmoid(zk)
+            elif k == LATENT_LAYER:
+                a = zk
+                z = zk
+            else:
+                a = t.relu(zk)
+        return z, a
+
+    def conv_t(h, name, stride):
+        W = Pt["W" + name].permute(3, 2, 0, 1)          # (k, k, c, f) -> (f, c, k, k)
+        return F.conv2d(h, W, Pt["b" + name], stride=stride, padding=1)
+
+    def up(h):
+        return h.repeat_interleave(2, dim=2).repeat_interleave(2, dim=3)
+
+    a1 = t.relu(conv_t(x.reshape(n, 1, 28, 28), "e0", 2))
+    a2 = t.relu(conv_t(a1, "e1", 2))
+    lat = a2.permute(0, 2, 3, 1).reshape(n, -1) @ Pt["Wz"] + Pt["bz"]
+    a3 = t.relu(lat @ Pt["Wd"] + Pt["bd"]).reshape(n, 7, 7, 16).permute(0, 3, 1, 2)
+    a4 = t.relu(conv_t(up(a3), "d0", 1))
+    out = t.sigmoid(conv_t(up(a4), "d1", 1))
+    return lat, out.reshape(n, -1)
+
+
+def torch_loss(kind, Pt, x):
+    """:func:`loss` of the torch forward pass (mean squared error)."""
+    _z, r = torch_forward(kind, Pt, x)
+    return ((r - x) ** 2).mean()
+
+
 def loss(f, x):
     """Mean squared reconstruction error of the forward pass ``f`` of ``x``."""
     return float(np.mean((f["recon"] - x.reshape(len(x), -1)) ** 2))
@@ -239,10 +291,16 @@ def train(kind="dense", latent=3, epochs=None, batch=128, lr=1e-3, seed=0,
         xtr, _ytr, xte, _yte = load(cache_dir)
         rng = np.random.default_rng(seed)
         P = init(kind, latent, rng)
-        opt = Adam(P, lr)
-        for idx in minibatches(rng, len(xtr), settings["epochs"], batch):
-            x = xtr[idx]
-            opt.step(P, backward(kind, P, forward(kind, P, x), x))
+        batches = minibatches(rng, len(xtr), settings["epochs"], batch)
+        dev = accel.device(prefer=(kind == "conv"))      # measured: conv 9x, dense ~1x
+        if dev is not None:
+            accel.fit(P, lambda Pt, xb, _i: torch_loss(kind, Pt, xb), batches, lr, data=xtr,
+                      dev=dev)
+        else:
+            opt = Adam(P, lr)
+            for idx in batches:
+                x = xtr[idx]
+                opt.step(P, backward(kind, P, forward(kind, P, x), x))
         test = chunk_mean(lambda s: loss(forward(kind, P, xte[s]), xte[s]), len(xte))
         return dict(P, loss=np.array(test))
 
@@ -349,11 +407,21 @@ def training_run(kind="dense", latent=2, digits=(3, 2, 1), cloud=600,
 
         snapshot()
         want = set(marks.tolist())
-        for step, idx in enumerate(minibatches(rng, len(xtr), epochs, batch), 1):
-            x = xtr[idx]
-            opt.step(P, backward(kind, P, forward(kind, P, x), x))
-            if step in want:
-                snapshot()
+        batches = minibatches(rng, len(xtr), epochs, batch)
+        dev = accel.device(prefer=(kind == "conv"))
+        if dev is not None:
+            def after(step, Pt):
+                if step in want:
+                    P.update(accel.to_numpy(Pt))
+                    snapshot()
+            accel.fit(P, lambda Pt, xb, _i: torch_loss(kind, Pt, xb), batches, lr, after, xtr,
+                      dev=dev)
+        else:
+            for step, idx in enumerate(batches, 1):
+                x = xtr[idx]
+                opt.step(P, backward(kind, P, forward(kind, P, x), x))
+                if step in want:
+                    snapshot()
         out = dict(P, steps=marks, steps_per_epoch=np.array(per_epoch),
                    losses=np.array(rec["losses"]), cloud=np.array(rec["cloud"]))
         for j in range(len(rec["acts"][0])):

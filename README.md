@@ -40,6 +40,8 @@ Other commands:
 - `info <name>`: the timeline of one animation.
 - `sheet <name>`: a contact sheet in `build/sheets/`.
 - `qa [names]`: layout checks without rendering.
+- `gpucheck [names]`: the accelerated renderer against numpy, frame by
+  frame (see [Acceleration](#acceleration)).
 - `encode <name>`: re-encode frames a previous `render` left behind.
 - `master <name>`: 4K/8K HDR broadcast masters.
 - `compare <name>`: ours next to the original GIF, when the
@@ -949,9 +951,12 @@ inputs below. Each of them is pinned:
   so a changed hyperparameter can never load stale weights.
   `models/mnist_dnn_100x3.npz` (the default model for `dnn-eval`) is rebuilt
   byte for byte by `python3 -m voxanim.model_io --make-default`.
-- **Encoding:** ffmpeg runs with bit-exact flags, no metadata and one
-  encoder thread, so the encoded bytes depend only on the frames and the
-  encoder version.
+- **Encoding:** ffmpeg runs with bit-exact flags, no metadata and a fixed
+  number of encoder threads (one for GIF and WebM; four for the MP4, as
+  `render.X264_THREADS` and every manifest record: x264 is repeatable for a
+  fixed thread count but gives other bytes for another one), so the encoded
+  bytes depend only on the frames, the encoder version and that count. The
+  MP4s of releases up to 1.4.0 were encoded with one thread.
 - **Manifests:** each `render` writes `build/out/<name>.json` next to its
   outputs. It records the options, the render style, every tool version, the
   git commit and the SHA-256 of each file.
@@ -960,8 +965,189 @@ Floating-point training can differ in the last bits on another CPU or BLAS
 library, and Adam can amplify that. A retrained model may then differ
 slightly from the cached one the release used. To reproduce a release
 exactly, use the reference environment, or unpack the release's trained
-weights (`voxanim-weights.tar.gz`, about 38 MB) into `build/.cache/` first.
+weights (`voxanim-weights.tar.gz`, about 450 MB) into `build/.cache/` first.
 The renders use exactly those weights.
+
+## Acceleration
+
+`pip install -e .[gpu]` adds PyTorch, and with it a second way to run the
+expensive work: on an Apple GPU (Metal) or an NVIDIA one (CUDA). It is
+chosen by `VOXANIM_DEVICE`:
+
+| `VOXANIM_DEVICE` | what runs where |
+| --- | --- |
+| `auto` (default) | the fastest measured path (below) |
+| `mps`, `cuda`, `cpu` | PyTorch on that device for everything that has a port |
+| `numpy` | the original code, bit for bit (as without PyTorch installed) |
+
+### Rendering: one Metal kernel per frame
+
+On an Apple GPU the voxels, lines and quads of a frame are composited by one
+Metal kernel (`raster_metal.py`). The `Framebuffer` the renderer draws into
+only records each primitive; a voxel is a reference to its sprite images,
+which are uploaded to the GPU once and reused frame after frame. At resolve
+time every primitive is listed under the 16 × 16 tiles it touches, in the
+order it was drawn, and one thread per pixel walks its tile's list doing
+exactly what the numpy `Framebuffer` does: the depth test, "over" on
+colour, coverage and HDR emission, the z-write. The order of the primitives
+at a pixel is the order the CPU would have drawn them in, so it is the same
+image, and with fused multiply-adds and fast math switched off it is the same
+arithmetic:
+
+- **Voxels and lines** come out **bit-identical** to the numpy renderer's.
+  A voxel's depth is its sprite's float32 depth plus a float64 offset; Metal
+  has no float64, so the kernel carries the offset as two float32s and adds
+  it exactly (`tests/test_accel.py` has a sprite that float32 alone would
+  wrongly show).
+- **Quads** compute their coverage in float64 on the CPU and numpy blends
+  them in float64 too; the kernel blends in float32, so pixels under a quad
+  can differ by a float32 rounding step (at most 1.8×10⁻⁷).
+- **Lit voxels** (a glow, a white flash, a reflection's fade) are lit in the
+  kernel from the pooled atlas channels, with the float32 constants numpy
+  would use, so they stay exact too; the floor's reflection pass is drawn by
+  the kernel as well (its blur stays numpy).
+- **Lines** below 4K are rasterised by numpy's float64 formula, but all of a
+  frame's lines at once in one vectorised pass (bit for bit the same pixels),
+  and only in the 16 px tiles a line can reach: a tile further from the
+  segment than the line's half-width plus half its diagonal has coverage
+  exactly 0 throughout, and a pixel of coverage 0 changes nothing.
+- **Lines are cached**: 76–100% of a frame's lines are the same as the
+  frame before (cages, axes), and a line is a pure function of its projected
+  endpoints, depths, width, colour, opacity and bias, so its rasterised
+  pieces stay in the GPU pool, keyed on exactly those values, and are reused
+  (1.1–1.2× on a frame).
+- **Diagram quads are cached** the same way: the diagram shaders (discs,
+  rounded rectangles, images, GPT-2's panels) carry a key of everything
+  their pixels depend on (centre, size, colours, opacity, a hash of any
+  texture), so a quad that has not changed is drawn from the GPU pool
+  instead of being shaded again on the CPU (1.8–4.0× on a diagram frame).
+- **Every voxel is lit by the kernel**: a plain voxel's tint,
+  min(D·colour + W, A), is the lit-sprite formula with no fade, flash or glow
+  (W × 1.0 is exact), so no tint is made on the CPU or uploaded.
+- **One upload of each kind per frame**, and asynchronous: the primitive
+  table, the tile lists and the per-frame images travel in one integer and
+  one float buffer, copied without waiting for the GPU to finish what came
+  before (the host arrays are held until the frame is read back) -- a
+  motion-blurred frame's sub-frames no longer each stop the CPU
+  (1.25–1.4× on such frames).
+- **Voxels go to the GPU in blocks**: a scene keeps its voxels as arrays
+  (`Scene.voxel_batch`; `Block.emit` adds a whole block at once), and the
+  renderer sorts them with one stable `argsort` and turns each run into rows
+  of the kernel's table with array arithmetic -- the same phase, tint and
+  float32 constants as one at a time (1.2–1.5× on a voxel-heavy frame).
+- **The resolve** (the supersampled frame box-filtered down) is a Metal
+  kernel too, adding the samples in numpy's order, so the same bits.
+- **From 4K up** lines are rasterised in the kernel instead, in float32 (an 8K
+  frame's lines cost seconds on the CPU), so 8K frames differ from numpy's
+  by at most one 8-bit level on some line pixels (568 pixels over four 8K
+  frames); below that the numpy code rasterises them, so 960×540 stays exact.
+- Motion blur's sub-frames are composited over the floor and summed on the
+  GPU, and come back once per frame.
+
+Checked over every animation (`python3 -m voxanim gpucheck`, three frames
+each): **349 of 354 frames identical in the 8-bit output that is encoded**,
+the other five differing in 6 pixels by one level; 247 identical even in
+float32. Measured on an M5 Max:
+
+| | numpy | Metal kernel |
+| --- | --- | --- |
+| an 8K frame of `conv2d` (one with heavy motion blur) | 31.8 s | **3.2 s (9.8×)** |
+| 8K frames of `conv2d` and `gpt2-transformer-block` (`gpucheck --scale 8`) | | **3.3× and 1.8×** |
+| a 4K frame of `conv2d` | 10.1 s | **1.9 s (5.3×)** |
+| a 960×540 frame, warm (`conv2d`, `mlp-9-training-step`) | 162, 168 ms | **69, 70 ms** |
+| a 960×540 frame of a line-heavy diagram (`activation-smoothness`) | 624 ms | **71 ms** |
+| `conv2d`, every frame at 960×540 (17 workers) | 62.8 s | **20.9 s (3.0×)** |
+| six animations rendered and encoded (`render`, old code → new) | 223 s | **95 s (2.3×)** |
+| twelve animations rendered and encoded (original code → now) | 582 s | **98–134 s (4.3–5.9×)**; 106–110 s with the machine at a load of 60–77 |
+
+(The "numpy" column of the first rows is the renderer before this work; the
+same machine was heavily loaded by other jobs throughout, so treat absolute
+times as rough.) `gpucheck` measures a machine and exits 1 if any pixel is off by more
+than one 8-bit level (`--tolerance`). On CUDA, or with `VOXANIM_DEVICE=cpu`,
+the generic PyTorch framebuffer (`raster_torch.py`) is used, from 8K under
+`auto` (it draws each sprite with its own handful of GPU commands, which only
+pays for big frames); the Metal kernel has no CUDA twin yet.
+
+### Training
+
+A GPU only pays when each operation is big. Measured on an M5 Max:
+
+| work | numpy | on the GPU (Metal) |
+| --- | --- | --- |
+| convolutional autoencoder, a training step | 47.7 ms | **5.2 ms (9.2×)** |
+| MLP 784-1024-10, batch 1,024, 300 steps | 6.1 s | **2.8 s (2.2×)** |
+| MLP 784-256-256-10, batch 64, 1,000 steps | **2.6 s** | 3.8 s |
+| MLP 784-64-10, batch 64, 2,000 steps | **0.5 s** | 2.8 s |
+
+So under `auto` the convolutional autoencoders train on the GPU and
+`deepnet` runs do above 2×10⁸ multiply-adds per step (`accel.TRAIN_WORK`);
+the batch-64 MLPs most animations train stay numpy, bit for bit. The dense
+autoencoders and the recurrent models gain nothing (their operations are too
+small or sequential).
+
+What changes on a GPU is the rounding, not the experiment. Apple GPUs have no
+float64, so training runs in float32, but the initial weights, the minibatch
+order, the dropout masks and the augmentation are still drawn by the same
+seeded numpy generators in the same order, and everything a run records is
+measured by the numpy code from the weights at that step. Each port is
+checked against the numpy model in float64 on the CPU
+(`VOXANIM_FLOAT=64`, `tests/test_accel.py`): the gradients agree to 1e-15
+and whole recorded training runs to 1e-10. In float32 a run lands on a
+solution of the same quality but not the same weights: the convolutional
+autoencoder's test error is 0.04436 against 0.04438.
+
+### Earlier artefacts
+
+Trained weights are cached by their settings, not by the device, so a cached
+model (or one unpacked from a release's `voxanim-weights.tar.gz`) is used as
+it is and only a missing one is trained on the GPU. A render's manifest
+records what composited it (`"framebuffer"`: `numpy`, `metal-kernel/…` or
+`torch-…/<device>`), and `VOXANIM_DEVICE=numpy` renders any release bit for
+bit: re-rendering `regularised-autoencoder` with it gave the v1.4.0 MP4 byte
+for byte.
+
+Rendering is faster with or without a GPU, exactly (every frame of every
+animation is bit-identical to the previous renderer's, and re-encoded media
+are byte-identical):
+
+- a scene's voxels are arrays, and everything that reads them (the
+  renderer, the shadows, the reflection, the layout's text placement) reads
+  the arrays instead of a Python object per voxel;
+- the contact shadows' polygons go to Pillow as flat lists, and a block's
+  per-cell geometry (`Block.chan_y` and friends) takes a fast path for one
+  index (the same integer arithmetic, the same double multiply);
+- motion blur measures how far things move from probe-only scene builds
+  (the animation's drawing, which registers the probes, without turning
+  sheets into voxels or laying out text): the same probes at every instant
+  of every animation, so the same sub-frames;
+- the 8-bit conversion's dither (the same seeded pattern every frame) is
+  made once per frame size;
+- the camera computes its projection matrices once instead of on every use
+  (up to 40% of a frame went to rebuilding them; `conv2d`'s 17-worker render
+  in numpy fell from 62.8 s to 31.3 s);
+- text is measured and rasterised once per distinct caption (55% of a
+  diagram frame before), and fully visible sprites skip their depth mask;
+- `render` runs every animation's frames through one pool of workers: each
+  imports PyTorch and compiles the Metal kernel once (2–3 s per animation
+  before), and the workers flow from one animation into the next instead of
+  idling at each one's end (about 15% on a dozen short animations);
+- the camera remembers the points it has unprojected (a linear solve each;
+  charts ask for the same ones every frame);
+- up to six animations encode at once in the background, so the encoding
+  backlog no longer trails the last frame on two threads;
+- `render` encodes the MP4 and the GIF side by side (each ffmpeg is its own
+  single-threaded process, so the bytes are unchanged), in the background
+  while the next animation renders: encoding (13 s + 4 s per animation)
+  used to run after the frames with every render worker idle.
+
+The MP4s of the 88 animations inherited from v1.2.0 were encoded on an Intel
+Mac; x264 there gives different bytes from x264 on Apple silicon, even at the
+same ffmpeg version and flags (old and new code agree with each other here).
+Their GIFs, and every frame, match.
+
+CUDA uses the same PyTorch code as Metal for training and the generic
+framebuffer, but has not been run: there is no NVIDIA GPU on the machine
+this was built on or on GitHub's runners.
 
 ## Development
 
@@ -1060,6 +1246,12 @@ voxanim/
     color.py easing.py text.py   palettes; easing curves; number/symbol typography
     render.py      multi-process rendering, ffmpeg encoding, manifests, broadcast masters
     qa.py          layout QA over every animation
+  acceleration (optional: PyTorch)
+    accel.py       the device choice (VOXANIM_DEVICE), float32 Adam, the training loop on a GPU
+    raster_metal.py   a frame composited by one Metal kernel (Apple GPUs)
+    raster_torch.py   the framebuffer as PyTorch tensors (CUDA, or forced)
+    deepnet_torch.py  deepnet's network and training loop on a GPU
+    gpucheck.py    accelerated frames against numpy, frame by frame
   animation frameworks
     tensor.py      Block: an HWC tensor as voxels; group gaps, pitch, scale, culling
     conv.py        ConvSpec / ConvStage / ConvAnimation / CombineSpec: the conv choreography

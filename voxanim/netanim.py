@@ -290,8 +290,11 @@ class NetAnimation:
         scene.text((x0 - 10) / self.cam.width, (y0 + y1) / 2 / self.cam.height, text, size,
                    "regular", layout.CAPTION_INK, opacity, "rm")
 
-    def scene(self, t):
-        """The :class:`~voxanim.scene.Scene` at time ``t`` (seconds): a pure function of ``t``."""
+    def scene(self, t, probes_only=False):
+        """The :class:`~voxanim.scene.Scene` at time ``t`` (seconds): a pure function of ``t``.
+        ``probes_only`` builds just what motion blur reads -- the probes, which
+        ``draw`` registers -- and skips turning the sheets into voxels and
+        laying out the text."""
         t = float(np.clip(t, 0.0, self.duration))
         r = remap(t, self.t_done + self.hold, self.duration)
         sc = Scene(floor_z=self.floor_z)
@@ -304,6 +307,8 @@ class NetAnimation:
         self._cap = smoothstep(0.0, 0.5, t) * (1.0 - smoothstep(0.0, 0.5, r))
         self._indicator_left = None
         self.draw(sc, t, r)
+        if probes_only:
+            return sc
         view, mview = self.cam.view, self.cam.mirrored().view
         for s in self.sheets:
             s.emit(sc, view, mview)

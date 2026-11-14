@@ -67,6 +67,7 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 
+from . import accel
 from .autoencoder import snapshot_steps
 from .cache import DEFAULT_CACHE, cached_npz
 from .minibatch import minibatches
@@ -635,21 +636,27 @@ def train(spec, data, steps, batch, lr, opt="sgd", seed=0, every=None, probe_lay
             for k in weights:
                 rec.setdefault("weights_" + k, []).append(P[k].astype(np.float32))
 
-        per_epoch = -(-n // batch)
-        epochs = -(-(steps + 1) // per_epoch)
-        for step, idx in enumerate(minibatches(rng, n, epochs, batch)):
-            x, y = data.x_train[idx], eye(data.y_train[idx])
-            if augment is not None:
-                x = augment(arng, x)
-            f = forward(spec, P, x, train=True, rng=rng, stats=stats)
-            G, D = backward(spec, P, f, y)
-            if step in want:
-                record(f, D)
-            if step == steps:
-                break
-            batch_loss.append(cross_entropy(f["p"], y))
-            optim.step(P, G)
-            constrain(spec, P, lr)
+        dev = accel.device(prefer=accel.mlp_work(spec.sizes, batch) >= accel.TRAIN_WORK)
+        if dev is not None:
+            from .deepnet_torch import train_loop
+            batch_loss = train_loop(spec, data, P, stats, steps, batch, lr, opt, rng, arng,
+                                    augment, want, record, dev=dev)
+        else:
+            per_epoch = -(-n // batch)
+            epochs = -(-(steps + 1) // per_epoch)
+            for step, idx in enumerate(minibatches(rng, n, epochs, batch)):
+                x, y = data.x_train[idx], eye(data.y_train[idx])
+                if augment is not None:
+                    x = augment(arng, x)
+                f = forward(spec, P, x, train=True, rng=rng, stats=stats)
+                G, D = backward(spec, P, f, y)
+                if step in want:
+                    record(f, D)
+                if step == steps:
+                    break
+                batch_loss.append(cross_entropy(f["p"], y))
+                optim.step(P, G)
+                constrain(spec, P, lr)
         out = dict(P, steps=marks, batch_loss=np.array(batch_loss))
         out.update({"P0_" + k: v for k, v in P0.items()})
         out.update({"stats_" + k: v for k, v in stats.items()})

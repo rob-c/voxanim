@@ -64,14 +64,14 @@ class LossChart:
         a, b = self.x_range
         if self.xlog:
             a, b, x = np.log10(a), np.log10(b), np.log10(max(x, 1e-300))
-        return self.x0 + (self.x1 - self.x0) * float(np.clip((x - a) / (b - a), 0, 1))
+        return self.x0 + (self.x1 - self.x0) * float(min(max((x - a) / (b - a), 0.0), 1.0))
 
     def fy(self, y):
         """Layout y of a loss."""
         a, b = self.y_range
         if self.ylog:
             a, b, y = np.log10(a), np.log10(b), np.log10(max(y, 1e-300))
-        return self.y1 - (self.y1 - self.y0) * float(np.clip((y - a) / (b - a), 0, 1))
+        return self.y1 - (self.y1 - self.y0) * float(min(max((y - a) / (b - a), 0.0), 1.0))
 
     def axes(self, sc, cam, place, op, xlabel="", ylabel="", xticks=(), yticks=(),
              size=layout.MIN_TEXT):

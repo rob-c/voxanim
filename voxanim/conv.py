@@ -1254,8 +1254,10 @@ class ConvAnimation:
                                          text, st, kind))
         return self._labels
 
-    def scene(self, t):
-        """The :class:`~voxanim.scene.Scene` at time ``t`` (seconds)."""
+    def scene(self, t, probes_only=False):
+        """The :class:`~voxanim.scene.Scene` at time ``t`` (seconds); with
+        ``probes_only``, just the probes motion blur reads (registered while
+        the stages are applied), without emitting voxels or text."""
         t = float(np.clip(t, 0.0, self.duration))
         r = remap(t, self.t_done + self.hold, self.duration) if self.reset > 0 else 0.0
         sc = Scene(floor_z=self.floor_z)
@@ -1263,6 +1265,8 @@ class ConvAnimation:
             st.reset_blocks()
         for st in self.stages:
             st.apply(t, sc, reset=r)
+        if probes_only:
+            return sc
         view = self.cam.view
         mview = self.cam.mirrored().view
         for st in self.stages:

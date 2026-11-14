@@ -10,6 +10,7 @@
     encode   NAME [NAME ...] | all        re-encode existing frames
     master   NAME [NAME ...] | all        broadcast master, streamed (8K HDR by default)
     qa       [NAME ...]                   layout checks: clipped / colliding text, safe areas
+    gpucheck [NAME ...]                   accelerated frames against numpy (voxanim.gpucheck)
 
 Common options: --quality draft|preview|final|max, --scale 2 or --res 4k|8k,
 --fps, --jobs.  ``render --install`` writes the encoded files into ../media
@@ -42,6 +43,7 @@ from .render import (
     encode,
     master,
     render_frames,
+    render_many,
     run_ffmpeg,
     write_manifest,
 )
@@ -234,15 +236,42 @@ def _encode(name, args, style):
                    gif_fps=args.gif_fps, gif_width=gif_width)
 
 
+ENCODE_AHEAD = 6      # animations whose encoding may still run while the next one renders
+
+
 def cmd_render(args):
-    """Render frames to ``build/<name>/`` and encode them for the web."""
+    """Render frames to ``build/<name>/`` and encode them for the web.
+
+    All the animations' frames go through one pool of workers
+    (:func:`voxanim.render.render_many`): no start-up per animation and no
+    idle tail.  Encoding is single-threaded ffmpeg (for reproducible bytes),
+    so each animation is encoded in the background (:data:`ENCODE_AHEAD` at a
+    time) as soon as its last frame is written, while the others render; an
+    encoding error is raised at the end."""
+    from concurrent.futures import ThreadPoolExecutor
     style = make_style(args)
-    for name in _targets(args.names):
-        frames = os.path.join(BUILD, name) + presets.options_suffix(name, **opts(args))
-        render_frames(name, style, args.fps, args.jobs, frames, opts=opts(args))
+
+    def finish(name, frames):
         _encode(name, args, style)
         if args.clean_frames:
             shutil.rmtree(frames)
+
+    def frames_dir(name):
+        return os.path.join(BUILD, name) + presets.options_suffix(name, **opts(args))
+
+    names = _targets(args.names)
+    if args.jobs <= 1:
+        for name in names:
+            render_frames(name, style, args.fps, args.jobs, frames_dir(name), opts=opts(args))
+            finish(name, frames_dir(name))
+        return
+    pending = []
+    with ThreadPoolExecutor(ENCODE_AHEAD) as ex:
+        render_many(names, style, args.fps, args.jobs, frames_dir,
+                    lambda name: pending.append(ex.submit(finish, name, frames_dir(name))),
+                    opts=opts(args))
+        for f in pending:
+            f.result()
 
 
 def cmd_encode(args):
@@ -267,6 +296,13 @@ def cmd_qa(args):
     for name in names:
         bad += check(name, args.samples)
     raise SystemExit(1 if bad else 0)
+
+
+def cmd_gpucheck(args):
+    """The accelerated renderer against numpy; exits 1 beyond ``--tolerance``."""
+    from .gpucheck import main as gpucheck
+    gpucheck(_targets(args.names) if args.names else None, args.frames, args.scale,
+             args.device, args.jobs, args.tolerance)
 
 
 def parser():
@@ -328,6 +364,14 @@ def parser():
     sp.add_argument("names", nargs="*")
     sp.add_argument("--samples", type=int, default=120)
     sp.set_defaults(fn=cmd_qa)
+    sp = sub.add_parser("gpucheck", help="accelerated frames against numpy, frame by frame")
+    sp.add_argument("names", nargs="*")
+    sp.add_argument("--frames", type=int, default=3)
+    sp.add_argument("--scale", type=float, default=1.0)
+    sp.add_argument("--device", default="auto", choices=("auto", "mps", "cuda", "cpu"))
+    sp.add_argument("--jobs", type=int)
+    sp.add_argument("--tolerance", type=int, default=1, help="8-bit levels allowed")
+    sp.set_defaults(fn=cmd_gpucheck)
     sp = sub.add_parser("sheet")
     sp.add_argument("name")
     sp.add_argument("--count", type=int, default=16)

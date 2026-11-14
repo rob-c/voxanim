@@ -18,6 +18,7 @@ Text goes through :meth:`Diagram.label`, at a world point.
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 import math
 
@@ -43,6 +44,10 @@ def _footprint(q):
     return 1.0
 
 
+_SCALARS = (float, int, np.float64)
+POINT_CACHE = 200_000             # Diagram.P points kept before the memo restarts
+
+
 class Diagram(NetAnimation):
     """A :class:`NetAnimation` whose content is a flat diagram."""
 
@@ -63,7 +68,24 @@ class Diagram(NetAnimation):
 
     # ------------------------------------------------------------------ placement
     def P(self, fx, fy, lift=0.0):
-        """World point (in the diagram plane) at layout fraction ``(fx, fy)``."""
+        """World point (in the diagram plane) at layout fraction ``(fx, fy)``.
+
+        Charts ask for the same points every frame, so points of scalar
+        inputs are kept (per camera, by value) and a fresh copy returned."""
+        if type(fx) in _SCALARS and type(fy) in _SCALARS and type(lift) in _SCALARS:
+            memo = self.__dict__.get("_P_memo")
+            if memo is None or memo[0] is not self.cam:
+                memo = self._P_memo = (self.cam, {})
+            key = (fx, fy, lift)
+            hit = memo[1].get(key)
+            if hit is None:
+                if len(memo[1]) > POINT_CACHE:
+                    memo[1].clear()
+                hit = memo[1][key] = self._P_point(fx, fy, lift)
+            return hit.copy()
+        return self._P_point(fx, fy, lift)
+
+    def _P_point(self, fx, fy, lift):
         cam = self.cam
         k = cam.zoom
         s = np.array([(0.5 + (fx - 0.5) * k) * cam.width, (0.5 + (fy - 0.5) * k) * cam.height])
@@ -125,6 +147,10 @@ class Diagram(NetAnimation):
                 col = col * (1 - band[..., None]) + ringc * band[..., None]
                 alpha = np.maximum(alpha, band * opacity)
             return np.clip(col, 0, 1), alpha, glow
+        # everything the shader's pixels depend on (a cache key: see raster_metal)
+        shader.key = ("disk", c.tobytes(), float(r), fill.tobytes(), float(opacity),
+                      None if ringc is None else ringc.tobytes(), float(ring_w), float(ring_op),
+                      float(glow), float(outline), M.tobytes())
         self._billboard(sc, c, R + 1, R + 1, shader)
 
     def rect(self, sc, c, w, h, fill, opacity=1.0, border=None, border_w=1.5, radius=6.0,
@@ -153,6 +179,9 @@ class Diagram(NetAnimation):
                 col = col * (1 - band[..., None]) + bc * band[..., None]
                 alpha = np.maximum(alpha, band)
             return col, alpha * opacity, glow
+        shader.key = ("rect", c.tobytes(), float(w), float(h), fill.tobytes(), float(opacity),
+                      None if bc is None else bc.tobytes(), float(border_w), float(radius),
+                      float(glow), float(fill_op), M.tobytes())
         self._billboard(sc, c, w / 2 + 1, h / 2 + 1, shader)
 
     def dot(self, sc, a, b, u, color, r=3.2, opacity=1.0, key=None, lift=1.6, bend=0.0):
@@ -208,6 +237,9 @@ def image_shader(anim, c, tex, w, h, opacity=1.0, grid=0.0):
                 k = np.clip(1.2 - line, 0, 1)[..., None] * grid
                 col = col * (1 - k) + 0.5 * col * k
         return col, np.full(q.shape[:-1], opacity, np.float32), 0.0
+    shader.key = ("image", np.asarray(c, np.float64).tobytes(), tex.shape,
+                  hashlib.blake2b(np.ascontiguousarray(tex).tobytes(), digest_size=16).digest(),
+                  float(w), float(h), float(opacity), float(grid), M.tobytes())
     return shader
 
 

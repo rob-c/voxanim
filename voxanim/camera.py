@@ -24,10 +24,18 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, replace
+from functools import cached_property
 
 import numpy as np
 
 REF_W, REF_H = 960, 540         # the reference resolution (16:9)
+UNPROJECT_CACHE = 200_000       # unprojected points a camera remembers
+
+
+def _frozen(a):
+    """``a`` made read-only (a cached camera matrix must never change)."""
+    a.setflags(write=False)
+    return a
 
 
 @dataclass(frozen=True)
@@ -50,29 +58,32 @@ class Camera:
     zoom: float = 1.0                 # composition scale about the frame centre
 
     # -- derived -----------------------------------------------------------
-    @property
+    # Computed once per camera (it is frozen, so they never go stale) and
+    # read-only, so nothing can change them under the cache: a line or a quad
+    # projects through them thousands of times a frame.
+    @cached_property
     def M(self):
         """The ``2 x 3`` projection matrix: screen pixels per world unit."""
         a, e = math.radians(self.azimuth), math.radians(self.elevation)
         ex = (math.cos(a), -math.sin(a) * math.sin(e))
         ey = (math.sin(a), math.cos(a) * math.sin(e))
         ez = (0.0, -math.cos(e) * self.vscale * (-1.0 if self.mirror else 1.0))
-        return np.array([ex, ey, ez], np.float64).T * (self.ppu * self.zoom)
+        return _frozen(np.array([ex, ey, ez], np.float64).T * (self.ppu * self.zoom))
 
-    @property
+    @cached_property
     def view(self):
         """Unit vector pointing from the scene towards the viewer."""
         M = self.M
         v = np.cross(M[0], M[1])
         if (v[2] < 0) != self.mirror:
             v = -v
-        return v / np.linalg.norm(v)
+        return _frozen(v / np.linalg.norm(v))
 
-    @property
+    @cached_property
     def offset(self):
         """Screen position (px) of the world origin, so ``target`` lands on ``anchor``."""
         a = np.array([self.anchor[0] * self.width, self.anchor[1] * self.height])
-        return a - self.M @ np.asarray(self.target, np.float64)
+        return _frozen(a - self.M @ np.asarray(self.target, np.float64))
 
     # -- API ---------------------------------------------------------------
     def project(self, p):
@@ -85,12 +96,27 @@ class Camera:
         return np.asarray(p, np.float64) @ self.view
 
     def unproject(self, sx, sy, z=0.0):
-        """The world point at height ``z`` that projects to pixel ``(sx, sy)``."""
-        M = self.M
-        A = M[:, :2]
-        rhs = np.array([sx, sy]) - self.offset - M[:, 2] * z
-        x, y = np.linalg.solve(A, rhs)
-        return np.array([x, y, z])
+        """The world point at height ``z`` that projects to pixel ``(sx, sy)``.
+
+        Results are kept per camera (it is frozen) by their inputs' values:
+        layouts ask for the same points every frame, and each costs a linear
+        solve.  A fresh array is returned every time."""
+        key = (float(sx), float(sy), float(z))
+        hit = self._unprojected.get(key)
+        if hit is None:
+            M = self.M
+            A = M[:, :2]
+            rhs = np.array([sx, sy]) - self.offset - M[:, 2] * z
+            x, y = np.linalg.solve(A, rhs)
+            hit = np.array([x, y, z])
+            if len(self._unprojected) > UNPROJECT_CACHE:
+                self._unprojected.clear()
+            self._unprojected[key] = hit
+        return hit.copy()
+
+    @cached_property
+    def _unprojected(self):
+        return {}
 
     def frac(self, fx, fy, z=0.0):
         """:meth:`unproject` with the pixel given as a fraction of the frame

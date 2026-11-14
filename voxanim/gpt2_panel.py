@@ -8,6 +8,7 @@ a parallelogram in model space.  Its texture is mip-mapped *per axis*, so a
 
 from __future__ import annotations
 
+import hashlib
 import math
 
 import numpy as np
@@ -87,6 +88,20 @@ def mip(tex, lr, lc):
     return t
 
 
+
+def cross3(a, b):
+    """``np.cross`` of two 3-vectors in plain floats: the same multiplies and
+    subtractions (so the same bits), without numpy's general machinery."""
+    a0, a1, a2 = a.tolist() if isinstance(a, np.ndarray) else map(float, a)
+    b0, b1, b2 = b.tolist() if isinstance(b, np.ndarray) else map(float, b)
+    return np.array([a1 * b2 - a2 * b1, a2 * b0 - a0 * b2, a0 * b1 - a1 * b0])
+
+
+def digest(a):
+    """A content hash of an array (its shape, type and bytes)."""
+    a = np.ascontiguousarray(a)
+    return (a.shape, a.dtype.str, hashlib.blake2b(a.tobytes(), digest_size=16).digest())
+
 class Panel:
     """A matrix drawn as a textured parallelogram.
 
@@ -105,10 +120,21 @@ class Panel:
         self._mips = {}
 
     def box(self):
-        """``(lo, hi)``: the model-space bounding box, each (3,)."""
-        p = np.array([self.origin, self.origin + self.e1, self.origin + self.e2,
-                      self.origin + self.e1 + self.e2])
-        return p.min(0), p.max(0)
+        """``(lo, hi)``: the model-space bounding box, each (3,).
+
+        The corners in plain floats -- the same additions as numpy's, so the
+        same bits -- kept by the corner and edges' values (a frame asks for
+        hundreds; panels rarely move)."""
+        key = (self.origin.tobytes(), self.e1.tobytes(), self.e2.tobytes())
+        if getattr(self, "_box_key", None) != key:
+            o, e1, e2 = self.origin.tolist(), self.e1.tolist(), self.e2.tolist()
+            lo, hi = [], []
+            for k in range(3):
+                c = (o[k], o[k] + e1[k], o[k] + e2[k], (o[k] + e1[k]) + e2[k])
+                lo.append(min(c))
+                hi.append(max(c))
+            self._box_key, self._box = key, (np.array(lo), np.array(hi))
+        return self._box[0].copy(), self._box[1].copy()
 
     def mip(self, lr, lc, tex=None):
         """The texture (or ``tex``) averaged over ``2^lr`` rows and ``2^lc`` columns.
@@ -139,17 +165,20 @@ class Panel:
         p0 = anim.Z(self.origin if origin is None else origin) + cam.view * lift
         a1 = (self.e1 if e1 is None else e1) * anim.s
         a2 = (self.e2 if e2 is None else e2) * anim.s
-        sa, sb = cam.M @ a1, cam.M @ a2
-        if abs(sa[0] * sb[1] - sa[1] * sb[0]) < 0.25:          # edge-on or sub-pixel
+        sa0, sa1 = (cam.M @ a1).tolist()
+        sb0, sb1 = (cam.M @ a2).tolist()
+        if abs(sa0 * sb1 - sa1 * sb0) < 0.25:                  # edge-on or sub-pixel
             return
-        s0 = cam.project(p0)
-        pts = np.array([s0, s0 + sa, s0 + sb, s0 + sa + sb])
-        if pts[:, 0].max() < -4 or pts[:, 0].min() > cam.width + 4 or \
-                pts[:, 1].max() < -4 or pts[:, 1].min() > cam.height + 4:
+        # the four corners on screen, in plain floats (numpy's additions)
+        x, y = cam.project(p0).tolist()
+        xs = (x, x + sa0, x + sb0, (x + sa0) + sb0)
+        ys = (y, y + sa1, y + sb1, (y + sa1) + sb1)
+        if max(xs) < -4 or min(xs) > cam.width + 4 or max(ys) < -4 or min(ys) > cam.height + 4:
             return
-        n = np.cross(a1, a2)
-        d1 = np.cross(a2, n) / np.dot(a1, np.cross(a2, n))
-        d2 = np.cross(n, a1) / np.dot(a2, np.cross(n, a1))
+        n = cross3(a1, a2)
+        c1, c2 = cross3(a2, n), cross3(n, a1)
+        d1 = c1 / np.dot(a1, c1)
+        d2 = c2 / np.dot(a2, c2)
         sc.quad(p0, a1, a2, self._shader(p0, d1, d2, opacity, highlight, tex, alpha, glow))
 
     def _shader(self, p0, d1, d2, opacity, hl, tex, alpha, glow):
@@ -194,4 +223,15 @@ class Panel:
                 return rgb.astype(np.float32), a, np.full(u.shape, glow, np.float32)
             return rgb.astype(np.float32), a
 
+        # everything the pixels depend on (a cache key: see raster_metal)
+        shader.key = ("panel", np.asarray(p0, np.float64).tobytes(), d1.tobytes(), d2.tobytes(),
+                      float(opacity), float(glow), self.digest() if tex is None else digest(tex),
+                      None if hl is None else (digest(hl) if np.ndim(hl) else float(hl)),
+                      None if alpha is None else digest(alpha))
         return shader
+
+    def digest(self):
+        """A hash of the panel's own texture (fixed: computed once)."""
+        if not hasattr(self, "_digest"):
+            self._digest = digest(self.tex)
+        return self._digest

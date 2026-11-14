@@ -74,7 +74,8 @@ def curve(anim, sc, box, values, yr, u, ink, width, op):
     z = zs()
     m = int(np.ceil(len(z) * u))
     if m > 1:
-        pts = [point(anim, box, zi, float(np.clip(v, *yr)), yr) for zi, v in
+        lo, hi = yr
+        pts = [point(anim, box, zi, float(min(max(v, lo), hi)), yr) for zi, v in
                zip(z[:m], values[:m])]
         anim.polyline(sc, pts, width, ink, 0.95 * op, bias=0.2)
 

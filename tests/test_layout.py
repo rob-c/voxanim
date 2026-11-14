@@ -47,3 +47,28 @@ def test_text_is_not_clipped():
             rows = np.nonzero(ink_ref.any(1))[0]
             got = np.nonzero(ink_ours.any(1))[0]
             assert rows.min() == got.min() and rows.max() == got.max(), (size, anchor)
+
+
+def test_wrap_finds_the_scan_split():
+    """layout.wrap's binary search picks the split a scan of every cut picks."""
+    from voxanim import layout
+
+    def scan(s, size, width):
+        s = " ".join(s.split())
+        if layout.text_width(s, size) <= width:
+            return [s]
+        words, best = s.split(" "), None
+        for cut in range(1, len(words)):
+            a, b = " ".join(words[:cut]), " ".join(words[cut:])
+            w = max(layout.text_width(a, size), layout.text_width(b, size))
+            if w <= width and (best is None or w < best[0]):
+                best = (w, [a, b])
+        return best[1] if best else [s]
+
+    rng = np.random.default_rng(0)
+    vocab = ["the", "loss", "falls", "to", "0.0123", "while", "λ", "grows", "x", "networks",
+             "train", "on", "MNIST", "—", "W₀", "within", "one", "level", "(1,000)"]
+    for _ in range(400):
+        s = " ".join(rng.choice(vocab, rng.integers(1, 40)))
+        for width in (0.3, 0.6, 0.9):
+            assert layout.wrap(s, layout.SUB_SIZE, width) == scan(s, layout.SUB_SIZE, width), s

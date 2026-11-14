@@ -63,17 +63,27 @@ class Block:
         """Number of channel groups."""
         return (self.C + self.group - 1) // self.group
 
+    # One index (the common case, thousands of times a frame) is computed in
+    # plain Python -- exact integer arithmetic, then the same double multiply --
+    # and returned as the np.float64 the array path gives; arrays as before.
     def chan_y(self, k):
         """World y (relative to origin) of the back face of channel ``k``."""
+        if isinstance(k, (int, np.integer)):
+            k = int(k)
+            return np.float64((k + (k // self.group) * self.gap) * self.scale)
         k = np.asarray(k)
         return (k + (k // self.group) * self.gap) * self.scale
 
     def col_x(self, j):
         """World x (relative to origin) of the left face of column ``j``."""
+        if isinstance(j, (int, np.integer)):
+            return np.float64(int(j) * self.pitch[1] * self.scale)
         return np.asarray(j) * self.pitch[1] * self.scale
 
     def row_z(self, i):
         """World z (relative to origin) of the bottom face of row ``i``."""
+        if isinstance(i, (int, np.integer)):
+            return np.float64((self.H - 1 - int(i)) * self.pitch[0] * self.scale)
         return (self.H - 1 - np.asarray(i)) * self.pitch[0] * self.scale
 
     @property
@@ -97,7 +107,7 @@ class Block:
         """World centre of cell ``[i, j, k]`` (ignoring ``offset``)."""
         h = 0.5 * self.scale
         return self.origin + np.array([self.col_x(j) + h, self.chan_y(k) + h,
-                                       self.row_z(i) + h])
+                                       self.row_z(i) + h], np.float64)
 
     def box(self, rows, cols, chans):
         """World ``(lo, hi)`` of the half-open index ranges given as (start, stop)."""
@@ -166,10 +176,8 @@ class Block:
             [self.col_x(j) + h, self.chan_y(k) + h, self.row_z(i) + h], -1)
         if self.offset is not None:
             centers = centers + self.offset[i, j, k]
-        for n in range(len(idx)):
-            a, b, c = i[n], j[n], k[n]
-            shown = bool(draw[a, b, c])
-            scene.voxel(centers[n], self.base[a, b, c], float(self.opacity[a, b, c]),
-                        float(self.white[a, b, c]), float(self.glow[a, b, c]),
-                        shadow=self.shadow and shown, reflect=bool(draw_r[a, b, c]),
-                        visible=shown, size=self.scale)
+        # the whole block at once: the values scene.voxel would record, per cell
+        shown = draw[i, j, k]
+        scene.voxel_batch(centers, self.base[i, j, k], self.opacity[i, j, k],
+                          self.white[i, j, k], self.glow[i, j, k],
+                          shown & bool(self.shadow), draw_r[i, j, k], shown, float(self.scale))

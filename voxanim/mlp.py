@@ -251,10 +251,10 @@ class DenseForward(NetAnimation):
             self.panel.captions(sc, remap(t, *self.t_bars), remap(t, *self.t_hot),
                                 remap(t, *self.t_loss))
 
-    def scene(self, t):
+    def scene(self, t, probes_only=False):
         """The scene at ``t``, plus the output panel's bars for the last layer."""
-        sc = super().scene(t)
-        if self.panel is not None:
+        sc = super().scene(t, probes_only)
+        if self.panel is not None and not probes_only:
             self.panel.emit(sc)
         return sc
 

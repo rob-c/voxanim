@@ -17,6 +17,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# GPU acceleration (Metal or CUDA) of the expensive training runs and of 8K
+# masters; see voxanim/accel.py and README "Acceleration".
+gpu = ["torch>=2.6"]
 # Only for loading user models into `dnn-eval` (--model file.pt / file.h5).
 torch = ["torch>=2.4"]
 keras = ["h5py>=3.10"]

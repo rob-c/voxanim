@@ -21,7 +21,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 import numpy as np
 import PIL
@@ -55,6 +55,11 @@ FFMPEG = ["ffmpeg", "-y", "-loglevel", "error"]
 # Output options: no encoder/version tags and no metadata copied from the input.
 BITEXACT = ["-fflags", "+bitexact", "-flags:v", "+bitexact", "-map_metadata", "-1"]
 ONE_THREAD = ["-threads", "1"]          # multi-threaded encoders vary with CPU count
+# x264 is repeatable for a *fixed* thread count (the bytes change with the
+# count, never from run to run or with the CPU count): the web MP4 uses this
+# many, recorded in each manifest -- 2.5x faster than one (measured: 14 s -> 5 s
+# for 1,950 frames).
+X264_THREADS = 4
 
 
 class FFmpegError(RuntimeError):
@@ -175,6 +180,81 @@ def render_frames(name, style, fps, jobs, out_dir, opts=None):
     return len(todo)
 
 
+# ------------------------------------------------------------ many animations, one pool
+#
+# One pool of workers for a whole run: each worker imports PyTorch and compiles
+# the Metal kernel once, keeps the animations it has built, and the frames of
+# every animation go through one queue, so the workers flow from one
+# animation into the next (no pool start-up, no idle tail per animation).
+
+_POOL_KEEP = 2                 # animations a worker keeps built (the queue moves forwards)
+
+
+def _init_pool_worker():
+    """Start-up of a run's worker: warm the accelerated renderer once, if any."""
+    from . import accel
+    dev = accel.device(prefer=True)                      # imports torch, if it is used
+    if dev is not None and dev.type == "mps":
+        from .raster_metal import available, kernel
+        if available():
+            kernel()                                     # compile the Metal kernel once
+    _W["many"] = {}
+
+
+def _render_job(job):
+    """Render one frame ``(name, opts, style, idx, t, dt, path)``; returns ``(name, idx)``."""
+    name, opts, style, idx, t, dt, path = job
+    built = _W.setdefault("many", {})
+    key = (name, tuple(sorted(opts.items())))           # one style per run
+    if key not in built:
+        while len(built) >= _POOL_KEEP:
+            built.pop(next(iter(built)))
+        anim = presets.build(name, **opts)
+        built[key] = (anim, Renderer(anim.cam, style))
+    anim, renderer = built[key]
+    img = renderer.render_at(anim.scene, t, dt)
+    Image.fromarray(to_uint8(img)).save(path, compress_level=1)
+    return name, idx
+
+
+def render_many(names, style, fps, jobs, frames_dir, on_done, opts=None):
+    """Render every frame of every animation in ``names`` with one pool of
+    ``jobs`` workers; ``frames_dir(name)`` is where each one's frames go and
+    ``on_done(name)`` is called as soon as an animation's last frame is
+    written (encode it then).  Each frame is rendered exactly as
+    :func:`render_frames` renders it."""
+    opts = opts or {}
+    todo, count = [], {}
+    for name in names:
+        out_dir = frames_dir(name)
+        os.makedirs(out_dir, exist_ok=True)
+        for f in os.listdir(out_dir):
+            if f.startswith("frame_") and f.endswith(".png"):
+                os.remove(os.path.join(out_dir, f))
+        anim = presets.build(name, **opts)
+        Renderer(anim.cam, style)                       # sprite atlases into the cache once
+        times = frame_times(anim, fps)
+        count[name] = len(times)
+        todo += [(name, opts, style, k, t, 1.0 / fps,
+                  os.path.join(out_dir, "frame_%05d.png" % k)) for k, t in enumerate(times)]
+    print("== %d animation(s): %d frames with %d workers" % (len(names), len(todo), jobs),
+          flush=True)
+    t0 = time.time()
+    left = dict(count)
+    ctx = mp.get_context("spawn")
+    with ProcessPoolExecutor(jobs, mp_context=ctx, initializer=_init_pool_worker) as pool:
+        for n, (name, _idx) in enumerate(pool.map(_render_job, todo, chunksize=4), 1):
+            left[name] -= 1
+            if left[name] == 0:
+                print("   %s: %d frames (%.0fs)" % (name, count[name], time.time() - t0),
+                      flush=True)
+                on_done(name)
+            if n % (10 * PROGRESS_EVERY) == 0:
+                progress(n, len(todo), t0)
+    print("   all frames in %.0fs" % (time.time() - t0), flush=True)
+    return len(todo)
+
+
 # ------------------------------------------------------------ web encoding
 
 X264 = ["-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p"]
@@ -187,14 +267,13 @@ def encode(frames_dir, fps, out_base, formats, gif_fps=15, gif_width=REF_W):
     The GIF is resampled to ``gif_fps`` and ``gif_width`` px wide."""
     os.makedirs(os.path.dirname(out_base), exist_ok=True)
     src = ["-framerate", str(fps), "-i", os.path.join(frames_dir, "frame_%05d.png")]
-    done = []
+    jobs = []                                   # (output, ffmpeg arguments), in format order
     if "mp4" in formats:
-        run_ffmpeg([*src, *X264, *ONE_THREAD, *BITEXACT, "-movflags", "+faststart",
-                    out_base + ".mp4"])
-        done.append(out_base + ".mp4")
+        jobs.append((out_base + ".mp4", [*src, *X264, "-threads", str(X264_THREADS), *BITEXACT,
+                                         "-movflags", "+faststart", out_base + ".mp4"]))
     if "webm" in formats:
-        run_ffmpeg([*src, *VP9, *ONE_THREAD, *BITEXACT, out_base + ".webm"])
-        done.append(out_base + ".webm")
+        jobs.append((out_base + ".webm", [*src, *VP9, *ONE_THREAD, *BITEXACT,
+                                          out_base + ".webm"]))
     if "gif" in formats:
         # One palette weighted towards what moves (stats_mode=diff), and error
         # diffusion only inside the rectangle that changed each frame, so the
@@ -204,8 +283,13 @@ def encode(frames_dir, fps, out_base, formats, gif_fps=15, gif_width=REF_W):
               "[a]palettegen=max_colors=256:stats_mode=diff[p];"
               "[b][p]paletteuse=dither=floyd_steinberg:diff_mode=rectangle"
               % (gif_fps, gif_width))
-        run_ffmpeg([*src, "-vf", vf, "-loop", "0", *BITEXACT, out_base + ".gif"])
-        done.append(out_base + ".gif")
+        jobs.append((out_base + ".gif", [*src, "-vf", vf, "-loop", "0", *BITEXACT,
+                                         out_base + ".gif"]))
+    # The formats encode at once: each ffmpeg is its own single-threaded
+    # process, so running them side by side changes no byte of any of them.
+    with ThreadPoolExecutor(max(1, len(jobs))) as ex:
+        list(ex.map(run_ffmpeg, [a for _, a in jobs]))
+    done = [p for p, _ in jobs]
     for p in done:
         print("   %7.2f MB  %s" % (os.path.getsize(p) / 1e6, os.path.relpath(p)))
     return done
@@ -239,6 +323,21 @@ def sha256(path):
     return h.hexdigest()
 
 
+def framebuffer_kind(width):
+    """What composites frames ``width`` wide here: ``"numpy"`` (bit-exact),
+    ``"metal-kernel/<torch version>"`` or ``"torch-<version>/<device>"`` (equal
+    to numpy within rounding; see :mod:`voxanim.accel`)."""
+    from . import accel
+    from .scene import framebuffer
+    fb = framebuffer(8, 8, width)
+    name = type(fb).__name__
+    if name == "MetalFramebuffer":
+        return "metal-kernel/torch-%s" % accel.torch().__version__
+    if name == "TorchFramebuffer":
+        return "torch-%s/%s" % (accel.torch().__version__, fb.dev.type)
+    return "numpy"
+
+
 def manifest(name, opts, style, fps, outputs, **settings):
     """Everything that determined a render's output, as a JSON-able dict:
     the preset and its options, ``fps`` and other encode ``settings``, the
@@ -247,6 +346,7 @@ def manifest(name, opts, style, fps, outputs, **settings):
     every file in ``outputs``."""
     st = dataclasses.asdict(style)
     st.pop("cache_dir")
+    framebuffer = framebuffer_kind(style.width)
     return {
         "preset": name,
         "options": presets.accepted_options(name, **(opts or {})),
@@ -261,6 +361,10 @@ def manifest(name, opts, style, fps, outputs, **settings):
             "ffmpeg": _command_output(["ffmpeg", "-version"]),
         },
         "platform": platform.platform(),
+        "x264_threads": X264_THREADS,   # the MP4's bytes depend on it
+        # where the frames were composited: "numpy" (bit-exact) or a torch
+        # device (equal to numpy within one 8-bit level); see voxanim.accel
+        "framebuffer": framebuffer,
         "git_commit": _command_output(["git", "rev-parse", "HEAD"]),
         "outputs": {os.path.basename(p): sha256(p) for p in outputs},
     }

@@ -6,10 +6,12 @@ the **action-safe** area.  ``python3 -m voxanim qa`` checks both.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import numpy as np
 
 from .camera import REF_H, REF_W
-from .fonts import font, text_box
+from .fonts import length, text_box
 
 SAFE = 0.05                     # title-safe margin, as a fraction of the frame
 ZOOM = 0.90                     # compositions designed edge to edge -> 0.05 .. 0.95
@@ -30,7 +32,7 @@ MIN_TEXT = 0.029                    # nothing smaller is ever drawn
 def text_width(s, size, kind="regular"):
     """Width of ``s`` (``size`` a fraction of the frame height) as a fraction
     of the frame width, measured at the reference resolution."""
-    return font(kind, size * REF_H).getlength(s) / REF_W
+    return length(kind, size * REF_H, s) / REF_W
 
 
 def wrap(s, size, width):
@@ -39,13 +41,55 @@ def wrap(s, size, width):
     if text_width(s, size) <= width:
         return [s]
     words = s.split(" ")
+    n = len(words)
+    if n < 2:
+        return [s]
+
+    def first(cut):
+        return text_width(" ".join(words[:cut]), size)
+
+    def second(cut):
+        return text_width(" ".join(words[cut:]), size)
+
+    # Each extra word widens the first line and narrows the second, so the
+    # wider of the two is least where they cross: a binary search finds the
+    # first cut whose first line is at least as wide, and the best split is
+    # that cut or the one before (the earlier on a tie) -- the split a scan
+    # of every cut would choose, from a handful of measurements.  Subtitles
+    # with live numbers are new strings every frame, so this is per frame.
+    lo, hi = 1, n
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if first(mid) >= second(mid):
+            hi = mid
+        else:
+            lo = mid + 1
     best = None
-    for cut in range(1, len(words)):
-        a, b = " ".join(words[:cut]), " ".join(words[cut:])
-        w = max(text_width(a, size), text_width(b, size))
-        if w <= width and (best is None or w < best[0]):
-            best = (w, [a, b])
+    for cut in (lo - 1, lo):
+        if 1 <= cut <= n - 1:
+            w = max(first(cut), second(cut))
+            if w <= width and (best is None or w < best[0]):
+                best = (w, [" ".join(words[:cut]), " ".join(words[cut:])])
     return best[1] if best else [s]
+
+
+_textless = [0]                 # > 0 while building scenes whose text is thrown away
+
+
+@contextmanager
+def textless():
+    """Build scenes without text: :meth:`Scene.text <voxanim.scene.Scene.text>`
+    and :func:`title_block` do nothing.  Motion blur's sub-frames and travel
+    probes are built this way -- their text is never drawn (a frame's text
+    comes from the build at its own time), and laying out a subtitle with live
+    numbers costs more than anything else in many builds.  Text only ever
+    changes other text (fading, nudging into frame), never geometry, so the
+    pixels are the same."""
+    _textless[0] += 1
+    try:
+        yield
+    finally:
+        _textless[0] -= 1
 
 
 def title_block(scene, title=None, subtitle=None, opacity=1.0, right=None):
@@ -54,6 +98,8 @@ def title_block(scene, title=None, subtitle=None, opacity=1.0, right=None):
     ``right`` is where something else (the step indicator) starts on the title
     line: the title steps down in size to keep clear of it.  The subtitle
     breaks at explicit newlines first, then wraps to the safe width."""
+    if _textless[0]:
+        return
     if title:
         avail = (right if right is not None else 1 - SAFE) - SAFE - 0.03
         size = TITLE_SIZE
@@ -100,12 +146,12 @@ DISK_RADIUS = 0.42      # footprint radius per voxel edge (times px per world un
 def solid_disks(scene, cam):
     """Screen centres and radii (in ``cam``'s px) of the solid voxels -- not
     the particles, which only cross text for an instant."""
-    vis = [v for v in scene.voxels
-           if v.visible and v.opacity > SOLID_OPACITY and (v.shadow or v.reflect)]
-    if not vis:
+    V = scene.voxel_arrays()
+    sel = V["visible"] & (V["opacity"] > SOLID_OPACITY) & (V["shadow"] | V["reflect"])
+    if not sel.any():
         return np.zeros((0, 2)), np.zeros(0)
-    c = cam.project(np.array([v.center for v in vis]))
-    return c, np.array([v.size for v in vis]) * cam.ppu * cam.zoom * DISK_RADIUS
+    c = cam.project(V["center"][sel])
+    return c, V["size"][sel] * cam.ppu * cam.zoom * DISK_RADIUS
 
 
 def box_distance(box, pts):
@@ -120,6 +166,8 @@ def box_distance(box, pts):
 def yield_to_geometry(scene, cam, texts):
     """Fade captions that something solid is passing under (a kernel flying
     to the 'done' row, say): smooth, and a pure function of the scene."""
+    if not texts:
+        return
     c, r = solid_disks(scene, cam)
     if not len(c):
         return

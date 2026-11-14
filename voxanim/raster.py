@@ -49,11 +49,16 @@ class Framebuffer:
         fy, fx = sl
         if depth is not None:
             visible = depth + bias >= self.z[fy, fx]
-            alpha = alpha * visible
-            premul = premul * visible[..., None]
-            if emit is not None:
-                emit = emit * visible
+            # Multiplying by an all-true mask is exact (x * 1.0 == x), so a
+            # fully visible primitive (the common case) skips the three products.
+            if not visible.all():
+                alpha = alpha * visible
+                premul = premul * visible[..., None]
+                if emit is not None:
+                    emit = emit * visible
         a = alpha[..., None]
+        # One expression, one rounding: alpha may be float64 (quads), and an
+        # in-place product would round to float32 before the sum.
         self.rgb[fy, fx] = premul + self.rgb[fy, fx] * (1.0 - a)
         if self.cov is not None:
             self.cov[fy, fx] = alpha + self.cov[fy, fx] * (1.0 - alpha)
@@ -256,10 +261,14 @@ def polygon_mask(w, h, polys):
     mask; where polygons overlap the largest value wins (drawn in ascending
     order)."""
     im = Image.new("F", (w, h), 0.0)
-    order = sorted(polys, key=lambda pv: pv[1])
     dr = ImageDraw.Draw(im)
-    for pts, val in order:
-        dr.polygon([(float(x), float(y)) for x, y in pts], fill=float(val))
+    if polys:
+        vals = np.array([float(v) for _p, v in polys])
+        # the same polygons, in the same (stable) order, as flat lists of the
+        # same Python floats: Pillow draws exactly what it drew before
+        for i in np.argsort(vals, kind="stable"):
+            dr.polygon(np.asarray(polys[i][0], np.float64).ravel().tolist(),
+                       fill=float(vals[i]))
     return np.asarray(im, np.float32)
 
 
@@ -270,7 +279,23 @@ def to_uint8(rgb, dither=True, seed=0):
     frame, which GIF and H.264 cannot compress (50-200 MB GIFs)."""
     v = np.asarray(rgb, np.float32) * 255.0
     if dither:
-        rng = np.random.default_rng(seed)
-        n = rng.random(v.shape[:2], np.float32) - rng.random(v.shape[:2], np.float32)
-        v = v + n[..., None]
+        v = v + _dither(v.shape[:2], seed)[..., None]
     return np.clip(np.round(v), 0, 255).astype(np.uint8)
+
+
+_DITHER = {}
+
+
+def _dither(shape, seed):
+    """The triangular dither of a frame ``shape``: the same seeded draws every
+    frame, so made once per shape and seed (read-only)."""
+    key = (tuple(shape), seed)
+    n = _DITHER.get(key)
+    if n is None:
+        rng = np.random.default_rng(seed)
+        n = rng.random(shape, np.float32) - rng.random(shape, np.float32)
+        n.setflags(write=False)
+        if len(_DITHER) > 8:
+            _DITHER.clear()
+        _DITHER[key] = n
+    return n
