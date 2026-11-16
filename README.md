@@ -3,7 +3,8 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 128 animations, from a 3×3 convolution to the inside of GPT-2, all from
+numpy. 237 animations, from a 3×3
+convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
 
@@ -25,7 +26,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 128 animations
+python3 -m voxanim list --names                   # the 237 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
@@ -892,6 +893,227 @@ The seed (25) was chosen so the first episode is short enough to watch; the
 outcome does not depend on it (40 seeds of 40 end on a shortest path with
 these settings). `tests/test_gridworld.py` replays every recorded step with
 the rule and checks the convergence and the numbers above.
+
+### The next 109: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
+
+A further 109 animations, in sixteen groups, added in 1.6.0. They are listed in
+`next_catalog.json` and
+registered like every other preset, so `list`, `info`, `still`, `render`, `qa` and `prepare`
+all work on them.
+
+Each has two parts:
+
+- **a study**: the measured experiment. Learning results come from plain-numpy training on
+  MNIST or on Tiny Shakespeare (checksum-pinned, split before sampling), or from the pinned
+  GPT-2 used as it is; counts, masks and schedules are exact arithmetic and say so on screen.
+  Comparisons between models run over three or more seeds. The first experiments are in
+  `next_attention.py`, `next_language.py`, `next_vision.py` and `next_systems.py`; the 56
+  that could not show their concept at their first size were redesigned in `study_*.py`
+  (`next_catalog.redesigned`). Where a fair redesign still came out null, or only partly as
+  the textbook has it, the animation says what was measured. `TODO.md` ends with the outcome
+  of each.
+- **a drawing**: a `Mechanism` (`mech.py`) in four to six named phases, each with its own
+  live subtitle: the things involved, the mechanism moving on a real instance, then the
+  measurement it leads to. The kit is token rows, arcs with values travelling along them,
+  matrices that fill in, digit tiles, charts and bars, in the conv2d colours.
+
+Tests: `tests/test_mech_*.py` hold every number on screen to its study and every study's
+claim to a margin; `tests/test_next_review.py` builds and loops every one.
+
+**Attention: how it is wired.** Who may read whom: masks, heads, caches and the ways attention is made cheaper.
+
+| name | shows |
+| --- | --- |
+| `causal-vs-bidirectional` | **Causal and bidirectional attention.** The causal mask against the full one: who may read whom, drawn as arcs and as the mask, then a model trained each way. |
+| `prefix-lm-attention` | **The prefix mask.** A prompt read in both directions and a reply read left to right, and why the reply has to be. |
+| `cross-attention` | **Cross-attention.** A decoder position sends a query to the encoder's row and reads back a weighted mix of what is there. |
+| `multi-head-vs-single` | **One head or eight.** The same numbers as one attention head or as eight, and what the eight end up looking at. |
+| `grouped-query-attention` | **Grouped-query attention.** Query heads sharing keys and values: what is shared, and the memory it saves per token. |
+| `gpt2-kv-cache` | **The key-value cache.** Decoding token by token with and without a cache of keys and values: the same answer for a fraction of the work. |
+| `sliding-window-attention` | **Sliding-window attention.** Each position reads only a short window, and stacked layers reach further: exactly as far as the windows compose. |
+| `sparse-attention-patterns` | **Sparse attention patterns.** Five ways to let a position read fewer of the others, what each costs and what each can still learn. |
+| `linear-attention` | **Linear attention.** Attention rewritten as a running sum over keys, instead of a score for every pair. |
+| `flash-attention-tiling` | **Flash attention: the online softmax.** Attention computed a tile at a time with a running maximum and sum, giving the same result without the whole matrix. |
+| `gpt2-attention-sinks` | **Attention sinks.** The few early tokens that many heads keep reading, and what happens to the model when the cache evicts them. |
+| `attention-temperature` | **Why divide scores by √d?** What dividing attention scores by the square root of the width does to the softmax and its gradient. |
+
+**The transformer block.** The design choices inside a block: where to normalise, what the MLP is, how wide and deep.
+
+| name | shows |
+| --- | --- |
+| `pre-ln-vs-post-ln` | **Pre-LN and post-LN.** Layer normalisation on the branches or on the stream, and which of the two still trains when the model is deep. |
+| `rmsnorm-vs-layernorm` | **RMSNorm and LayerNorm.** LayerNorm in two steps and RMSNorm in one, on a real activation, and whether a model notices the difference. |
+| `swiglu-mlp` | **A gated MLP: SwiGLU.** The usual MLP against one whose units are multiplied by a learned gate. |
+| `gpt2-residual-stream` | **The residual stream.** GPT-2's stream of numbers for one token, with every layer reading from it and writing back to it. |
+| `weight-tying` | **Weight tying.** One table of embeddings used at both ends of a model: the weights saved and the gradient arriving from both sides. |
+| `parallel-block` | **Sequential and parallel blocks.** Attention and MLP one after the other, or both at once from the same input. |
+| `encoder-decoder-family` | **Encoder, decoder, encoder-decoder.** Encoder only, decoder only and encoder-decoder on one task: what each may read and how each writes its answer. |
+| `transformer-depth-vs-width` | **Depth and width.** The same number of weights spent as a few wide blocks or many narrow ones. |
+
+**Training language models.** What a language model is trained on, how its loss is read, and what makes training work.
+
+| name | shows |
+| --- | --- |
+| `teacher-forcing` | **Teacher forcing.** Training on the true text shifted by one place, and what changes when the model must read its own output. |
+| `gpt2-perplexity-explained` | **Perplexity.** A model's surprise at each token, averaged and turned into a number of equally likely choices. |
+| `packing-and-padding` | **Packing and padding.** Padding lines to a common length against packing them end to end, and the two resets packing needs. |
+| `warmup-and-clipping` | **Warm-up and gradient clipping.** Why a learning rate is ramped up and gradients are cut to a maximum length, on a model that fails without the ramp. |
+| `grokking` | **Grokking: the test catches up late.** A network that knows its training set by heart long before it gets new examples right. |
+| `scaling-laws` | **Scaling laws, from a ladder of budgets.** How loss falls as compute grows, and which model size makes the best use of each budget. |
+| `curriculum-and-data-mixing` | **Data mixing and curriculum.** Two sources of text mixed in fixed shares or on a schedule, and what each mix does to both. |
+| `tokenizer-effects` | **What the tokenizer changes.** The same text as characters, bytes and merged pairs, and what the choice does to length, table size and loss. |
+
+**Decoding and inference.** Turning next-token chances into text, and serving it quickly.
+
+| name | shows |
+| --- | --- |
+| `gpt2-beam-search` | **Beam search.** Keeping the best few continuations at every step instead of only the likeliest one. |
+| `gpt2-speculative-decoding` | **Speculative decoding.** A cheap draft model guesses ahead and the large model checks the guesses in one pass, without changing what is sampled. |
+| `gpt2-repetition-and-penalties` | **Repetition and penalties.** Greedy decoding falling into a loop, and three rules that reshape the next-token chances to break it. |
+| `gpt2-constrained-decoding` | **Constrained decoding.** A grammar masking the tokens a model may pick, so the output always has the required form. |
+| `gpt2-contrastive-decoding` | **Contrastive decoding.** Scoring a token by how much more a full model believes in it than a weak one does. |
+| `batching-and-throughput` | **Batching and throughput.** Serving many requests in one multiply: what a batch buys, why, and how slots are refilled. |
+
+**Fine-tuning and alignment.** Changing a trained model: instructions, preferences, small add-ons and weight arithmetic.
+
+| name | shows |
+| --- | --- |
+| `instruction-tuning` | **Instruction tuning.** Fine-tuning on instruction and answer pairs, graded on the whole example or on the answer alone. |
+| `reward-model` | **A reward model from preferences.** A model that learns a score from pairs in which one option was preferred to another. |
+| `rlhf-ppo` | **RLHF with PPO.** A policy pushed towards what a reward model scores highly, on a leash that limits how far it drifts. |
+| `dpo` | **Direct preference optimisation.** Training the policy on the preference pairs directly, with no reward model in between. |
+| `reward-hacking` | **Reward hacking.** Optimising a learned score past the point where the thing it stood for stops improving. |
+| `prompt-and-prefix-tuning` | **Prompt and prefix tuning.** Adapting a frozen model by training a few added numbers: a soft prompt, a prefix or a low-rank update. |
+| `model-merging` | **Model merging with task vectors.** Fine-tuned weights minus base weights as a vector that can be added, averaged and subtracted. |
+| `gpt2-knowledge-editing` | **Knowledge editing.** Changing what GPT-2 says next in one context by a rank-one change to one matrix. |
+
+**Interpretability.** Looking inside a trained model: features, probes, patches and the heads that matter.
+
+| name | shows |
+| --- | --- |
+| `superposition` | **Superposition.** Five features squeezed into two numbers, and the arrangement a network finds when the features are rarely on together. |
+| `gpt2-sparse-autoencoder-features` | **Sparse autoencoder features.** A sparse autoencoder rewrites GPT-2's activations as a few active features out of many. |
+| `gpt2-linear-probes` | **Linear probes.** Reading a property of the text off GPT-2's activations with a straight line, layer by layer. |
+| `gpt2-activation-patching` | **Activation patching.** Copying one activation from a clean run into a corrupted one to find where the information is carried. |
+| `gpt2-induction-heads` | **Induction heads.** Heads that find the last time the current token appeared and read what came after it. |
+| `gpt2-head-ablation` | **Head ablation.** Switching off one attention head at a time and measuring what the model loses. |
+| `saliency-and-integrated-gradients` | **Saliency and integrated gradients.** Which pixels a classification rests on: the plain gradient against a method whose shares add up. |
+| `feature-visualisation` | **Feature visualisation.** Changing an image's pixels, not a network's weights, to find what one of its units responds to. |
+
+**Vision.** What image models see, attend to and get wrong.
+
+| name | shows |
+| --- | --- |
+| `receptive-field` | **Receptive field.** How much of the image one output cell of a CNN can see, and how much of that it uses. |
+| `vit-attention` | **What a vision transformer attends to.** An image cut into patches, and which patches the class token reads in each block. |
+| `clip-contrastive` | **Contrastive image-text training.** Images and words trained into one space so that each image lands nearest its own word. |
+| `adversarial-examples` | **Adversarial examples.** A change to a digit too small to notice that makes a classifier read a different digit. |
+| `object-detection-basics` | **Object detection: boxes, IoU, suppression.** Boxes as four numbers, the overlap score that judges them, and how duplicate boxes are removed. |
+| `semantic-segmentation` | **Semantic segmentation with a U-Net.** A label for every pixel, from a network that shrinks the image and grows it back with a skip across. |
+| `batchnorm-in-cnns` | **Batch normalisation in a CNN.** What batch normalisation computes for each filter, and the cost of using a batch's own statistics at test time. |
+| `style-transfer` | **Style transfer with Gram matrices.** Style as the statistics of a CNN's filters, and an image optimised to take them from another. |
+
+**Generative models.** Models that make new samples: adversaries, flows, diffusion, codes and pixels in order.
+
+| name | shows |
+| --- | --- |
+| `gan-training` | **GAN training.** A generator and a discriminator training against each other, and a generator that keeps dropping part of the data. |
+| `normalizing-flows` | **Normalizing flows.** An invertible map from a simple bell-shaped cloud to the data, which makes the likelihood exact. |
+| `flow-matching` | **Flow matching.** Learning the velocity that carries noise to data along straight lines, then straightening the paths. |
+| `classifier-free-guidance` | **Classifier-free guidance.** Asking a denoiser twice, with and without the label, and pushing its answer along the difference. |
+| `ddpm-vs-ddim` | **DDPM and DDIM sampling.** Two ways down the same ladder of noise levels: many small random steps or a few deterministic strides. |
+| `vae-posterior-collapse` | **VAE posterior collapse.** A decoder strong enough to ignore the code, and the pressure schedule that keeps the code in use. |
+| `vq-vae-codebook` | **VQ-VAE: a codebook.** Images rewritten as a grid of code numbers from a small learned codebook, and codes that die unused. |
+| `autoregressive-pixels` | **Autoregressive pixels.** An image generated one pixel at a time, each predicted from the pixels already drawn. |
+
+**Classical machine learning.** The ideas under everything else: fitting, validating, separating and measuring.
+
+| name | shows |
+| --- | --- |
+| `bias-variance` | **Bias and variance.** Fits that are too simple, fits that change with every sample, and the error they add up to. |
+| `cross-validation` | **Cross-validation.** Holding out each part of the data in turn, and why choosing a setting needs a second round inside the first. |
+| `svm-and-kernels` | **SVMs and kernels.** The widest street between two classes, then the same idea after lifting the points to where a line can separate them. |
+| `gradient-boosting` | **Gradient boosting.** Small trees added one at a time, each fitted to what the ones before still get wrong. |
+| `gaussian-mixture-em` | **Gaussian mixture, by EM.** Soft assignment of points to blobs, then blobs moved to their points, repeated; and how much the start matters. |
+| `curse-of-dimensionality` | **The curse of dimensionality.** Why nearest neighbours stop meaning much as uninformative coordinates are added. |
+| `tsne-and-umap` | **t-SNE and UMAP.** Two methods that lay high-dimensional points out on a plane, and what their maps keep and lose. |
+| `roc-and-calibration` | **ROC and calibration.** A classifier's scores turned into decisions by a threshold, and whether a score of 80% means 80%. |
+
+**Optimisation, deeper.** Curvature, noise and averaging: why training behaves as it does.
+
+| name | shows |
+| --- | --- |
+| `newton-vs-gradient-descent` | **Newton's step and gradient descent.** Gradient descent crawling along a long valley against a step that divides by the curvature. |
+| `edge-of-stability` | **The edge of stability.** Curvature that rises during training until the step size will allow no more, then stays there. |
+| `batch-size-and-noise` | **Batch size and gradient noise.** Small batches give noisy gradients: how the noise shrinks with batch size and what it does to training. |
+| `weight-averaging` | **Averaging the weights.** The average of the weights along a run against the last weights of the run. |
+| `second-order-preconditioners` | **Preconditioning.** Rescaling each direction by its curvature, and what the off-diagonal terms add. |
+| `loss-spikes` | **A loss spike, inside Adam.** A sudden jump in the loss on unchanged data, traced to the optimiser's fading memory of past gradients. |
+
+**Retrieval and contrastive learning.** Embeddings trained to bring matching things together, and searching among them.
+
+| name | shows |
+| --- | --- |
+| `gpt2-retrieval-augmented-generation` | **Retrieval-augmented generation.** Looking up a passage and putting it in front of the question, and what the model can then say. |
+| `vector-search-hnsw` | **Vector search: a layered graph.** Finding near neighbours through a layered graph while computing only a fraction of the distances. |
+| `infonce-temperature` | **Temperature in contrastive learning.** The temperature of a contrastive loss decides how much of the push lands on the hardest negatives. |
+| `hard-negatives` | **Hard negatives.** Choosing the most similar wrong examples as negatives, and the ones among them that are not wrong. |
+| `dimensionality-of-embeddings` | **How wide should an embedding be?** The same images as 2 numbers or 256: storage against retrieval accuracy. |
+
+**Systems and scale.** Spreading a model over devices, and what limits how fast it runs.
+
+| name | shows |
+| --- | --- |
+| `data-parallel-allreduce` | **Data parallelism and ring all-reduce.** Four workers computing gradients on different data and averaging them by passing chunks round a ring. |
+| `tensor-and-pipeline-parallel` | **Tensor and pipeline parallelism.** One layer split across devices by column or by row, and a model's layers run as a pipeline with idle slots. |
+| `zero-sharding` | **ZeRO: sharding the training state.** Training state cut into slices so that each device holds only its share. |
+| `activation-checkpointing` | **Activation checkpointing.** Storing only some activations on the way forward and recomputing the rest on the way back. |
+| `roofline` | **The roofline performance model.** An operation is limited by arithmetic or by memory traffic: counting both and placing it under the roof. |
+
+**Reinforcement learning methods.** Learning from reward alone: bandits, policy gradients, values and search.
+
+| name | shows |
+| --- | --- |
+| `multi-armed-bandits` | **Multi-armed bandits.** Choosing between options of unknown worth: three ways to balance trying and exploiting. |
+| `policy-gradient` | **Policy gradient (REINFORCE).** Making sampled actions more likely in proportion to the reward that followed, and why a baseline helps. |
+| `actor-critic` | **Actor-critic.** An actor choosing actions and a critic estimating what to expect, each improving the other. |
+| `dqn-replay-buffer` | **DQN: replay buffer and target network.** Learning action values from replayed experience against a slowly moving copy of the network. |
+| `mcts-tic-tac-toe` | **Monte Carlo tree search.** Search by random playouts: select, expand, play out and back up, on a game everyone knows. |
+| `reward-shaping` | **Reward shaping.** Extra rewards that leave the best behaviour unchanged, and extra rewards that get farmed. |
+
+**Memory, dynamics and curiosities.** Networks as memories, as rules that grow shapes, and as flows.
+
+| name | shows |
+| --- | --- |
+| `hopfield-network` | **A Hopfield memory.** Patterns stored as the resting states of a network, recalled from damaged copies, and how many it can hold. |
+| `neural-cellular-automata` | **A neural cellular automaton.** A grid of cells sharing one small rule that grows a digit from a single cell and regrows it when damaged. |
+| `neural-ode` | **A neural ODE.** A residual network as steps along a learned flow, and the same flow followed with smaller steps. |
+| `evolution-strategies` | **Evolution strategies.** Training without gradients: random nudges, kept in proportion to how much each one helped. |
+
+**Generative families compared.** An autoencoder, a VAE, a GAN and DEC trained on the same digits: objectives, codes, samples.
+
+| name | shows |
+| --- | --- |
+| `generative-objectives` | **Four families, four objectives.** What an autoencoder, a VAE, a GAN and DEC are each trained to do with the same parts on the same digits, and what each ends up good at. |
+| `generative-latent-spaces` | **Four code spaces, one noise plane.** Where held-out digits sit in the two-number code space of an autoencoder, a VAE, DEC and IDEC, and what a GAN draws across its noise plane, since it cannot place a real digit there. |
+| `generative-sampling` | **New digits from four families.** New digits drawn from each family, and how recognisable, how varied and how far from the training digits they are. |
+| `generative-reconstruction` | **There and back: rebuilding a digit.** The same held-out digits put through each family and brought back, by a search of its noise for the GAN, which has no encoder, and what each one loses. |
+| `generative-interpolation` | **Walking between two digits.** A straight walk between two digits in each family's code space, the images on the way, and how recognisable and how digit-like the middle is compared with simply fading one image into the other. |
+
+**Label embeddings.** A class label as a learned vector: in a classifier, in an autoencoder, and at generation.
+
+| name | shows |
+| --- | --- |
+| `label-embedding` | **A label as a vector.** A class label as a one-hot marker, where every label is equally far from every other, against a row of a learned table, where digits that look alike end up close. |
+| `label-embedding-classifier` | **Label vectors in a classifier.** A classifier's last layer is already a table of label vectors; learning it barely changes accuracy but decides which labels point the same way. |
+| `label-embedding-autoencoder` | **Telling the decoder the label.** Hand an autoencoder's decoder the label's row beside the code, and a small code stops spending itself on which digit it is. |
+| `label-embedding-generation` | **Change the label, keep the style.** Keep an image's code and swap the label row the decoder is given, and the same handwriting is drawn as another digit, as long as the code is small. |
+
+The last two groups were added after the hundred. The five family comparisons share one set of
+trained models (`study_families.models()`: an autoencoder, a VAE, a GAN, DEC and IDEC with the
+same decoder shape, on the same 20,000 digits, three seeds, at code sizes 2 and 16). The four on
+label embeddings share one set of label-conditioned autoencoders (`study_labels.py`).
+
 
 ## Broadcast masters: 8K, HDR
 

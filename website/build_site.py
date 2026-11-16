@@ -229,6 +229,55 @@ SECTIONS = [
      [("q-learning", "Q-learning in a gridworld")]),
 ]
 
+# The "next 100" (voxanim.next_catalog): one section per group of the catalogue, each
+# animation under the title it shows on screen. Their headings and introductions are here;
+# their names, titles and descriptions come from the catalogue.
+from voxanim.next_catalog import ITEMS as NEXT_ITEMS  # noqa: E402
+
+NEXT_SECTIONS = {
+    "A": ("attention-wiring", "Attention: how it is wired",
+          "Who may read whom: masks, heads, caches and the ways attention is made cheaper."),
+    "B": ("transformer-block", "The transformer block",
+          "The design choices inside a block: where to normalise, what the MLP is, how wide and deep."),  # noqa: E501
+    "C": ("training-language-models", "Training language models",
+          "What a language model is trained on, how its loss is read, and what makes training work."),  # noqa: E501
+    "D": ("decoding", "Decoding and inference",
+          "Turning next-token chances into text, and serving it quickly."),
+    "E": ("fine-tuning", "Fine-tuning and alignment",
+          "Changing a trained model: instructions, preferences, small add-ons and weight arithmetic."),  # noqa: E501
+    "F": ("interpretability", "Interpretability",
+          "Looking inside a trained model: features, probes, patches and the heads that matter."),
+    "G": ("vision", "Vision",
+          "What image models see, attend to and get wrong."),
+    "H": ("generative-models", "Generative models",
+          "Models that make new samples: adversaries, flows, diffusion, codes and pixels in order."),  # noqa: E501
+    "I": ("classical-ml", "Classical machine learning",
+          "The ideas under everything else: fitting, validating, separating and measuring."),
+    "J": ("optimisation-deeper", "Optimisation, deeper",
+          "Curvature, noise and averaging: why training behaves as it does."),
+    "K": ("retrieval", "Retrieval and contrastive learning",
+          "Embeddings trained to bring matching things together, and searching among them."),
+    "L": ("systems", "Systems and scale",
+          "Spreading a model over devices, and what limits how fast it runs."),
+    "M": ("reinforcement-learning-methods", "Reinforcement learning methods",
+          "Learning from reward alone: bandits, policy gradients, values and search."),
+    "N": ("memory-and-dynamics", "Memory, dynamics and curiosities",
+          "Networks as memories, as rules that grow shapes, and as flows."),
+    "O": ("generative-families", "Generative families compared",
+          "An autoencoder, a VAE, a GAN and DEC trained on the same digits: objectives, codes, samples."),  # noqa: E501
+    "P": ("label-embeddings", "Label embeddings",
+          "A class label as a learned vector: in a classifier, in an autoencoder, and at generation."),  # noqa: E501
+}
+# Where each group sits on the page: the catalogue's order, except that the two groups added
+# after the hundred follow the generative models they build on, not the end of the page.
+NEXT_ORDER = "ABCDEFGHOPIJKLMN"
+assert sorted(NEXT_ORDER) == sorted(NEXT_SECTIONS)
+for _letter in NEXT_ORDER:
+    _anchor, _heading, _intro = NEXT_SECTIONS[_letter]
+    SECTIONS.append((_anchor, _heading, _intro,
+                     [(item["preset"], item["title"]) for item in NEXT_ITEMS
+                      if item["section"].startswith(_letter + ". ")]))
+
 
 class SiteError(RuntimeError):
     """The site cannot be built as asked (a missing video, an unlisted preset)."""
@@ -276,7 +325,12 @@ def release_tag(tag=None):
 
 def fetch_media(dest, media_dir, tag, files):
     """Put ``<file>.mp4`` for each of ``files`` into ``dest``: copied from
-    ``media_dir``, or, when it is None, downloaded from release ``tag``."""
+    ``media_dir``, or, when it is None, downloaded from release ``tag``.
+
+    Returns the files that have no video. From a local ``media_dir`` that is an
+    error. From a release it is not: an animation added since that release has
+    no video there yet, and the site built on a push must not fail (or show
+    it) until the release that carries it is published."""
     os.makedirs(dest, exist_ok=True)
     if media_dir is None:
         subprocess.run(["gh", "release", "download", tag, "-R", REPO, "--pattern", "*.mp4",
@@ -287,8 +341,9 @@ def fetch_media(dest, media_dir, tag, files):
             if os.path.exists(src) and not os.path.exists(os.path.join(dest, f + ".mp4")):
                 shutil.copyfile(src, os.path.join(dest, f + ".mp4"))
     absent = [f for f in files if not os.path.exists(os.path.join(dest, f + ".mp4"))]
-    if absent:
+    if absent and media_dir is not None:
         raise SiteError("no video for: %s" % ", ".join(absent))
+    return absent
 
 
 def duration(mp4):
@@ -373,8 +428,17 @@ def clip_html(name, title, p, secs, tag):
                        poster=esc(data["poster"]), title=esc(title), first=esc(first), open=OPEN))
 
 
+def released(sections, durations):
+    """``sections`` with only the animations that have a video (a duration),
+    and without the sections that are left empty."""
+    kept = [(a, h, i, [(n, t) for n, t in items if n in durations]) for a, h, i, items in sections]
+    return [section for section in kept if section[3]]
+
+
 def page_html(durations, tag, sections=SECTIONS):
-    """The whole page.  ``durations`` maps preset names to seconds."""
+    """The whole page.  ``durations`` maps preset names to seconds; an
+    animation without one (not in the release yet) is left off the page."""
+    sections = released(sections, durations)
     with open(os.path.join(HERE, "index.html"), encoding="utf-8") as fh:
         template = fh.read()
     index, body = [], []
@@ -391,7 +455,7 @@ def page_html(durations, tag, sections=SECTIONS):
     hero_title = next(t for *_, items in sections for n, t in items if n == HERO)
     hero_data = clip_data(HERO, hero_title, hero, durations[HERO], tag)
     fill = {
-        "count": str(len(presets.REGISTRY)), "version": __version__, "tag": html.escape(tag),
+        "count": str(len(durations)), "version": __version__, "tag": html.escape(tag),
         "repo": REPO, "hero": hero.media, "hero_name": HERO, "index": "\n".join(index),
         "sections": "\n\n".join(body), "open": OPEN,
         "hero_clip": html.escape(json.dumps(hero_data, ensure_ascii=False), quote=True),
@@ -405,9 +469,14 @@ def build(out, media_dir=None, tag=None):
     tag = release_tag(tag)
     files = [p.media for p in presets.REGISTRY.values()]
     media = os.path.join(out, "media")
-    fetch_media(media, media_dir, tag, files)
+    absent = set(fetch_media(media, media_dir, tag, files))
+    if absent:
+        print("website: %d animations have no video in release %s and are left off the page: %s"
+              % (len(absent), tag, ", ".join(sorted(absent))))
     durations = {}
     for name, p in presets.REGISTRY.items():
+        if p.media in absent:
+            continue
         mp4 = os.path.join(media, p.media + ".mp4")
         durations[name] = duration(mp4)
         poster(mp4, os.path.join(media, p.media + ".jpg"), POSTER_AT * durations[name])

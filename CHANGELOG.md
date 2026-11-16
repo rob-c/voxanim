@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.6.0
+
+- **One hundred more animations** in fourteen new sections of the site (attention wiring,
+  the transformer block, training language models, decoding, fine-tuning and alignment,
+  interpretability, vision, generative models, classical machine learning, optimisation,
+  retrieval, systems, reinforcement learning, memory and dynamics). Each draws a mechanism
+  on a real instance and then the measurement it leads to (`mech.py`, `mech_*.py`); the
+  measurements are plain-numpy experiments on MNIST or Tiny Shakespeare, or the pinned
+  GPT-2 (`next_*.py`, `study_*.py`), with comparisons over three or more seeds. They render
+  with `python3 -m voxanim render`, like the rest.
+- **Nine more after those**, in two further sections. *Generative families compared*: an
+  autoencoder, a VAE, a GAN, DEC and IDEC with the same decoder shape, trained on the same
+  digits, compared on their objectives, code spaces, samples, reconstructions and walks between
+  two digits. *Label embeddings*: a class label as a learned vector, in a digit classifier, in
+  an autoencoder's decoder, and swapped at generation to redraw the same handwriting as another
+  digit.
+- The website generator leaves an animation off the page while the release it builds from
+  has no video for it, so a push between releases neither breaks the site nor shows an
+  empty clip. `--media DIR` still requires every video.
+- 56 of the hundred's first experiments were redesigned after review (`study_*.py`): the
+  outcome of each, including the ones that stayed null, is at the end of `TODO.md`.
+- Loss-chart curves are drawn 1.6 times bolder (never under 2 px): thin curves read as grey
+  beside the voxels. This changes the rendered pixels of every animation that draws a
+  `LossChart`.
+
 ## 1.5.0
 
 - **Ten animations on embeddings** (`w2v.py`, `patch_embed.py`, `posenc.py`

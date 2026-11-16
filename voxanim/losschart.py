@@ -44,6 +44,9 @@ def pow10(v, digits=0):
     return "%.*f%s10%s" % (digits, m, TIMES, sup(e))
 
 
+CURVE_GAIN, CURVE_MIN = 1.6, 2.0
+
+
 def frame_xy(cam, fx, fy):
     """Layout fraction -> frame fraction (the camera's composition zoom)."""
     k = cam.zoom
@@ -106,6 +109,11 @@ class LossChart:
         points drawn."""
         if op <= 0.01 or upto < steps[0]:
             return None
+        # A 1.3 px curve is mostly anti-aliasing: its colour reaches the eye at half strength, and
+        # the charts read as grey beside the voxels (a review of all 228 animations measured the
+        # chart-led ones at a quarter of conv2d's coloured area). Curves are drawn at CURVE_GAIN
+        # times the width asked for, never thinner than CURVE_MIN.
+        width = max(width * CURVE_GAIN, CURVE_MIN)
         steps, values = np.asarray(steps, float), np.asarray(values, float)
         k = int(np.searchsorted(steps, upto, side="right"))
         xs = np.append(steps[:k:every], min(upto, steps[-1]))
@@ -114,7 +122,7 @@ class LossChart:
         for x, y in zip(xs, ys):
             p = place(self.fx(x), self.fy(y))
             if prev is not None:
-                sc.line(prev, p, width=width, color=ink, opacity=0.9 * op, bias=0.0)
+                sc.line(prev, p, width=width, color=ink, opacity=op, bias=0.0)
             prev = p
         if dot and prev is not None:
             sc.voxel(prev, ink, op, glow=0.3, shadow=False, reflect=False, size=0.6)

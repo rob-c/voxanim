@@ -203,6 +203,7 @@ def conv1d_sweep():
 # REGISTRY (imported last: they use ``preset`` from this module).
 import_module(".lessons", __package__)
 import_module(".catalog", __package__)
+import_module(".next_catalog", __package__)
 
 
 def get(name) -> Preset:

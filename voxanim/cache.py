@@ -46,6 +46,12 @@ def _tmp(path):
     return "%s.%d.part" % (path, os.getpid())
 
 
+class DataMissing(RuntimeError):
+    """A dataset is not in the cache and downloading is switched off
+    (``VOXANIM_OFFLINE=1``, which the test suite sets: a test that needs data
+    it does not have is skipped, never a reason to fetch it)."""
+
+
 def download(url, path, sha256, timeout=60):
     """Fetch ``url`` to ``path`` unless it is already there; verify ``sha256``.
 
@@ -54,6 +60,9 @@ def download(url, path, sha256, timeout=60):
     """
     if os.path.exists(path):
         return path
+    if os.environ.get("VOXANIM_OFFLINE") == "1":
+        raise DataMissing("%s is not downloaded (python3 -m voxanim prepare)"
+                          % os.path.basename(path))
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     tmp = _tmp(path)
     try:

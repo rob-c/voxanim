@@ -17,8 +17,18 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 
+# Tests never download. With an empty cache one unmarked test once fetched MNIST and the text
+# corpus, after which every "is it available?" check said yes and the quick CI job began
+# training the whole catalogue. A dataset that is not there now raises DataMissing, and
+# that skips the test.
+os.environ["VOXANIM_OFFLINE"] = "1"
+
 from voxanim import presets
-from voxanim.cache import DEFAULT_CACHE
+from voxanim.cache import DEFAULT_CACHE, DataMissing
+from voxanim.next_catalog import ITEMS as NEXT_ITEMS
+from voxanim.next_catalog import MNIST as NEXT_MNIST
+from voxanim.next_catalog import NO_DATA as NEXT_NO_DATA
+from voxanim.next_catalog import TEXT as NEXT_TEXT
 from voxanim.scene import Style
 
 DRAFT = Style(ss=2, motion_blur=False)
@@ -32,38 +42,77 @@ def mnist_cached():
 def gpt2_cached():
     """True when the GPT-2 small weights have been downloaded."""
     from voxanim import gpt2
+
     return os.path.exists(os.path.join(gpt2.DIR, "model.safetensors"))
 
 
-needs_mnist = pytest.mark.skipif(not mnist_cached(),
-                                 reason="MNIST not downloaded (python3 -m voxanim prepare)")
-needs_gpt2 = pytest.mark.skipif(not gpt2_cached(),
-                                reason="GPT-2 weights not downloaded (python3 -m voxanim prepare)")
+def text_cached():
+    return os.path.exists(os.path.join(DEFAULT_CACHE, "tinyshakespeare.txt"))
+
+
+needs_mnist = pytest.mark.skipif(
+    not mnist_cached(), reason="MNIST not downloaded (python3 -m voxanim prepare)"
+)
+needs_gpt2 = pytest.mark.skipif(
+    not gpt2_cached(), reason="GPT-2 weights not downloaded (python3 -m voxanim prepare)"
+)
+needs_text = pytest.mark.skipif(not text_cached(), reason="Tiny Shakespeare text not downloaded")
+NEXT_BY_PRESET = {item["preset"]: item for item in NEXT_ITEMS}
 
 
 def _module(p):
-    fn = getattr(p.build, "func", p.build)            # functools.partial or a function
+    fn = getattr(p.build, "func", p.build)  # functools.partial or a function
     return fn.__module__
 
 
 # The convolution animations (registered by presets.py and lessons.py) and
 # the network animations that need no dataset; everything else is trained on
 # or evaluates MNIST, except GPT-2.
-CONV_PRESETS = [n for n, p in presets.REGISTRY.items()
-                if _module(p) in ("voxanim.presets", "voxanim.lessons")]
-NO_DATA = set(CONV_PRESETS) | {"rnn-training-step", "lstm-training-step", "rnn-batch-training",
-                               "gated-memory", "gradient-descent", "decision-tree",
-                               "autodiff-graph", "seq2seq-attention", "q-learning",
-                               "gp-prior", "gp-posterior", "gp-kernels", "gp-hyperparameters",
-                               "gp-bayesian-optimisation", "ssm-recurrence",
-                               "mamba-selective-scan", "context-cost", "mixture-of-experts",
-                               "embedding-lookup", "word2vec-training", "sentence-embeddings",
-                               "sinusoidal-positions", "relative-position-bias", "alibi",
-                               "rope-context-extension", "length-extrapolation"}
+CONV_PRESETS = [
+    n for n, p in presets.REGISTRY.items() if _module(p) in ("voxanim.presets", "voxanim.lessons")
+]
+NO_DATA = set(CONV_PRESETS) | {
+    "rnn-training-step",
+    "lstm-training-step",
+    "rnn-batch-training",
+    "gated-memory",
+    "gradient-descent",
+    "decision-tree",
+    "autodiff-graph",
+    "seq2seq-attention",
+    "q-learning",
+    "gp-prior",
+    "gp-posterior",
+    "gp-kernels",
+    "gp-hyperparameters",
+    "gp-bayesian-optimisation",
+    "ssm-recurrence",
+    "mamba-selective-scan",
+    "context-cost",
+    "mixture-of-experts",
+    "embedding-lookup",
+    "word2vec-training",
+    "sentence-embeddings",
+    "sinusoidal-positions",
+    "relative-position-bias",
+    "alibi",
+    "rope-context-extension",
+    "length-extrapolation",
+}
+
+NO_DATA |= NEXT_NO_DATA
 
 
 def data_marks(name):
     """pytest marks for preset ``name``: what it needs downloaded."""
+    if name in NEXT_BY_PRESET:
+        item = NEXT_BY_PRESET[name]
+        marks = [needs_gpt2] if name.startswith("gpt2-") else []
+        if item["name"] in NEXT_MNIST:
+            marks.append(needs_mnist)
+        if item["name"] in NEXT_TEXT:
+            marks.append(needs_text)
+        return marks
     if name.startswith("gpt2-"):
         return [needs_gpt2]
     return [] if name in NO_DATA else [needs_mnist]
@@ -71,6 +120,13 @@ def data_marks(name):
 
 def available(name):
     """True when preset ``name`` can be built without downloading anything."""
+    if name in NEXT_BY_PRESET:
+        item = NEXT_BY_PRESET[name]
+        return (
+            (not name.startswith("gpt2-") or gpt2_cached())
+            and (item["name"] not in NEXT_MNIST or mnist_cached())
+            and (item["name"] not in NEXT_TEXT or text_cached())
+        )
     if name.startswith("gpt2-"):
         return gpt2_cached()
     return name in NO_DATA or mnist_cached()
@@ -81,11 +137,26 @@ def fd_check(loss, P, G, keys, e=1e-6, tol=1e-5):
     largest and a middle entry of each parameter in ``keys``."""
     for k in keys:
         g = np.asarray(G[k])
-        for idx in {np.unravel_index(np.argmax(np.abs(g)), g.shape),
-                    tuple(np.array(g.shape) // 2)}:
+        for idx in {np.unravel_index(np.argmax(np.abs(g)), g.shape), tuple(np.array(g.shape) // 2)}:
             plus = {a: np.array(b) for a, b in P.items()}
             minus = {a: np.array(b) for a, b in P.items()}
             plus[k][idx] += e
             minus[k][idx] -= e
             fd = (loss(plus) - loss(minus)) / (2 * e)
             assert abs(fd - g[idx]) <= tol * max(1e-3, abs(fd)), (k, idx, fd, g[idx])
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_setup(item):
+    try:
+        return (yield)
+    except DataMissing as missing:
+        pytest.skip(str(missing))
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item):
+    try:
+        return (yield)
+    except DataMissing as missing:
+        pytest.skip(str(missing))

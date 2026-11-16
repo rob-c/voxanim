@@ -1,0 +1,983 @@
+[
+ {
+  "number": 1,
+  "name": "causal-vs-bidirectional",
+  "description": "Tiny Shakespeare real-text windows; 280 NumPy updates fit one masked original character using causal or bidirectional context. Disjoint-source test NLL is 4.867 / 4.582 nats; these small runs do not establish a universal ranking.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "Causal and bidirectional attention",
+  "summary": "The causal mask against the full one: who may read whom, drawn as arcs and as the mask, then a model trained each way."
+ },
+ {
+  "number": 2,
+  "name": "prefix-lm-attention",
+  "description": "Real-text copy-and-transform: an 8-character Tiny Shakespeare prompt, then its characters in sorted order as the reply, the reply so far fed back. Two-block NumPy transformers (width 32, 4 heads) train for 2000 updates on fresh windows under causal, prefix and bidirectional masks, three seeds each. On 512 held-out prompts, with each model writing its reply alone, causal gets 95.9% of characters right, prefix 96.4% (seeds overlap: no measurable gain from reading the prompt both ways), bidirectional 14.2%: its teacher-forced loss is lowest (0.003 nats) only because each reply slot reads its own answer.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "The prefix mask",
+  "summary": "A prompt read in both directions and a reply read left to right, and why the reply has to be."
+ },
+ {
+  "number": 3,
+  "name": "cross-attention",
+  "description": "NumPy cross-attention is trained for 300 updates to restore six-character Shakespeare spans with source positions 2 and 5 masked. Teacher-forced accuracy on 64 disjoint-source test spans is 43.75%; this is denoising, not translation or free generation.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "Cross-attention",
+  "summary": "A decoder position sends a query to the encoder's row and reads back a weighted mix of what is there."
+ },
+ {
+  "number": 4,
+  "name": "multi-head-vs-single",
+  "description": "One-block width-64 NumPy transformers, cut as one head of 64 or eight heads of 8 (42,624 parameters each), train for 3000 updates on fresh 16-character Tiny Shakespeare windows, three seeds each. Held-out next-character loss on 512 test windows is 2.114 nats for one head (2.101–2.129) and 2.087 for eight (2.072–2.099). On held-out text the one head puts 37–39% of its attention on the previous character; the eight heads of a model range from about 16–24% to 42–56% there, so they do differ, by an amount that varies with the seed.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "One head or eight",
+  "summary": "The same numbers as one attention head or as eight, and what the eight end up looking at."
+ },
+ {
+  "number": 5,
+  "name": "grouped-query-attention",
+  "description": "MHA/GQA/MQA variants train for 240 updates on the same real-text windows; test NLL is 2.951 / 2.947 / 2.887 nats. The separate KV-memory panel is an analytic FP16 count for stated model dimensions, not a measured serving benchmark.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "Grouped-query attention",
+  "summary": "Query heads sharing keys and values: what is shared, and the memory it saves per token."
+ },
+ {
+  "number": 6,
+  "name": "kv-cache",
+  "description": "Pinned pretrained GPT-2 evaluates collected Shakespeare text using full and incremental cached forwards; per-token logit differences are measured. Projected-token work and KV-cache bytes are explicitly analytic counts; no local GPT-2 training is claimed.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "The key-value cache",
+  "summary": "Decoding token by token with and without a cache of keys and values: the same answer for a fraction of the work."
+ },
+ {
+  "number": 7,
+  "name": "sliding-window-attention",
+  "description": "Window-4 causal models of one, two and three layers are each asked to name the character d places back in 20-character windows of Tiny Shakespeare (600 updates, 3 seeds, one model per depth and distance), at each depth's exact reach (3, 6, 9 back) and one place past it (4, 7, 10). Held-out accuracy is 85–100% on every model and seed where the composed mask covers the distance and 15–34% where it does not (3 layers: 95% at 9 back, 21% at 10; 2 layers: 100% at 6, 30% at 7; 1 layer: 100% at 3, 34% at 4). The reach panel is exact mask composition; the task is a copy of real characters, not next-character prediction.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "Sliding-window attention",
+  "summary": "Each position reads only a short window, and stacked layers reach further: exactly as far as the windows compose."
+ },
+ {
+  "number": 8,
+  "name": "sparse-attention-patterns",
+  "description": "Five causal sparsity patterns over 32 characters (528 pairs dense; 234 strided, 188 random, 150 global, 80 block) are each trained as a two-layer model, 1,000 updates and 3 seeds, to name the character 10 back in Tiny Shakespeare windows. Held-out accuracy is dense 100%, strided 93%, random 71%, global 20%, block 15%, tracking the exact share of positions two hops of each mask connect to their target (22, 22, 15, 1, 0 of 22). The models are right 96% of the time where a route exists and 16% where none does. Large-sequence pair counts are exact combinatorial calculations, not measured speed.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "Sparse attention patterns",
+  "summary": "Five ways to let a position read fewer of the others, what each costs and what each can still learn."
+ },
+ {
+  "number": 9,
+  "name": "linear-attention",
+  "description": "Softmax and ELU+1 kernel attention receive 240 updates on the same real text; test NLL is 2.951 /2.875 nats. Seeded random-array calculations separately verify associativity and its difference from softmax; the implementation does not claim a measured linear-time speedup.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "Linear attention",
+  "summary": "Attention rewritten as a running sum over keys, instead of a score for every pair."
+ },
+ {
+  "number": 10,
+  "name": "flash-attention-tiling",
+  "description": "A seeded NumPy numerical-identity experiment compares dense softmax with 8-key online-softmax tiles on the same Q/K/V arrays. Output discrepancies and running maxima/sums are calculated; scratch-byte curves are analytic. No training, real-data accuracy or hardware-speed claim.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "Flash attention: the online softmax",
+  "summary": "Attention computed a tile at a time with a running maximum and sum, giving the same result without the whole matrix."
+ },
+ {
+  "number": 11,
+  "name": "attention-sinks",
+  "description": "Pinned pretrained GPT-2 measures next-token NLL on 64 collected Shakespeare tokens with full cache, last 32 slots, or 4 sink + 28 recent slots, preserving absolute positions. Suffix perplexities are 144.499 / 1011.233 / 141.465 respectively. One short stream is not a general quality guarantee or a new training run.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "Attention sinks",
+  "summary": "The few early tokens that many heads keep reading, and what happens to the model when the cache evicts them."
+ },
+ {
+  "number": 12,
+  "name": "attention-temperature",
+  "description": "Scaled and unscaled scores receive 220 NumPy updates on real text; disjoint-source NLL is 2.979 /3.032 nats. Independent-Gaussian width/entropy/Jacobian experiments are explicitly marked random-array simulations, separate from the actual learned-model comparison.",
+  "section": "A. Attention: how it is wired (12)",
+  "module": "next_attention",
+  "title": "Why divide scores by √d?",
+  "summary": "What dividing attention scores by the square root of the width does to the softmax and its gradient."
+ },
+ {
+  "number": 13,
+  "name": "pre-ln-vs-post-ln",
+  "description": "Pre-LN, post-LN and post-LN with a 100-update warm-up are each trained three times (three seeds) at 2 and at 12 blocks: 800 updates at one fixed rate (0.003) on Tiny Shakespeare. At 2 blocks all three reach 2.38-2.40 nats on disjoint held-out text. At 12 blocks pre-LN reaches 2.37; post-LN stays at 3.32 in every seed, the loss of guessing by letter frequency; with warm-up it trains in two of three seeds (2.54, 2.59; the third stays at 3.34). Gradient norms at each block before the first update are also recorded (post-LN's at block 1 is about 50 times smaller). The rate was chosen from a one-seed pilot over three rates; at 0.001 post-LN also trains.",
+  "section": "B. The transformer block: design choices (8)",
+  "module": "next_attention",
+  "title": "Pre-LN and post-LN",
+  "summary": "Layer normalisation on the branches or on the stream, and which of the two still trains when the model is deep."
+ },
+ {
+  "number": 14,
+  "name": "rmsnorm-vs-layernorm",
+  "description": "LayerNorm and RMSNorm versions of one model are each trained eight times (eight seeds), 2,000 updates on Tiny Shakespeare. Held-out next-character loss averages 2.252 / 2.249 nats; the 0.004 gap is within the seed-to-seed noise (seeds of one model differ by up to 0.037; RMSNorm is better in 5 of 8).",
+  "section": "B. The transformer block: design choices (8)",
+  "module": "next_attention",
+  "title": "RMSNorm and LayerNorm",
+  "summary": "LayerNorm in two steps and RMSNorm in one, on a real activation, and whether a model notices the difference."
+ },
+ {
+  "number": 15,
+  "name": "swiglu-mlp",
+  "description": "A GELU MLP (48 units) and a SwiGLU MLP (32 gated units, the same 1,536 MLP weights) are each trained eight times, 2,000 updates on Tiny Shakespeare. Held-out loss averages 2.239 / 2.246 nats; the 0.007 gap is within the noise between seeds (GELU is better in 5 of 8): no advantage for the gate at this size.",
+  "section": "B. The transformer block: design choices (8)",
+  "module": "next_attention",
+  "title": "A gated MLP: SwiGLU",
+  "summary": "The usual MLP against one whose units are multiplied by a learned gate."
+ },
+ {
+  "number": 16,
+  "name": "residual-stream",
+  "description": "Pinned pretrained GPT-2 reads collected Shakespeare text. Per-layer attention/MLP write norms, channel values and logit-lens readouts are computed from its actual activations; these are descriptive probes, not proof of a causal explanation or local pretraining.",
+  "section": "B. The transformer block: design choices (8)",
+  "module": "next_attention",
+  "title": "The residual stream",
+  "summary": "GPT-2's stream of numbers for one token, with every layer reading from it and writing back to it."
+ },
+ {
+  "number": 17,
+  "name": "weight-tying",
+  "description": "Untied and tied input/output embeddings receive 240 real-text training updates; disjoint-source NLL is 2.951 / 2.851 nats respectively. Actual tiny-model parameter counts accompany explicitly analytic GPT-2 shared-table parameter/byte savings.",
+  "section": "B. The transformer block: design choices (8)",
+  "module": "next_attention",
+  "title": "Weight tying",
+  "summary": "One table of embeddings used at both ends of a model: the weights saved and the gradient arriving from both sides."
+ },
+ {
+  "number": 18,
+  "name": "parallel-block",
+  "description": "Sequential and parallel residual blocks are each trained eight times, 2,000 updates on Tiny Shakespeare. Held-out loss averages 2.252 / 2.268 nats; the sequential block is better in 7 of 8 seeds, by 0.016 nats on average, beyond the seed noise (paired t-test): a small, measurable cost for the parallel layout.",
+  "section": "B. The transformer block: design choices (8)",
+  "module": "next_attention",
+  "title": "Sequential and parallel blocks",
+  "summary": "Attention and MLP one after the other, or both at once from the same input."
+ },
+ {
+  "number": 19,
+  "name": "encoder-decoder-family",
+  "description": "Encoder-only, decoder-only and jointly trained encoder-decoder models restore masked six-character real-text spans for 420 updates. The joint checkpoint replays test NLL 3.721 and teacher-forced token accuracy 30.47% exactly. Conditioning and parameter counts differ, so this is a family demonstration, not a controlled ranking.",
+  "section": "B. The transformer block: design choices (8)",
+  "module": "next_attention",
+  "title": "Encoder, decoder, encoder-decoder",
+  "summary": "Encoder only, decoder only and encoder-decoder on one task: what each may read and how each writes its answer."
+ },
+ {
+  "number": 20,
+  "name": "transformer-depth-vs-width",
+  "description": "Four transformers with the same number of weights (62,736-62,912) as 1, 2, 4 and 8 blocks (widths 64, 48, 32, 24) are each trained three times for 1,000 updates on 32,000 Tiny Shakespeare windows drawn about once each. Held-out next-character loss is 2.11 / 2.10 / 2.13 / 2.17 nats (mean of three seeds): one and two blocks overlap across seeds, four and eight are worse in every seed, and none memorises (training loss 1.96-2.11). Loss by characters of context falls from 2.63 to about 2.1 within four characters in every shape; depth did not make more of a longer context. All shapes are still improving at the last update; no composition task is measured.",
+  "section": "B. The transformer block: design choices (8)",
+  "module": "next_attention",
+  "title": "Depth and width",
+  "summary": "The same number of weights spent as a few wide blocks or many narrow ones."
+ },
+ {
+  "number": 21,
+  "name": "teacher-forcing",
+  "description": "TinyShakespeare character language model trained for 350 actual NumPy updates. Held-out excerpts compare recorded contexts with greedy generated contexts; disagreement with one recorded continuation is not proof that every alternative is invalid.",
+  "section": "C. Training language models (8)",
+  "module": "next_language",
+  "title": "Teacher forcing",
+  "summary": "Training on the true text shifted by one place, and what changes when the model must read its own output."
+ },
+ {
+  "number": 22,
+  "name": "perplexity-explained",
+  "description": "Count-fitted unigram/bigram baselines and pretrained GPT-2 score the exact same tokens in eight held-out TinyShakespeare excerpts. Loss is token-weighted; perplexity is its exponential. Uniform-choice behavior is a separately labeled analytic reference.",
+  "section": "C. Training language models (8)",
+  "module": "next_language",
+  "title": "Perplexity",
+  "summary": "A model's surprise at each token, averaged and turned into a number of equally likely choices."
+ },
+ {
+  "number": 23,
+  "name": "packing-and-padding",
+  "description": "A TinyShakespeare transformer is trained for 220 NumPy updates. Sixty-four held-out excerpts test individual evaluation, concatenation without resets, and mask-plus-position resets. Padding counts come from actual source-line lengths; they are a separate illustration from fixed-length packed test excerpts.",
+  "section": "C. Training language models (8)",
+  "module": "next_language",
+  "title": "Packing and padding",
+  "summary": "Padding lines to a common length against packing them end to end, and the two resets packing needs."
+ },
+ {
+  "number": 24,
+  "name": "warmup-and-clipping",
+  "description": "Six-layer post-LN TinyShakespeare transformers (79,296 weights) train for 300 Adam updates on random windows of the training split at rate 0.006, five seeds per recipe sharing initial weights and batches: fixed rate, 80-update warm-up, warm-up plus clipping at 1, and a fixed rate of 0.003 for reference. Held-out loss on 256 test-split windows is read every 20 updates and each run is scored at its best checkpoint. No fixed-rate run leaves the 3.38-nat character-frequency plateau (best 3.36); all warmed-up runs do (2.51; 2.49 with clipping, which acted on roughly a tenth of updates). The half-rate runs reach 2.51 too, so warm-up makes the higher rate usable rather than better.",
+  "section": "C. Training language models (8)",
+  "module": "next_language",
+  "title": "Warm-up and gradient clipping",
+  "summary": "Why a learning rate is ramped up and gradients are cut to a maximum length, on a model that fails without the ramp."
+ },
+ {
+  "number": 25,
+  "name": "grokking",
+  "description": "MNIST stands in for modular arithmetic, following Omnigrok (Liu et al. 2022): a 196–200–200–10 MLP is trained with AdamW (rate 0.003, weight decay 0.03, squared error) for 12,000 updates on 1,000 area-averaged 14x14 training images, from weights three times the default scale, in three seeds; 2,000 official-test images are evaluated at 45 log-spaced checkpoints. Training accuracy reaches 99% near update 1,250 with test accuracy near 40%; test accuracy passes 85% only at update 9,826, about eight times later, as weight decay shrinks the weight norm from 86 to 37. The control (default scale, same batches) reaches 85% test accuracy before 99% training accuracy. The late rise ends at 90.5%, below the control's 92.7%.",
+  "section": "C. Training language models (8)",
+  "module": "next_language",
+  "title": "Grokking: the test catches up late",
+  "summary": "A network that knows its training set by heart long before it gets new examples right."
+ },
+ {
+  "number": 26,
+  "name": "scaling-laws",
+  "description": "Four two-layer TinyShakespeare transformers (widths 8–64; 2,800 to 108,416 weights) are each trained to a ladder of ten compute budgets that double (6 × weights × characters processed, a 512-fold range), so at one budget the smallest model reads up to 37 times more text than the widest: 31 size-and-budget cells, three seeds each, on random windows of the training split, with held-out loss on 512 test-split windows. The best loss at each budget falls from 3.58 to 2.07 nats; the best width moves from 8 to 16 to 32 as the budget grows and the widest model is never best. A power law fitted to the seven cheapest budgets (slope −0.11) is too optimistic on the three dearest (1.76 predicted against 2.07 measured), so the fit is descriptive, not a law.",
+  "section": "C. Training language models (8)",
+  "module": "next_language",
+  "title": "Scaling laws, from a ladder of budgets",
+  "summary": "How loss falls as compute grows, and which model size makes the best use of each budget."
+ },
+ {
+  "number": 27,
+  "name": "curriculum-and-data-mixing",
+  "description": "Actual TinyShakespeare source regions replace synthetic transition languages. Three real training runs use 90/10, 50/50 or changing mixtures; each region has a separate contiguous 80/20 train/held-out split. Both held-out losses and their equal-weight mean are measured.",
+  "section": "C. Training language models (8)",
+  "module": "next_language",
+  "title": "Data mixing and curriculum",
+  "summary": "Two sources of text mixed in fixed shares or on a schedule, and what each mix does to both."
+ },
+ {
+  "number": 28,
+  "name": "tokenizer-effects",
+  "description": "BPE merges and five tiny language models are trained on collected TinyShakespeare text. Vocabularies are fitted to training text with an explicit unknown token. Token counts, embedding sizes and held-out nats per original character compare character, byte and three BPE representations; fixed update counts do not equal fixed character exposure.",
+  "section": "C. Training language models (8)",
+  "module": "next_language",
+  "title": "What the tokenizer changes",
+  "summary": "The same text as characters, bytes and merged pairs, and what the choice does to length, table size and loss."
+ },
+ {
+  "number": 29,
+  "name": "beam-search",
+  "description": "Pretrained GPT-2 performs actual five-token beam searches at widths 1, 2, 4 and 8 on an authored prompt. Stored paths and cumulative log probabilities are measured inference results, not new training runs or proof of human-preferred text.",
+  "section": "D. Decoding and inference (6)",
+  "module": "next_language",
+  "title": "Beam search",
+  "summary": "Keeping the best few continuations at every step instead of only the likeliest one."
+ },
+ {
+  "number": 30,
+  "name": "speculative-decoding",
+  "description": "Nineteen candidate drafts are measured against pretrained GPT-2 on 1,320 held-out Tiny Shakespeare positions (the probability each shares with GPT-2): early exits at eight depths through GPT-2's own read-out and through a linear read-out fitted on the training split, and n-gram tables counted from it. A rule fixed in advance (predicted tokens per GPT-2 pass over draft cost in multiply-adds) picks the bigram table with four guesses a round. That draft and the first design's (a four-layer exit) then decode 576 tokens (8 test passages × 3 seeds) beside plain sampling. Acceptance, GPT-2 passes per token (0.71 and 0.88 against 1) and each seed's value are measured; the output distribution is checked exactly on every guess and by simulation. Wall-clock is numpy on a CPU, where speculation was still 1.21 times slower; the saving is in passes, not a hardware speed claim.",
+  "section": "D. Decoding and inference (6)",
+  "module": "next_language",
+  "title": "Speculative decoding",
+  "summary": "A cheap draft model guesses ahead and the large model checks the guesses in one pass, without changing what is sampled."
+ },
+ {
+  "number": 31,
+  "name": "repetition-and-penalties",
+  "description": "Pretrained GPT-2's logits for a repeated-prefix prompt are reshaped by a repetition penalty, a frequency penalty and a no-repeated-trigram rule (probabilities before and after, and eight greedy tokens under each). The same four decoders then continue 12 held-out Tiny Shakespeare passages for 24 greedy tokens each: how many continuations repeat a trigram (11, 0, 8, 0 of 12), their share of distinct tokens, and the mean log-probability GPT-2 itself gave the tokens written. Greedy decoding only; the trigram rule cannot loop by this measure.",
+  "section": "D. Decoding and inference (6)",
+  "module": "next_language",
+  "title": "Repetition and penalties",
+  "summary": "Greedy decoding falling into a loop, and three rules that reshape the next-token chances to break it."
+ },
+ {
+  "number": 32,
+  "name": "constrained-decoding",
+  "description": "Pretrained GPT-2 emits tokens under an explicit DD,DD finite-state grammar: allowed and removed probability mass and the emitted string on one instruction prompt, then the same mask after 12 held-out Tiny Shakespeare passages with and without that instruction (24 runs). The masked output has the form in all 24 and GPT-2 alone in none; the mass the mask keeps ranges from a median 0.04% at the first digit to 23% at the comma. Masks are structural rules, not learned accuracy; validity of form does not imply the digits mean anything; only single-digit tokens are allowed.",
+  "section": "D. Decoding and inference (6)",
+  "module": "next_language",
+  "title": "Constrained decoding",
+  "summary": "A grammar masking the tokens a model may pick, so the output always has the required form."
+ },
+ {
+  "number": 33,
+  "name": "contrastive-decoding",
+  "description": "Full GPT-2 and its four-layer truncation are compared on one prompt (both distributions, their log-probability difference, the plausibility filter and the pick), then over 12 held-out Tiny Shakespeare passages. At 276 positions the contrastive pick differs from the expert's 68% of the time and is the real next token less often (18% against 25%). Written out for 24 tokens, 9 of 12 contrastive continuations repeat a trigram against 11 of 12 greedy ones. No amateur is trained, and no general quality advantage is shown.",
+  "section": "D. Decoding and inference (6)",
+  "module": "next_language",
+  "title": "Contrastive decoding",
+  "summary": "Scoring a token by how much more a full model believes in it than a weak one does."
+ },
+ {
+  "number": 34,
+  "name": "batching-and-throughput",
+  "description": "Actual timings average 120 warmed NumPy 384x384 matrix multiplications per batch size. Arithmetic intensity is an explicit count formula. The four-slot serving schedule is separately labeled a simulation with fixed request durations, not measured server latency or learned behavior.",
+  "section": "D. Decoding and inference (6)",
+  "module": "next_language",
+  "title": "Batching and throughput",
+  "summary": "Serving many requests in one multiply: what a batch buys, why, and how slots are refilled."
+ },
+ {
+  "number": 35,
+  "name": "instruction-tuning",
+  "description": "An instruction (Echo: or Caps:), eight characters of real TinyShakespeare, a newline and the answer (the characters again, or in capitals) form each example; the answer depends on the instruction. Three real-text base transformers are each fine-tuned for 3,000 NumPy updates on fresh training-split examples with answer-only or all-token loss on identical minibatches, stopped on validation and measured on 512 test examples. Answer-only reaches 90% of answer characters by update 800-1,300 and writes 100% of held-out answers whole; all-token is at 31-41% after 3,000 updates and writes almost none, having learned to predict the line instead; the untuned bases are at 20%. Answers are computed from the text, not written by people.",
+  "section": "E. Fine-tuning and alignment (8)",
+  "module": "next_language",
+  "title": "Instruction tuning",
+  "summary": "Fine-tuning on instruction and answer pairs, graded on the whole example or on the answer alone."
+ },
+ {
+  "number": 36,
+  "name": "reward-model",
+  "description": "A reward model scores a (previous word, next word) pair from two learned eight-number word vectors and is trained with the Bradley-Terry loss on all 72,415 word pairs of the TinyShakespeare training split, the word the play has next preferred to a freshly drawn random word. Three seeds, stopped on validation pairs. On 7,837 test-split pairs it ranks the real word higher 89.3% of the time, against 80.2% for a score per word without context, 72.1% for the first version's three spelling features and 50% for a coin. Preferences are automatic, not human; on the 133 held-out pairs after \"the\" alone it is right about 66%.",
+  "section": "E. Fine-tuning and alignment (8)",
+  "module": "next_language",
+  "title": "A reward model from preferences",
+  "summary": "A model that learns a score from pairs in which one option was preferred to another."
+ },
+ {
+  "number": 37,
+  "name": "rlhf-ppo",
+  "description": "Categorical PPO (clipped surrogate, 180 updates) optimises the learned context reward model's scores for 48 real words after \"the\" at KL penalties 0, 0.3 and 1, from a training-frequency reference, for three reward-model seeds. Unleashed, the policy puts all its chance on \"king\" (2.69 nats of drift, score 3.08); at β = 1 it drifts 0.75-0.79 nats for a score near 2. Held-out log frequency is an evaluation score, not human utility; this is a word-choice bandit, not a language-model RLHF run.",
+  "section": "E. Fine-tuning and alignment (8)",
+  "module": "next_language",
+  "title": "RLHF with PPO",
+  "summary": "A policy pushed towards what a reward model scores highly, on a leash that limits how far it drifts."
+ },
+ {
+  "number": 38,
+  "name": "dpo",
+  "description": "DPO trains a table of 48 next-word logits directly on the 1,474 automatic preference pairs after \"the\" (180 NumPy updates, β = 1), with no reward model; PPO at the same β optimises the learned reward model from the same reference. Over three seeds the two final policies are 0.02-0.03 nats apart, each about 0.7-0.9 nats from the reference, with held-out scores of −3.3 to −3.6 for both. Preferences are automatic, not human.",
+  "section": "E. Fine-tuning and alignment (8)",
+  "module": "next_language",
+  "title": "Direct preference optimisation",
+  "summary": "Training the policy on the preference pairs directly, with no reward model in between."
+ },
+ {
+  "number": 39,
+  "name": "reward-hacking",
+  "description": "Thirty context reward models (trained on 300, 3,000 or all 72,415 preference pairs, ten seeds each) are each pushed for 240 exponentiated-gradient updates while expected held-out log frequency after \"the\" is measured. The proxy score rose in all thirty; the held-out score ended below its start for 2 of 10 models at 300 pairs, 2 of 10 at 3,000 and none trained on all pairs. The run drawn is the worst of the thirty (−4.72 to a best of −4.03 at update 44, then −5.44); no downturn is imposed.",
+  "section": "E. Fine-tuning and alignment (8)",
+  "module": "next_language",
+  "title": "Reward hacking",
+  "summary": "Optimising a learned score past the point where the thing it stood for stops improving."
+ },
+ {
+  "number": 40,
+  "name": "prompt-and-prefix-tuning",
+  "description": "A real-text base transformer (20,800 numbers) is adapted to TinyShakespeare in capitals by a soft prompt (64 numbers), a per-layer key-value prefix (128), output-matrix LoRA (196) and full tuning, for 600 NumPy updates on fresh training-split windows, stopped on validation and measured on test windows, three seeds. From 4.28 untouched, the add-ons reach 3.00, 2.80 and 3.10 (56-69% of the way with under 1% of the numbers) and full tuning 2.16. Parameter counts are exact; each method's learning rate is the best of three on validation.",
+  "section": "E. Fine-tuning and alignment (8)",
+  "module": "next_language",
+  "title": "Prompt and prefix tuning",
+  "summary": "Adapting a frozen model by training a few added numbers: a soft prompt, a prefix or a low-rank update."
+ },
+ {
+  "number": 41,
+  "name": "model-merging",
+  "description": "One real-text base transformer is fine-tuned twice (1,000 NumPy updates on fresh training-split windows): on TinyShakespeare in capitals (A) and on it backwards (B). Task vectors are added, averaged and subtracted and every mix measured on test windows, three seeds. Each fine-tune takes its own task from 4.25/4.95 to about 2.2 and harms the other; the average gives 2.92 on A and 3.25 on B; the full sum only 4.05 and 4.48; subtracting B's vector raises loss on B to 6.76 but on A to 7.76. Both tasks are exact re-encodings of the collected text.",
+  "section": "E. Fine-tuning and alignment (8)",
+  "module": "next_language",
+  "title": "Model merging with task vectors",
+  "summary": "Fine-tuned weights minus base weights as a vector that can be added, averaged and subtracted."
+ },
+ {
+  "number": 42,
+  "name": "knowledge-editing",
+  "description": "Pretrained GPT-2 is tested on a fixed real TinyShakespeare passage. A covariance-weighted analytic rank-one intervention favors an explicitly counterfactual token, with covariance estimated from real training-text activations and a second held-out passage as control. This is measured continuation editing, not a factual knowledge-training benchmark or full ROME optimization.",
+  "section": "E. Fine-tuning and alignment (8)",
+  "module": "next_language",
+  "title": "Knowledge editing",
+  "summary": "Changing what GPT-2 says next in one context by a rank-one change to one matrix."
+ },
+ {
+  "number": 43,
+  "name": "superposition",
+  "description": "Five patch-intensity features are extracted from 2,048 actual 14x14 MNIST training images. Training-set quantile thresholds vary sparsity; four two-dimensional autoencoders train for 800 NumPy updates and evaluate 512 official-test images with unchanged thresholds. Learned directions, Gram matrices and losses are measured; mostly-zero inputs can reduce raw loss without improving all active features.",
+  "section": "F. Interpretability (8)",
+  "module": "next_language",
+  "title": "Superposition",
+  "summary": "Five features squeezed into two numbers, and the arrangement a network finds when the features are rarely on together."
+ },
+ {
+  "number": 44,
+  "name": "sparse-autoencoder-features",
+  "description": "A 768-to-1,024-to-768 top-k sparse autoencoder (24 features per token) trains for 2,000 NumPy updates on 32,256 GPT-2 layer-six activations from 512 TinyShakespeare training windows, each window's first token excluded. On 6,048 held-out activations it recovers 75% of the variance and no feature is silent; a sweep of 6, 24 and 96 features per token leaves 34%, 25% and 19% unexplained. 18% of features have at least 16 of their 20 strongest held-out firings on a single word (random tokens: 14% agreement); top contexts are observations, not proof of monosemantic concepts.",
+  "section": "F. Interpretability (8)",
+  "module": "next_language",
+  "title": "Sparse autoencoder features",
+  "summary": "A sparse autoencoder rewrites GPT-2's activations as a few active features out of many."
+ },
+ {
+  "number": 45,
+  "name": "linear-probes",
+  "description": "Linear probes train on GPT-2 activations from 24 real TinyShakespeare excerpts and test on eight disjoint excerpts. The target is punctuation in the preceding token; balanced accuracy, an input-embedding baseline and a current-token identity control replace synthetic quotation templates. Decodability does not establish causal use.",
+  "section": "F. Interpretability (8)",
+  "module": "next_language",
+  "title": "Linear probes",
+  "summary": "Reading a property of the text off GPT-2's activations with a straight line, layer by layer."
+ },
+ {
+  "number": 46,
+  "name": "activation-patching",
+  "description": "A fixed nine-token held-out TinyShakespeare prefix supplies the actual next-token target. Two source tokens are replaced to corrupt context, then every layer/token residual patch is executed in GPT-2. Recorded probabilities and normalized recovery are local intervention measurements; the case is not selected to guarantee a large recovery or factual localization.",
+  "section": "F. Interpretability (8)",
+  "module": "next_language",
+  "title": "Activation patching",
+  "summary": "Copying one activation from a clean run into a corrupted one to find where the information is carried."
+ },
+ {
+  "number": 47,
+  "name": "induction-heads",
+  "description": "Six two-layer attention-only character transformers receive 800 NumPy updates on TinyShakespeare, three seeds each on ordinary 48-character windows and on windows in which a real stretch of 8 to 24 characters is read over and over. On held-out stretches the repeat-trained models' best layer-2 head puts 0.63 to 0.65 of its attention on the character that followed last time (it appears around update 400 to 460) and later-reading loss falls to 0.44 nats; the control's best head scores 0.03 and its loss stays at 3.2. The repeats are constructed from real text; GPT-2's heads are scored separately on natural token repeats (best 0.40, head 5.0).",
+  "section": "F. Interpretability (8)",
+  "module": "next_language",
+  "title": "Induction heads",
+  "summary": "Heads that find the last time the current token appeared and read what came after it."
+ },
+ {
+  "number": 48,
+  "name": "head-ablation",
+  "description": "Pretrained GPT-2 undergoes all 144 single-head zero ablations on each of 64 held-out TinyShakespeare passages of 16 tokens; the loss is the mean over a passage's 16 next-token predictions. Mean change and standard error per head are measured, and odd- and even-numbered passages rank the heads alike (Spearman 0.82; one passage against the rest only 0.37). Losing head 0.7 costs 0.52 ± 0.05 nats; zeroing head 2.6 lowers the loss by 0.38 ± 0.04. Zero ablation also removes a head's average output, so a negative change does not show the head is harmful in general.",
+  "section": "F. Interpretability (8)",
+  "module": "next_language",
+  "title": "Head ablation",
+  "summary": "Switching off one attention head at a time and measuring what the model loses."
+ },
+ {
+  "number": 49,
+  "name": "saliency-and-integrated-gradients",
+  "description": "The repository MLP is genuinely trained in NumPy on standard MNIST. The first official-test image supplies actual target-logit gradients and 512-point integrated gradients from a black baseline. Completeness is measured; attribution is not additional model training or proof of semantic causality.",
+  "section": "F. Interpretability (8)",
+  "module": "next_language",
+  "title": "Saliency and integrated gradients",
+  "summary": "Which pixels a classification rests on: the plain gradient against a method whose shares add up."
+ },
+ {
+  "number": 50,
+  "name": "feature-visualisation",
+  "description": "The repository CNN is trained in NumPy on MNIST. With weights frozen, 200 input-pixel steps from noise maximise one digit's output unit (its score minus the mean of the other nine), plainly and with jitter, gradient blur and decay, for all ten units from three starting noises. Both exceed any real test digit's response (61 and 33 against 19); a separate MLP reads the intended digit in 20 of 30 plain and 27 of 30 regularised images, whose likeness to the average real digit is 0.26 against 0.15: stroke fragments, not well-formed digits.",
+  "section": "F. Interpretability (8)",
+  "module": "next_language",
+  "title": "Feature visualisation",
+  "summary": "Changing an image's pixels, not a network's weights, to find what one of its units responds to."
+ },
+ {
+  "number": 51,
+  "name": "receptive-field",
+  "description": "Fixed NumPy-trained MNIST CNN: measure input gradients and receptive-field support. This is checkpoint analysis, with no new model training.",
+  "section": "G. Vision (8)",
+  "module": "next_vision",
+  "title": "Receptive field",
+  "summary": "How much of the image one output cell of a CNN can see, and how much of that it uses."
+ },
+ {
+  "number": 52,
+  "name": "vit-attention",
+  "description": "Train a three-block, four-head NumPy vision transformer (width 32) on real MNIST cut into 49 patches of 4×4 pixels, for 3,000 updates on three seeds (96.6% of the 10,000 test digits). On the first 500 test digits, measure per block and head how many patches the class token's attention is spread over, how much of it falls on patches with ink, and how far patch-to-patch attention travels, each against attention spread evenly. Attention is concentrated (about 25, 12 and 16 of 49 patches in blocks 1–3) but not local: its reach (3.53–3.57 patch widths) equals that of even attention (3.61). Attention weights are not causal explanations.",
+  "section": "G. Vision (8)",
+  "module": "next_vision",
+  "title": "What a vision transformer attends to",
+  "summary": "An image cut into patches, and which patches the class token reads in each block."
+ },
+ {
+  "number": 53,
+  "name": "clip-contrastive",
+  "description": "Train image and digit-label embeddings on real MNIST pairs for 900 NumPy updates; measure retrieval against the ten labels seen during training. This is a closed digit vocabulary, not unseen-class or natural-language zero-shot transfer.",
+  "section": "G. Vision (8)",
+  "module": "next_vision",
+  "title": "Contrastive image-text training",
+  "summary": "Images and words trained into one space so that each image lands nearest its own word."
+ },
+ {
+  "number": 54,
+  "name": "adversarial-examples",
+  "description": "Measure FGSM and PGD attacks on 160 held-out MNIST images using a fixed trained MLP; perform a separate 220-update adversarial fine-tune on training images and recompute attacks. Results apply to the stated attack and perturbation budgets.",
+  "section": "G. Vision (8)",
+  "module": "next_vision",
+  "title": "Adversarial examples",
+  "summary": "A change to a digit too small to notice that makes a classifier read a different digit."
+ },
+ {
+  "number": 55,
+  "name": "object-detection-basics",
+  "description": "Train a NumPy box regressor for 1,100 updates on scenes composed from real MNIST digits at recorded positions; evaluate box IoU on scenes from held-out digits. Duplicate proposals and non-maximum suppression are explicit geometric post-processing, not a trained proposal-scoring network.",
+  "section": "G. Vision (8)",
+  "module": "next_vision",
+  "title": "Object detection: boxes, IoU, suppression",
+  "summary": "Boxes as four numbers, the overlap score that judges them, and how duplicate boxes are removed."
+ },
+ {
+  "number": 56,
+  "name": "semantic-segmentation",
+  "description": "Train a small NumPy U-Net for 1,000 updates on composed MNIST scenes with foreground masks derived from the digit pixels; measure per-class IoU on 80 scenes made from unseen test digits. This is a restricted synthetic-layout task using measured images.",
+  "section": "G. Vision (8)",
+  "module": "next_vision",
+  "title": "Semantic segmentation with a U-Net",
+  "summary": "A label for every pixel, from a network that shrinks the image and grows it back with a skip across."
+ },
+ {
+  "number": 57,
+  "name": "batchnorm-in-cnns",
+  "description": "Train three small MNIST CNNs with batch normalisation after each of two convolutions (1,000 updates, three seeds), then classify 9,984 test images using the stored running statistics and using each test batch's own statistics at batch sizes 256, 32, 8, 2 and 1. Large batches lose nothing; one image per batch drops accuracy from 98.1% to 94.4% (91.8–97.1% by seed) and changes 4.7% of predictions; batches of one digit each drop it to 94.6%.",
+  "section": "G. Vision (8)",
+  "module": "next_vision",
+  "title": "Batch normalisation in a CNN",
+  "summary": "What batch normalisation computes for each filter, and the cost of using a batch's own statistics at test time."
+ },
+ {
+  "number": 58,
+  "name": "style-transfer",
+  "description": "Train a two-layer MNIST CNN (16 and 32 filters), then optimise the pixels of twenty test digits for 300 steps so that the Gram matrices of both layers match those of a style digit while second-layer activations stay close to the content digit's. The two styles are real test digits, the thinnest- and heaviest-stroked of test digits 100–299. Thin-styled results lose ink (93 to 45 on average) and heavy-styled ones gain it (to 230), with Gram mismatch falling by more than two-thirds and 17 and 20 of 20 still read as the same digit; the heavy style also leaves haze on the background, because a Gram matrix records how much of each texture, not where. Digit-scale result; it says nothing about natural-image style quality.",
+  "section": "G. Vision (8)",
+  "module": "next_vision",
+  "title": "Style transfer with Gram matrices",
+  "summary": "Style as the statistics of a CNN's filters, and an image optimised to take them from another."
+ },
+ {
+  "number": 59,
+  "name": "gan-training",
+  "description": "Train plain and minibatch-feature NumPy GANs (five seeds each, 3,000 updates) on MNIST 0s, 1s and 4s at two training-only PCA coordinates, three clusters. A digit is covered when 10% of 500 fixed-noise samples land on its cluster. Over the second half of training the plain GAN covers all three at 61–94% of checkpoints (mean 81%), the crowd-aware one at 97–100%; at the final update every run covered all three. The points are 2-D coordinates, not digit images.",
+  "section": "H. Generative models (8)",
+  "module": "next_vision",
+  "title": "GAN training",
+  "summary": "A generator and a discriminator training against each other, and a generator that keeps dropping part of the data."
+ },
+ {
+  "number": 60,
+  "name": "normalizing-flows",
+  "description": "Fit six affine-coupling layers (three seeds, 4,000 updates) to MNIST 0s, 1s and 4s at two training-only PCA coordinates, three clusters. Held-out negative log likelihood is 1.44–1.50 nats against 2.76 for the best single Gaussian and 2.84 for the unfitted bell; invertibility error is 1e-15. The density is over the two coordinates, not the pixels.",
+  "section": "H. Generative models (8)",
+  "module": "next_vision",
+  "title": "Normalizing flows",
+  "summary": "An invertible map from a simple bell-shaped cloud to the data, which makes the likelihood exact."
+ },
+ {
+  "number": 61,
+  "name": "flow-matching",
+  "description": "Fit a NumPy flow-matching velocity field to Gaussian-to-MNIST pairs in training-only PCA coordinates, then fit a rectified field from learned endpoint pairs. Compare actual integration paths and endpoint error relative to each learned field’s fine-step reference; this numerical error is not distance to an exact data-distribution solution.",
+  "section": "H. Generative models (8)",
+  "module": "next_vision",
+  "title": "Flow matching",
+  "summary": "Learning the velocity that carries noise to data along straight lines, then straightening the paths."
+ },
+ {
+  "number": 62,
+  "name": "classifier-free-guidance",
+  "description": "Train three conditional NumPy diffusion models (seeds 62–64) on 14×14 MNIST for 5,000 updates with 15% label dropout; sample 200 digits per model at guidance 0, 1, 3 and 8 from the same noise with a 50-step clipped DDIM sampler. A separately trained classifier (96.5% held out) reads 7–13% as the digit asked for at guidance 0, 71–74% at 1 and 99.5–100% at 3; pixel spread within a digit falls from 0.129 to 0.113 at guidance 3 and rises to 0.124 at 8 as strokes thicken. Both measures are proxies for fidelity and diversity.",
+  "section": "H. Generative models (8)",
+  "module": "next_vision",
+  "title": "Classifier-free guidance",
+  "summary": "Asking a denoiser twice, with and without the label, and pushing its answer along the difference."
+ },
+ {
+  "number": 63,
+  "name": "ddpm-vs-ddim",
+  "description": "Sample the same existing MNIST-trained denoiser using stochastic DDPM and deterministic DDIM settings with matched initial noise. Compare actual generated images and classifier confidence from four samples per setting; no new denoiser training or distribution-quality guarantee is claimed.",
+  "section": "H. Generative models (8)",
+  "module": "next_vision",
+  "title": "DDPM and DDIM sampling",
+  "summary": "Two ways down the same ladder of noise levels: many small random steps or a few deterministic strides."
+ },
+ {
+  "number": 64,
+  "name": "vae-posterior-collapse",
+  "description": "Train actual MNIST VAEs with a causal pixel decoder for 1,800 updates under fixed beta=4 and beta annealed from 0 to 1; record reconstruction and KL terms. The comparison changes both final KL strength and schedule, so it does not isolate annealing as the cause of any difference.",
+  "section": "H. Generative models (8)",
+  "module": "next_vision",
+  "title": "VAE posterior collapse",
+  "summary": "A decoder strong enough to ignore the code, and the pressure schedule that keeps the code in use."
+ },
+ {
+  "number": 65,
+  "name": "vq-vae-codebook",
+  "description": "Train a patch-wise vector-quantised autoencoder on 28×28 MNIST (a 7×7 grid of codes per digit, 64 codes of 64 numbers) for 3,000 updates at three seeds, with codes started on encoder outputs, EMA updates and dead-code restarts; and the same model without them, codes started as standard normal draws. On 1,000 held-out digits the remedied codebook uses 64 of 64 codes (error 0.010 per pixel), the control 2–6 (0.035–0.080). The collapse needs codes started far from the encoder's outputs in many dimensions: with 2-number codes the same control kept 31–32 of 32. The remedies are not separated.",
+  "section": "H. Generative models (8)",
+  "module": "next_vision",
+  "title": "VQ-VAE: a codebook",
+  "summary": "Images rewritten as a grid of code numbers from a small learned codebook, and codes that die unused."
+ },
+ {
+  "number": 66,
+  "name": "autoregressive-pixels",
+  "description": "Train a six-layer, two-stream masked-convolution Bernoulli model (32 channels, dilations 1,1,2,1,2,1) on binarised 14×14 MNIST for 2,400 updates at three seeds, with a one-layer model and independent pixel rates as controls; sample pixel by pixel. Held-out bits per pixel are 0.212 (six layers), 0.324 (one layer) and 0.390 (independent). The single-stack blind spot (45 of 129 earlier pixels for the mapped pixel, 28 of them read by the second stream) is exact arithmetic on the masks, not a trained comparison.",
+  "section": "H. Generative models (8)",
+  "module": "next_vision",
+  "title": "Autoregressive pixels",
+  "summary": "An image generated one pixel at a time, each predicted from the pixels already drawn."
+ },
+ {
+  "number": 67,
+  "name": "bias-variance",
+  "description": "Fit polynomials of degree 1 to 10 to 200 resamples of 40 real measurements each, where a measurement is the share of one column of one MNIST training image that is inked and the input is the column's position. Judge every fit on all 28 columns of the 10,000 test images, whose own per-column mean and variance split the squared error exactly into bias, variance and noise. Bias falls from 0.0151 (a line) to 0.0003, variance rises from 0.0010 to 0.148, and the error is lowest at degree 4; the bias at the highest degrees includes sampling error of the mean of 200 fits.",
+  "section": "I. Classical ML and evaluation (8)",
+  "module": "next_vision",
+  "title": "Bias and variance",
+  "summary": "Fits that are too simple, fits that change with every sample, and the error they add up to."
+ },
+ {
+  "number": 68,
+  "name": "cross-validation",
+  "description": "Run actual nested kernel-ridge selection on real MNIST threes and eights using pooled image pixels: five outer folds, four inner folds, six kernel widths, and a separate official test sample. PCA is used only for display; the observed selection gap is allowed to be small or absent.",
+  "section": "I. Classical ML and evaluation (8)",
+  "module": "next_vision",
+  "title": "Cross-validation",
+  "summary": "Holding out each part of the data in turn, and why choosing a setting needs a second round inside the first."
+ },
+ {
+  "number": 69,
+  "name": "svm-and-kernels",
+  "description": "Fit linear, explicitly lifted, and RBF-kernel SVMs to real MNIST threes/eights represented with training-only PCA; evaluate each on separate test images. Compare the measured margins and test results without requiring a kernel or feature lift to improve accuracy.",
+  "section": "I. Classical ML and evaluation (8)",
+  "module": "next_vision",
+  "title": "SVMs and kernels",
+  "summary": "The widest street between two classes, then the same idea after lifting the points to where a line can separate them."
+ },
+ {
+  "number": 70,
+  "name": "gradient-boosting",
+  "description": "Fit actual depth-three boosted and bagged trees to predict bottom-half MNIST ink from top-half image measurements; compare held-out MSE with 60 trees and two boosting rates. Saved trees reproduce the reported predictions; results are specific to this image-regression task.",
+  "section": "I. Classical ML and evaluation (8)",
+  "module": "next_vision",
+  "title": "Gradient boosting",
+  "summary": "Small trees added one at a time, each fitted to what the ones before still get wrong."
+ },
+ {
+  "number": 71,
+  "name": "gaussian-mixture-em",
+  "description": "Fit four-component full-covariance Gaussian mixtures by 100 EM rounds to a training-only PCA plane of 1,200 real MNIST zeros, ones, sixes and sevens, from 300 starts of each of three kinds (random points, k-means++ seeds, a k-means solution), scoring every fit on 600 held-out images. 86% of random starts reach the best optimum and 3% end clearly worse held-out (−2.25 against −2.07 nats); k-means++ seeding alone barely changes this (89%), while a k-means start reaches it 97% of the time with none clearly worse. Components are density regions, not assumed digit classes.",
+  "section": "I. Classical ML and evaluation (8)",
+  "module": "next_vision",
+  "title": "Gaussian mixture, by EM",
+  "summary": "Soft assignment of points to blobs, then blobs moved to their points, repeated; and how much the start matters."
+ },
+ {
+  "number": 72,
+  "name": "curse-of-dimensionality",
+  "description": "Classify 1,000 MNIST test images by their nearest of 125 to 8,000 training images, described by 49 real pooled pixels plus 0 to 1,519 no-signal coordinates: real pixel columns shuffled across images (a disclosed transformation), five independent shuffles. The nearest/farthest distance ratio rises from 0.25 to 0.86 and 1-NN accuracy at 1,000 training images falls from 84% to 19%; 49 empty coordinates cost about as much as a 32-fold cut in data. Adding real PCA coordinates instead raises accuracy (33% to 84%); ball-versus-cube volume is a separately labelled exact formula.",
+  "section": "I. Classical ML and evaluation (8)",
+  "module": "next_vision",
+  "title": "The curse of dimensionality",
+  "summary": "Why nearest neighbours stop meaning much as uninformative coordinates are added."
+ },
+ {
+  "number": 73,
+  "name": "tsne-and-umap",
+  "description": "Map the same 240 real MNIST images by exact t-SNE (perplexities 5, 30, 100) and by UMAP implemented here in numpy (fuzzy k-nearest-neighbour graph, spectral start, sampled attraction and repulsion; 5, 15, 50 neighbours), three seeds each. t-SNE at perplexity 30 keeps 57% of each image's 10 nearest images nearby and UMAP at 15 neighbours 54%; map distance tracks real distance only loosely (rank correlation 0.52 and 0.42). These images are the embedding-fit data, not a generalization test.",
+  "section": "I. Classical ML and evaluation (8)",
+  "module": "next_vision",
+  "title": "t-SNE and UMAP",
+  "summary": "Two methods that lay high-dimensional points out on a plane, and what their maps keep and lose."
+ },
+ {
+  "number": 74,
+  "name": "roc-and-calibration",
+  "description": "Use an existing NumPy-trained MNIST classifier to measure a seven-versus-rest confusion matrix, ROC/AUC, precision–recall, and probability calibration on 2,000 held-out images. There is no new training; precision and calibration depend on the evaluated sample and its prevalence.",
+  "section": "I. Classical ML and evaluation (8)",
+  "module": "next_vision",
+  "title": "ROC and calibration",
+  "summary": "A classifier's scores turned into decisions by a threshold, and whether a score of 80% means 80%."
+ },
+ {
+  "number": 75,
+  "name": "newton-vs-gradient-descent",
+  "description": "Ridge regression of one-hot MNIST labels (1,024 train / 384 held out) has an exact quadratic loss and Hessian. Gradient descent is run from zero weights at step sizes 1.0, 1.9 and 2.1 divided by the largest curvature, beside the Newton step: the first crawls along the shallow directions, the second zig-zags across the steep one, the third diverges, and the Newton step lands on the minimum in one update. The updates needed to bring the loss within 1% of its starting distance to the minimum are counted at four ridge strengths (condition numbers 2.6 to 1,593): 4 to 520 for the safe step, always 1 for Newton. The loss is a quadratic, so Newton's single update is exact here and would not be for a network; changing the ridge changes the problem as well as its conditioning.",
+  "section": "J. Optimisation, deeper (6)",
+  "module": "next_systems",
+  "title": "Newton's step and gradient descent",
+  "summary": "Gradient descent crawling along a long valley against a step that divides by the curvature."
+ },
+ {
+  "number": 76,
+  "name": "edge-of-stability",
+  "description": "A 196-64-10 tanh network is fitted to 256 MNIST digits (14×14 pooled pixels, squared error) by full-batch gradient descent for 6,000 updates at step sizes 0.2, 0.3, 0.4 and 0.5, from three starts each. The top Hessian eigenvalue is measured every 20 updates by power iteration on Hessian-vector products. It starts near 2.5, far under every limit 2/η, and climbs: at 0.3, 0.4 and 0.5 it levels off within 1% of 6.67, 5 and 4 while the loss rises at hundreds to thousands of updates yet keeps falling overall; at 0.2 it stays under its limit of 10 and the loss never rises. The first excursion at step size 0.3 is recorded update by update. The 256 digits are memorised (held-out accuracy about 76% at every step size).",
+  "section": "J. Optimisation, deeper (6)",
+  "module": "next_systems",
+  "title": "The edge of stability",
+  "summary": "Curvature that rises during training until the step size will allow no more, then stays there."
+ },
+ {
+  "number": 77,
+  "name": "batch-size-and-noise",
+  "description": "Actual MNIST classifier gradients estimate noise over 100 sampled batches at each batch size, alongside 100-update training runs and official-test losses. The inverse-batch curve is a labelled theoretical reference. Learning rates also vary with batch size, so this is not an isolated batch-size effect or a measurement of noise usefulness.",
+  "section": "J. Optimisation, deeper (6)",
+  "module": "next_systems",
+  "title": "Batch size and gradient noise",
+  "summary": "Small batches give noisy gradients: how the noise shrinks with batch size and what it does to training."
+ },
+ {
+  "number": 78,
+  "name": "weight-averaging",
+  "description": "A NumPy MNIST classifier makes 400 stochastic updates while retaining SGD, exponential-average and stochastic-weight-average weights. All three are evaluated on the same official-test images; recorded weight trajectories and final curvature are measured. Averaging is not assumed to improve either accuracy or curvature.",
+  "section": "J. Optimisation, deeper (6)",
+  "module": "next_systems",
+  "title": "Averaging the weights",
+  "summary": "The average of the weights along a run against the last weights of the run."
+ },
+ {
+  "number": 79,
+  "name": "second-order-preconditioners",
+  "description": "Actual MNIST ridge regression compares gradient descent, diagonal curvature scaling and a full Hessian solve, with saved weights and test accuracy after 80 updates. Eigenvalue ratios measure conditioning before and after diagonal or full coordinate whitening. This distinguishes rescaling coordinates from removing their coupling; it is not a K-FAC or Shampoo implementation or a large-network timing claim.",
+  "section": "J. Optimisation, deeper (6)",
+  "module": "next_systems",
+  "title": "Preconditioning",
+  "summary": "Rescaling each direction by its curvature, and what the off-diagonal terms add."
+ },
+ {
+  "number": 80,
+  "name": "loss-spikes",
+  "description": "A one-layer transformer is trained by full-batch Adam (learning rate 0.02) on 64 fixed windows of Tiny Shakespeare for 3,000 updates, from three starts, with nothing about the data ever changing. With β₂ 0.999 the loss leaps by itself to 46 and 80 times its lowest in two of the three starts; in the run drawn, Adam's second-moment memory shrinks 2.7 times and its step per unit of gradient grows 1.8 times over the quiet stretch before. The same starts are rerun with β₂ 0.9 (no spike in any start, a slightly higher final loss), ε 1e-3 (spikes in all three) and clipping at 1 (spikes in two). Loss, gradient length, memory and step length are recorded at every update. The 64 windows are memorised (held-out loss about 20), and whether a given start spikes varies.",
+  "section": "J. Optimisation, deeper (6)",
+  "module": "next_systems",
+  "title": "A loss spike, inside Adam",
+  "summary": "A sudden jump in the loss on unchanged data, traced to the optimiser's fading memory of past gradients."
+ },
+ {
+  "number": 81,
+  "name": "retrieval-augmented-generation",
+  "description": "Sixty held-out Tiny Shakespeare lines are cut after five words and the pinned GPT-2 is asked for the true next token: alone, and with one line from a 300-line held-out store placed ahead of the question. That line is chosen by TF-IDF (fitted on the training text) or by cosine of GPT-2's mean final hidden state, with the question's own line either on file or removed, plus a random-line control. With the source on file the mean probability rises from 4.2% to 74.5% (words) or 67.8% (embedding). With it removed it is 4.6% / 5.1%, helping 32 and 31 of 60 questions against 38 for a random line. Nothing is trained; this is inference with an existing model, not evidence of factual reliability.",
+  "section": "K. Retrieval and contrastive learning (5)",
+  "module": "next_systems",
+  "title": "Retrieval-augmented generation",
+  "summary": "Looking up a passage and putting it in front of the question, and what the model can then say."
+ },
+ {
+  "number": 82,
+  "name": "vector-search-hnsw",
+  "description": "A NumPy contrastive encoder trains for 161 updates on paired views of actual MNIST images. HNSW indexes 256 training embeddings and answers 64 held-out queries; recall is compared with exact neighbors and distance-function calls are counted. Counted work is distinct from wall-clock speed.",
+  "section": "K. Retrieval and contrastive learning (5)",
+  "module": "next_systems",
+  "title": "Vector search: a layered graph",
+  "summary": "Finding near neighbours through a layered graph while computing only a fraction of the distances."
+ },
+ {
+  "number": 83,
+  "name": "infonce-temperature",
+  "description": "A two-layer ReLU encoder (196→256→32) is trained with InfoNCE for 1,200 NumPy updates on pairs of views of 4,096 MNIST digits (shifted up to 3 pixels, pooled to 14×14, noise added) at eight temperatures from 0.01 to 2, three seeds each. On 1,024 official-test digits it measures alignment, uniformity, nearest-training-digit accuracy and the share of the push that lands on the hardest negative. Accuracy and spread peak at temperature 0.1 in every seed and fall towards both ends. The untrained encoder (84.9%) and raw pixels (92.6%) are reported as baselines; the best embedding does not beat the pixels.",
+  "section": "K. Retrieval and contrastive learning (5)",
+  "module": "next_systems",
+  "title": "Temperature in contrastive learning",
+  "summary": "The temperature of a contrastive loss decides how much of the push lands on the hardest negatives."
+ },
+ {
+  "number": 84,
+  "name": "hard-negatives",
+  "description": "ReLU contrastive encoders are trained on views of MNIST digits with eight negatives per anchor chosen four ways: by lot, the eight most similar under the encoder's own current similarity (no labels), the eight after skipping the 16 most similar, and, as a labelled control, the most similar of other digits. Three seeds each, with identical batches across modes. It measures the share of chosen negatives that are the anchor's own digit as training proceeds (mined: 20% rising to 43%; by lot: 10%) and nearest-training-digit accuracy on 1,024 official-test digits (84.2% by lot, 87.6% mined, 85.9% skipping, 93.3% with false negatives removed). Labels are used only to count false negatives and for the declared control.",
+  "section": "K. Retrieval and contrastive learning (5)",
+  "module": "next_systems",
+  "title": "Hard negatives",
+  "summary": "Choosing the most similar wrong examples as negatives, and the ones among them that are not wrong."
+ },
+ {
+  "number": 85,
+  "name": "dimensionality-of-embeddings",
+  "description": "MNIST paired-view encoders of widths 2 through 256 receive 241 actual NumPy updates with matched sampled images and noise. Official-test nearest-neighbor accuracy is measured. A nested-prefix model receives 121 additional updates, so its additional budget is disclosed. Float32 byte counts are exact arithmetic.",
+  "section": "K. Retrieval and contrastive learning (5)",
+  "module": "next_systems",
+  "title": "How wide should an embedding be?",
+  "summary": "The same images as 2 numbers or 256: storage against retrieval accuracy."
+ },
+ {
+  "number": 86,
+  "name": "data-parallel-allreduce",
+  "description": "A small tanh classifier is trained on MNIST by data-parallel SGD: at each of 200 steps four workers compute real gradients on 16 different digits each and average them with a ring all-reduce simulated in NumPy (reduce-scatter, then all-gather). The same start is trained on one machine with each whole 64-digit batch. The averaged gradient equals the whole-batch gradient to rounding at every step, one step with either gives the same weights, and the two runs' held-out loss curves coincide. Bytes sent are exact counts for the simulated schedule, not measurements of a network.",
+  "section": "L. Systems and scale (5)",
+  "module": "next_systems",
+  "title": "Data parallelism and ring all-reduce",
+  "summary": "Four workers computing gradients on different data and averaging them by passing chunks round a ring."
+ },
+ {
+  "number": 87,
+  "name": "tensor-and-pipeline-parallel",
+  "description": "One layer of a trained MNIST classifier (its 12x16 weights and the activations of 16 held-out digits) is computed whole and split over four devices by column and by row; outputs agree to rounding and held-out accuracy is unchanged. The classifier's four layers are then executed as a four-stage pipeline over micro-batches; the occupancy timeline and utilisation are recorded from that executed schedule. Time steps are the schedule's, not measured seconds; no device is simulated.",
+  "section": "L. Systems and scale (5)",
+  "module": "next_systems",
+  "title": "Tensor and pipeline parallelism",
+  "summary": "One layer split across devices by column or by row, and a model's layers run as a pipeline with idle slots."
+ },
+ {
+  "number": 88,
+  "name": "zero-sharding",
+  "description": "Parameter, gradient and optimizer-state storage for ZeRO stages is calculated from explicit assumed tensor sizes and worker counts. All-gather traffic and memory savings are analytical accounting, not a trained-model result or measured cluster memory.",
+  "section": "L. Systems and scale (5)",
+  "module": "next_systems",
+  "title": "ZeRO: sharding the training state",
+  "summary": "Training state cut into slices so that each device holds only its share."
+ },
+ {
+  "number": 89,
+  "name": "activation-checkpointing",
+  "description": "A 16-layer tanh classifier is trained on MNIST with checkpointed backpropagation. One gradient is then taken at every checkpoint spacing from 1 to 16 by a NumPy implementation that stores only every k-th activation and recomputes each segment on the way back; activations alive in memory and layer evaluations are counted as it runs. Spacing 1 is plain backpropagation (17 held, 16 runs); memory falls to 8 at spacings 3 to 6 while runs rise towards 31; gradients equal plain backpropagation exactly. No device-performance claim.",
+  "section": "L. Systems and scale (5)",
+  "module": "next_systems",
+  "title": "Activation checkpointing",
+  "summary": "Storing only some activations on the way forward and recomputing the rest on the way back."
+ },
+ {
+  "number": 90,
+  "name": "roofline",
+  "description": "Operation and byte counts for four operations (matmul, attention, layer norm, decoding) are exact formulas. The machine's two ceilings are timed on their own in NumPy on one thread: bytes per second from copying 256 MB, operations per second from repeated in-cache matrix products of shapes not on the chart. The four operations are then timed (25 calls, median and spread) and placed under that roof. Timings are local observations cached at first build, not chip specifications.",
+  "section": "L. Systems and scale (5)",
+  "module": "next_systems",
+  "title": "The roofline performance model",
+  "summary": "An operation is limited by arithmetic or by memory traffic: counting both and placing it under the roof."
+ },
+ {
+  "number": 91,
+  "name": "multi-armed-bandits",
+  "description": "Ten NumPy MNIST classifiers, using different selected pixel counts, each train for 100 updates. Bandit rewards sample their recorded correctness on a separate validation set, with eight seeded 1,000-pull runs per method. Empirical-mean regret is labelled as such; no prescribed Bernoulli reward rates are substituted. Official-test classifier accuracy is retained separately.",
+  "section": "M. Reinforcement learning (6)",
+  "module": "next_systems",
+  "title": "Multi-armed bandits",
+  "summary": "Choosing between options of unknown worth: three ways to balance trying and exploiting."
+ },
+ {
+  "number": 92,
+  "name": "policy-gradient",
+  "description": "A tanh policy network learns the glimpse game on real MNIST digits (uncover two of four quadrants, then name the digit; 1 point for an answer, 2 for the right one, paid at the end) by REINFORCE, with and without a learned baseline, five seeds each, 3,000 updates of 16 episodes. Held-out accuracy on 1,000 test digits is shown per seed, and the distance of a 16-episode gradient estimate from the true gradient (8,192 episodes) is measured for both estimators on the same policies and episodes. One small task and network.",
+  "section": "M. Reinforcement learning (6)",
+  "module": "next_systems",
+  "title": "Policy gradient (REINFORCE)",
+  "summary": "Making sampled actions more likely in proportion to the reward that followed, and why a baseline helps."
+ },
+ {
+  "number": 93,
+  "name": "actor-critic",
+  "description": "On the same game, seeds and initial weights, an actor pushed by the critic's one-step change in expected reward is compared with REINFORCE on the raw return and on the return minus a learned baseline: five seeds each, held-out accuracy per seed, and all three estimators' gradient noise and bias measured on the same batches from the actor-critic runs' policies. The noise gap to the baseline estimator is modest; final accuracies of those two overlap.",
+  "section": "M. Reinforcement learning (6)",
+  "module": "next_systems",
+  "title": "Actor-critic",
+  "summary": "An actor choosing actions and a critic estimating what to expect, each improving the other."
+ },
+ {
+  "number": 94,
+  "name": "dqn-replay-buffer",
+  "description": "Q-learning with a tanh network on the free glimpse game (look or name at each step, six steps at most, discount 0.9), with training digits arriving one class at a time. Replay (32 from the last 20,000 steps, against the newest 32) and a target network (refreshed every 200 updates) are each switched on or off, plus a shuffled-digits control, five seeds each. Held-out digits named are reported over the last pass through the classes, with per-class accuracy over training and the network's own value estimate against its score. The class-sorted stream is a constructed source of correlated experience.",
+  "section": "M. Reinforcement learning (6)",
+  "module": "next_systems",
+  "title": "DQN: replay buffer and target network",
+  "summary": "Learning action values from replayed experience against a slowly moving copy of the network."
+ },
+ {
+  "number": 95,
+  "name": "mcts-tic-tac-toe",
+  "description": "Monte Carlo tree search executes actual selection, expansion, random rollout and backup on tic-tac-toe. Visit counts and rollout values are measured search statistics. This is a game-search calculation with no learned policy, neural-network training or claim of real-world data learning.",
+  "section": "M. Reinforcement learning (6)",
+  "module": "next_systems",
+  "title": "Monte Carlo tree search",
+  "summary": "Search by random playouts: select, expand, play out and back up, on a game everyone knows."
+ },
+ {
+  "number": 96,
+  "name": "reward-shaping",
+  "description": "The same Q-learner (replay and target network, shuffled digits) is trained on the free glimpse game with its own reward, with potential-based shaping added (0.25 per uncovered quadrant), and with a naive 0.25 bonus per look, five seeds each, all scored on the game's own return on held-out digits. Potential-based shaping left score and episode length unchanged but did not speed learning here; the per-look bonus was farmed with repeated looks and a lower score. The potential and bonus sizes are chosen numbers.",
+  "section": "M. Reinforcement learning (6)",
+  "module": "next_systems",
+  "title": "Reward shaping",
+  "summary": "Extra rewards that leave the best behaviour unchanged, and extra rewards that get farmed."
+ },
+ {
+  "number": 97,
+  "name": "hopfield-network",
+  "description": "Binarized MNIST training digits are stored in a Hopfield memory by four exact rules: Hebbian, Hebbian after subtracting the stored digits' mean image, the pseudo-inverse rule, and the modern softmax rule. One corrupted 1 among three stored digits is recalled pixel by pixel with the exact energy; the Hebbian rule settles 66 pixels away in a blend below every memory, while the other three return it exactly. Recall within 8 pixels is then counted over 100 fresh random sets of digits at each of 15 loads (20% of pixels flipped) and 10 corruption levels: 9 in 10 up to 2 digits (Hebbian), 3 (centred), 96 (pseudo-inverse), and 88 in 100 still at 256 for the modern rule. This is associative-memory storage and retrieval, not gradient-trained generalization.",
+  "section": "N. Memory, dynamics and curiosities (4)",
+  "module": "next_systems",
+  "title": "A Hopfield memory",
+  "summary": "Patterns stored as the resting states of a network, recalled from damaged copies, and how many it can hold."
+ },
+ {
+  "number": 98,
+  "name": "neural-cellular-automata",
+  "description": "A NumPy neural cellular automaton (8 numbers per cell, one shared 1056-weight rule, cells firing at random) is trained on one MNIST 0 by the Growing-NCA recipe: 1500 updates from a pool of the rule's own past states, two in eight with a disc cut out. Three seeds are compared with three trained from the seed only. Every rule grows the digit; only the pool-trained rules hold it for 960 steps (error at most 0.00006 against 0.006-0.227) and regrow it within 48 steps of a 6×6 hole or the loss of either half (at most 0.00014 against 0.03-0.07). A single-image fit does not establish generalization to other digits.",
+  "section": "N. Memory, dynamics and curiosities (4)",
+  "module": "next_systems",
+  "title": "A neural cellular automaton",
+  "summary": "A grid of cells sharing one small rule that grows a digit from a single cell and regrows it when damaged."
+ },
+ {
+  "number": 99,
+  "name": "neural-ode",
+  "description": "A two-dimensional neural ODE is trained three times (seeds 17-19, 2000 Adam updates through 64 Euler steps) to tell MNIST 5s from 0s and 8s in their PCA plane, where the 5s lie between the others; the PCA is fitted on training images only. Held-out accuracy of a straight line after the flow (79.4-80.3%) is compared with the best straight line without it (67.4%, the rate of never answering 5). The same weights are then run as 1 to 64 residual layers against a Runge-Kutta reference: accuracy and end-point distance are reported per seed, and the step count matters greatly for one seed and by 3-4 points for the other two. A weight-copied residual network reproduces the Euler run exactly, and the adjoint method's gradient is measured against backpropagation (57% off at 16 steps, 1.9% at 512). Integration time is not physical time.",
+  "section": "N. Memory, dynamics and curiosities (4)",
+  "module": "next_systems",
+  "title": "A neural ODE",
+  "summary": "A residual network as steps along a learned flow, and the same flow followed with smaller steps."
+ },
+ {
+  "number": 100,
+  "name": "evolution-strategies",
+  "description": "An exact two-dimensional quadratic supplies a labelled optimizer illustration. Separately, a small NumPy MNIST classifier receives 80 actual updates using backpropagation or antithetic evolution strategies; the latter makes 64 paired perturbations per update and no backward pass. Losses and gradient-estimator error are measured, without claiming equal computational budgets.",
+  "section": "N. Memory, dynamics and curiosities (4)",
+  "module": "next_systems",
+  "title": "Evolution strategies",
+  "summary": "Training without gradients: random nudges, kept in proportion to how much each one helped."
+ },
+ {
+  "number": 101,
+  "name": "generative-objectives",
+  "description": "Five families (an autoencoder, a VAE, a GAN, DEC and IDEC) share one decoder shape, 20,000 MNIST training digits and three seeds; only the objective differs. With 16-number codes, each is scored on 2,000 held-out digits by four yardsticks, one per objective: rebuilding error (AE 0.013, VAE 0.013, GAN 0.027 by a search of its noise, DEC 0.070, IDEC 0.018), share of codes inside the standard bell's 99% radius (VAE 100%, the others 0%), cluster accuracy (DEC 0.50 and IDEC 0.51 against 0.46 for k-means on the autoencoder's codes and 0.53 on the VAE's), and a separate classifier's confidence in new samples (0.73 to 0.88). DEC's decoder is the autoencoder's, never retrained, which is why its rebuilding error rises. The networks are small and no family is declared best.",
+  "section": "O. Generative families compared (5)",
+  "module": "study_families",
+  "title": "Four families, four objectives",
+  "summary": "What an autoencoder, a VAE, a GAN and DEC are each trained to do with the same parts on the same digits, and what each ends up good at."
+ },
+ {
+  "number": 102,
+  "name": "generative-latent-spaces",
+  "description": "Five families (an autoencoder, a VAE, a GAN, DEC and IDEC) share one decoder shape, 20,000 MNIST training digits and three seeds; only the objective differs. With two-number codes, 2,000 held-out digits are encoded by each of the four that have an encoder: the same-digit share of a code's ten nearest neighbours is 0.65 (AE), 0.60 (VAE), 0.50 (DEC) and 0.64 (IDEC), against 0.83 for raw pixels; 97% of the VAE's codes lie inside the standard bell's 99% radius against 56%, 30% and 32%; cluster accuracy is 0.46 to 0.52. The GAN has no encoder: what is measured for it is the digit a separate classifier reads at each point of its noise plane, which is the same for neighbouring points 86% of the time.",
+  "section": "O. Generative families compared (5)",
+  "module": "study_families",
+  "title": "Four code spaces, one noise plane",
+  "summary": "Where held-out digits sit in the two-number code space of an autoencoder, a VAE, DEC and IDEC, and what a GAN draws across its noise plane, since it cannot place a real digit there."
+ },
+ {
+  "number": 103,
+  "name": "generative-sampling",
+  "description": "Five families (an autoencoder, a VAE, a GAN, DEC and IDEC) share one decoder shape, 20,000 MNIST training digits and three seeds; only the objective differs. With 16-number codes, 2,000 samples are drawn from each per seed, all from the same noise: an autoencoder decoding codes from the standard bell (and from a bell fitted to its own codes), a VAE's prior, a GAN, and DEC and IDEC decoding around their cluster centres. A separate classifier's confidence is 0.73, 0.78, 0.78, 0.88, 0.87 and 0.84 (0.96 for real held-out digits); the autoencoder's plain bell draws cover 5 to 7 of the ten digits and the fitted bell, VAE, GAN and IDEC all ten; variety is highest for the GAN and IDEC; no family's samples sit unusually close to a training digit. The classifier is small and overconfident on smudges, so confidence is shown beside the other measures.",
+  "section": "O. Generative families compared (5)",
+  "module": "study_families",
+  "title": "New digits from four families",
+  "summary": "New digits drawn from each family, and how recognisable, how varied and how far from the training digits they are."
+ },
+ {
+  "number": 104,
+  "name": "generative-reconstruction",
+  "description": "Five families (an autoencoder, a VAE, a GAN, DEC and IDEC) share one decoder shape, 20,000 MNIST training digits and three seeds; only the objective differs. With 16-number codes, 500 held-out digits are encoded and decoded by each; the GAN, which has no encoder, searches its noise by gradient descent (300 steps, 8 starts). Error is 0.013 (AE), 0.013 (VAE), 0.027 (GAN), 0.070 (DEC, through the autoencoder's untrained-for-this decoder) and 0.018 (IDEC); a separate classifier still reads the same digit in 94%, 95%, 88%, 47% and 92%. The same search returns the GAN's own samples at 0.0001, so its 0.027 is what its generator cannot draw, not a failed search. The GAN's rebuilds keep the sharpest strokes.",
+  "section": "O. Generative families compared (5)",
+  "module": "study_families",
+  "title": "There and back: rebuilding a digit",
+  "summary": "The same held-out digits put through each family and brought back, by a search of its noise for the GAN, which has no encoder, and what each one loses."
+ },
+ {
+  "number": 105,
+  "name": "generative-interpolation",
+  "description": "Five families (an autoencoder, a VAE, a GAN, DEC and IDEC) share one decoder shape, 20,000 MNIST training digits and three seeds; only the objective differs. With 16-number codes, 200 pairs of different held-out digits are joined by a straight nine-point walk in each family's code space (the GAN between its two searched noise points), with a pixel cross-fade as the control. A separate classifier's confidence dips half-way on every walk, to 0.74 to 0.82 against 0.75 for the cross-fade: by that reader no code-space walk beats fading. By distance to the nearest training digit every code-space walk stays nearer real digits than the cross-fade in every seed (+0.34 to +0.64 against +0.88). DEC's flat line is not a good walk: half its ends are already read as the wrong digit.",
+  "section": "O. Generative families compared (5)",
+  "module": "study_families",
+  "title": "Walking between two digits",
+  "summary": "A straight walk between two digits in each family's code space, the images on the way, and how recognisable and how digit-like the middle is compared with simply fading one image into the other."
+ },
+ {
+  "number": 106,
+  "name": "label-embedding",
+  "description": "A table of ten rows (2 to 32 numbers per label, five seeds each) is trained with a 64-unit network to draw each of 20,000 MNIST training images from its label's row alone. Distances between rows are ranked against two things measured without the table, over the 45 pairs of labels: agreement with the distances between mean images is 0.39 at width 2 and 0.83 at width 32, with a separate classifier's confusions 0.36 to 0.53, and about 0 for an untrained table. Closest at width 8: 4 and 9, then 5 and 8. Between seeds the numbers differ but the geometry agrees (0.34 at width 2, 0.91 at width 32); a table started large keeps its random start. The task can only learn mean images, so that comparison is close by construction.",
+  "section": "P. Label embeddings (4)",
+  "module": "study_labels",
+  "title": "A label as a vector",
+  "summary": "A class label as a one-hot marker, where every label is equally far from every other, against a row of a learned table, where digits that look alike end up close."
+ },
+ {
+  "number": 107,
+  "name": "label-embedding-classifier",
+  "description": "A 784-256-feature MNIST network with a 10-row table of label vectors is trained four ways from identical starts at feature widths 2 to 16, five seeds: ordinary one-hot targets, smoothed targets, a cosine classifier whose table is trained, and the same with the table frozen at random. At width 16 held-out accuracy is 95.3%, 96.5%, 96.2% and 96.0%: learning the table buys 0.1 points over leaving it random, less than the seed spread; at width 2 it buys 12 points. The learned and one-hot tables' cosines follow a separate classifier's confusions (0.67), the frozen one's do not (-0.02), and smoothing evens the rows out (0.15). A small start costs the dot-product classifiers about a point.",
+  "section": "P. Label embeddings (4)",
+  "module": "study_labels",
+  "title": "Label vectors in a classifier",
+  "summary": "A classifier's last layer is already a table of label vectors; learning it barely changes accuracy but decides which labels point the same way."
+ },
+ {
+  "number": 108,
+  "name": "label-embedding-autoencoder",
+  "description": "MNIST autoencoders (784-256-64-code-64-256-784) at code sizes 2, 4, 8 and 16, three seeds, four ways: plain; the decoder given the row of an 8-number label table; the encoder given it too; and a control given a random label's row. On 5,000 held-out digits telling the decoder cuts reconstruction error 19% at code size 2 (0.0442 to 0.0356) and 3% at 16; the digit can be read from the code alone (ten nearest neighbours) 70% of the time when plain and 28% when told at size 2, and 91% either way at size 16, where nothing forces it out. Telling the encoder too changes little; the random-label control matches plain.",
+  "section": "P. Label embeddings (4)",
+  "module": "study_labels",
+  "title": "Telling the decoder the label",
+  "summary": "Hand an autoencoder's decoder the label's row beside the code, and a small code stops spending itself on which digit it is."
+ },
+ {
+  "number": 109,
+  "name": "label-embedding-generation",
+  "description": "With the label-conditioned autoencoders of the previous animation, 1,000 held-out digits are each decoded with every other label's row (9,000 swaps per model, three seeds) and read by a separate classifier. The swapped picture is read as the digit asked for 88% of the time at code size 2, 63% at 4, 22% at 8 and 2% at 16, while agreement of slant, ink and stroke thickness with the source rises (slant 0.77 to 0.97): a larger code keeps more style and obeys the label less. Plain and random-label models are read as asked under 4% of the time. Sliding the row halfway between two labels at code size 4 is read as neither digit a quarter of the time at its worst. The judge is a classifier, not a person.",
+  "section": "P. Label embeddings (4)",
+  "module": "study_labels",
+  "title": "Change the label, keep the style",
+  "summary": "Keep an image's code and swap the label row the decoder is given, and the same handwriting is drawn as another digit, as long as the code is small."
+ }
+]

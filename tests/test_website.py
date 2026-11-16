@@ -70,3 +70,50 @@ def test_page():
     grid = len(p.clips) - 1
     assert page.count('loading="lazy"') == grid and "<video" not in page.split("<dialog")[0]
     assert page.count('class="open"') == grid + 1 and page.count("data-clip=") == grid + 1
+
+
+def test_the_next_catalogue_is_listed_under_its_own_titles():
+    from voxanim.next_catalog import ITEMS, drawing
+    listed = {n: t for *_, items in site.SECTIONS for n, t in items}
+    anchors = [anchor for anchor, *_ in site.SECTIONS]
+    assert len(anchors) == len(set(anchors))
+    assert len(site.NEXT_SECTIONS) == 16
+    new = len(site.NEXT_SECTIONS)
+    for item in ITEMS:
+        assert listed[item["preset"]] == item["title"] == drawing(item["name"]).TITLE
+        first, about = site.describe(presets.REGISTRY[item["preset"]])
+        assert first == site.prose(item["summary"])           # the card shows the plain summary
+        assert item["description"].split()[0] in about         # the dialog adds what was measured
+    headings = [heading for _a, heading, *_ in site.SECTIONS]
+    # the two later groups sit with the generative models, not at the end of the page
+    assert headings.index("Generative families compared") == headings.index("Generative models") + 1
+    assert headings.index("Label embeddings") == headings.index("Generative families compared") + 1
+    assert headings[-1] == "Memory, dynamics and curiosities"
+    for _anchor, heading, intro, items in site.SECTIONS[-new:]:
+        assert heading and intro.endswith(".") and items
+        assert "review" not in intro.lower()
+
+
+def test_an_animation_without_a_video_in_the_release_is_left_off_the_page():
+    """A push between releases must not break the site or show a clip with no video: the Pages
+    build takes its videos from the latest release, which the newest animations are not in yet."""
+    names = list(presets.REGISTRY)
+    held_back = set(names[128:])
+    durations = {n: 30.0 for n in names if n not in held_back}
+    page = site.page_html(durations, "v9.9.9")
+    p = _Collect()
+    p.feed(page)
+    shown = {c["name"] for c in p.clips}
+    assert shown == set(durations) and not shown & held_back
+    assert "%d animations" % len(durations) in page
+    assert not any(anchor in p.ids for anchor, *_ in site.SECTIONS[-len(site.NEXT_SECTIONS):])
+    # every section survives when everything has a video
+    assert len(site.released(site.SECTIONS, dict.fromkeys(names, 1.0))) == len(site.SECTIONS)
+
+
+def test_local_media_must_be_complete(tmp_path):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "have.mp4").write_bytes(b"x")
+    with pytest.raises(site.SiteError, match="no video for: missing"):
+        site.fetch_media(str(tmp_path / "out"), str(tmp_path / "src"), "v0", ["have", "missing"])
+    assert site.fetch_media(str(tmp_path / "out"), str(tmp_path / "src"), "v0", ["have"]) == []

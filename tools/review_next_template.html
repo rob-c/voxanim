@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>100 animations · local review</title><style>
+*{box-sizing:border-box}body{font:16px system-ui,sans-serif;background:#f4f5f2;color:#24302e;margin:0 auto;padding:32px;max-width:1600px}
+h1{font-size:36px;margin-bottom:8px}header{margin-bottom:32px}input,textarea{font:inherit;padding:10px;border:1px solid #aabbb5;border-radius:6px;background:white}input{width:100%;max-width:700px}
+main{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:24px}article{background:white;border:1px solid #dce1de;border-radius:12px;overflow:hidden;padding:20px}h2{font-size:21px;margin:0}.family{font-size:13px;color:#5c6f67}video{width:100%;border-radius:8px;background:#ddd}details{line-height:1.5}li{margin:8px 0}a{color:#087966}label{display:block;margin-top:18px}textarea{display:block;width:100%;min-height:70px;margin-top:6px}.tag{color:#087966;font-weight:650}[hidden]{display:none}@media(max-width:500px){body{padding:14px}main{grid-template-columns:1fr}}
+</style><header><div class="tag">LOCAL REVIEW · UNPUBLISHED</div><h1>The next 100 animations</h1>
+<p>COUNT of 100 videos available. Learning studies use actual NumPy runs on MNIST or real text. Mathematical calculations, fixed-model analysis, and simulated execution are identified separately.</p>
+<p>Open each video's details for its method, plot arrays, and any attached training checkpoints and run receipts. Inspect scope changes before approving publication.</p>
+<p><a href="measurement-scope.json">Dataset and scope for all 100 studies</a> · <a href="verification-report.json">File and video verification</a></p>
+<p>Nothing in this gallery uploads or publishes files. Review notes are saved only in this browser.</p>
+<input id="search" type="search" placeholder="Filter by topic or animation name" aria-label="Filter animations"></header>
+<main>CARDS</main><script>
+document.getElementById('search').addEventListener('input',e=>{for(const a of document.querySelectorAll('article'))a.hidden=!a.dataset.search.includes(e.target.value.toLowerCase())});
+for(const el of document.querySelectorAll('textarea')){try{el.value=localStorage.getItem('voxanim-review-'+el.dataset.key)||''}catch{}el.addEventListener('input',()=>{try{localStorage.setItem('voxanim-review-'+el.dataset.key,el.value)}catch{}})}
+</script></html>
