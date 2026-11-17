@@ -436,3 +436,79 @@ three or more seeds.
   label rows, learning a classifier's table buys 0.1 points over a frozen random one; telling an
   autoencoder's decoder the label only empties the code of the digit when the code is small; a
   swapped label is obeyed 88% of the time with a 2-number code and 2% with 16.
+
+## Randomness and entropy, 17 November 2026
+
+Eight animations in a new group (catalogue entries 110 to 117; `mech_random.py`, `mech_chance.py`
+and their `study_*.py`), asked for as "random sampling, markov chain, other sources of pseudo
+entropy and the impact of several seeds on random outputs and measuring/evaluating
+(pseudo-)entropy". Released in 1.7.0.
+
+- `pseudo-random-generators`, `seeds-and-streams`, `sampling-a-distribution`, `entropy-sources`
+  need no dataset: exact arithmetic and statistics of generators written out in integers.
+- `measuring-entropy` and `markov-chains` use Tiny Shakespeare; `seeds-and-training-outcomes`
+  MNIST (320 training runs); `gpt2-seeds-and-sampled-text` the pinned GPT-2 on held-out passages.
+
+**Shown as measured, including what did not separate anything:** serial correlation is near zero
+for every generator, RANDU included; the usual correlation coefficient between a weak generator's
+related streams is 0.008 though one stream is predicted exactly from two others; a bad source
+spoils which token follows which but not the single-token shares; von Neumann's trick does not
+fully clean the timer bit, whose bits are correlated; top-p 0.9 removes few unlikely tokens on
+these prompts; the variances from weights, data order and dropout masks do not add up.
+
+**Check against the data rule:** the five token probabilities in `sampling-a-distribution` are
+written out, not measured (labelled on screen). `entropy-sources` and `measuring-entropy` measure
+the building machine's timer and system bytes: cached, labelled as local, never asserted by value
+in tests, and not reproducible on another machine.
+
+**Not verified:** `gpt2-seeds-and-sampled-text` built in 113 s alone and 235 s under load.
+
+## A physics course on data analysis and machine learning, 17 November 2026
+
+Forty-one animations in nine new groups (catalogue entries 118 to 158), asked for to support an
+undergraduate course whose topics are probability, chi-square and likelihood fits, errors and
+systematics, selection, hypothesis tests, discoveries and limits, network regression and
+classification, boosted trees, and (advanced) generative models, unsupervised learning and
+Gaussian processes: "more theory, more animations". Released in 1.7.0. Detector simulation (Geant) was
+left out at the owner's request, and with it a generative model as a fast shower simulator.
+
+**Data rule, as applied here.** The statistics groups use pseudo-experiments: seeded draws from a
+model stated on screen, with the exact answer drawn beside them wherever one exists. No measured
+physics data is used anywhere. The machine-learning animations train on MNIST, with digits standing
+in for events and the physics counterpart named on screen.
+
+**Shown as measured, against the usual telling:**
+- `likelihood-intervals`: at 5 events the symmetric error does not cover worse in total than the
+  half-unit interval (67.8% against 67.4%); it misses on one side (27% below, 5% above).
+- `chi-square-per-dof`: chi-square per degree of freedom does not flag a fit with too many
+  parameters; the gain of only 1 per added parameter does.
+- `binned-vs-unbinned-fits`: the chi-square bias changes sign, +12% at 30 events and negative from 60.
+- `minimisers-on-chi-square`: the simplex reaches the best fit from more starts than the
+  variable-metric method (60% against 44%). That method is plain BFGS, not MIGRAD.
+- `cuts-vs-multivariate`: rectangular cuts gain nothing over one variable alone at 80% efficiency.
+- `look-elsewhere-effect`: no pseudo-experiment reached a local 5 sigma; that row is an extrapolation.
+- `brazil-band`: a point leaves the 95% band 3.9% of the time, because counts are whole numbers.
+- `boosted-regression-trees`: more trees do not overfit at small learning rates within 300 trees.
+- `overtraining-check`: overtraining barely lowers the held-out ROC area; it spoils the score's meaning.
+- `autoencoder-anomaly-detection`: an unseen 1 is rebuilt better than a seen digit (area 0.32).
+- `gan-mode-collapse`: every generator-heavy run collapsed, whatever the seed; with the label the
+  digit asked for is drawn 73 to 77% of the time, not always.
+- `gp-background-fit`: at its preferred length scale the process still loses a third of a real signal.
+- `anomaly-loss-and-latent`, `anomaly-two-score-flow` (asked for as "2x anomaly detection flow
+  ... where anomalies may appear both in loss-space and the latent-space distributions"): a second,
+  latent-space score does not beat the reconstruction loss on average at a code of 8 numbers; its
+  gain is the class the loss cannot see, and only partly (unseen 1s: 0.4% caught to 7% at 5% false
+  alarms). A Mahalanobis distance is worse than a coin toss; the normalizing flow is the weakest
+  of the flexible densities and a plain neighbour distance beats every fitted density. With a
+  larger code the anomaly moves from the loss into the code. The neighbour distance was chosen
+  over the Mahalanobis score after seeing anomalies, and says so on screen.
+
+**Chosen, not drawn, or unlucky draws kept:** the count of 4 in `cls-method` is chosen; the
+`bump-hunt` spectrum fluctuated up (4.09 sigma where 3.30 is typical); the run in
+`statistical-vs-systematic` ends 0.61 high on a shift of 0.4; the `bootstrap-errors` dataset has
+one very large event; the `look-elsewhere-effect` spectrum is the first of 100,000 past 3 sigma.
+Each says so on screen or in its limitations.
+
+**Not verified:** uncached build time on an idle machine for `autoencoder-anomaly-detection`
+(361 s under load), `gan-mode-collapse` (about 211 s under load) and `anomaly-two-score-flow`
+(171 to 201 s under load, with the first anomaly study's runs cached).

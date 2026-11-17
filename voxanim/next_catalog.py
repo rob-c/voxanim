@@ -31,6 +31,7 @@ GPT2 = {
     "induction-heads",
     "head-ablation",
     "retrieval-augmented-generation",
+    "seeds-and-sampled-text",
 }
 MNIST = {
     "second-order-preconditioners",
@@ -80,7 +81,12 @@ MNIST |= {
     "neural-ode",
     "activation-checkpointing",
 }
-MNIST |= {item["name"] for item in ITEMS if item["number"] > 100}
+MNIST |= {item["name"] for item in ITEMS if 100 < item["number"] <= 109}
+MNIST |= {"seeds-and-training-outcomes"}
+# machine learning in a physics analysis, and the anomaly and collapse animations
+MNIST |= {"network-regression", "classifier-score-as-variable", "boosted-regression-trees",
+          "overtraining-check", "autoencoder-anomaly-detection", "gan-mode-collapse",
+          "anomaly-loss-and-latent", "anomaly-two-score-flow"}
 TEXT = {
     item["name"]
     for item in ITEMS
@@ -88,6 +94,8 @@ TEXT = {
     and item["name"] not in MNIST | {"flash-attention-tiling", "batching-and-throughput"}
 }
 TEXT |= {"loss-spikes", "retrieval-augmented-generation"}
+# the randomness group: real text for the chain and for measuring entropy
+TEXT |= {"markov-chains", "measuring-entropy", "seeds-and-sampled-text"}
 NO_DATA = {item["preset"] for item in ITEMS if item["name"] not in GPT2 | MNIST | TEXT}
 
 
@@ -136,6 +144,18 @@ DRAWN_BY = (
     ("mech_curios", 97, 100),
     ("mech_families", 101, 105),
     ("mech_labels", 106, 109),
+    ("mech_random", 110, 114),
+    ("mech_chance", 115, 117),
+    ("mech_stats_prob", 118, 123),
+    ("mech_stats_fit", 124, 127),
+    ("mech_stats_likelihood", 128, 132),
+    ("mech_stats_syst", 133, 136),
+    ("mech_stats_select", 137, 140),
+    ("mech_stats_tests", 141, 144),
+    ("mech_stats_discovery", 145, 149),
+    ("mech_phys_apps", 150, 153),
+    ("mech_phys_adv", 154, 156),
+    ("mech_anomaly", 157, 158),
 )
 NUMBER = {item["name"]: item["number"] for item in ITEMS}
 

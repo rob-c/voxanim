@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 237 animations, from a 3×3
+numpy. 286 animations, from a 3×3
 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
@@ -26,7 +26,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 237 animations
+python3 -m voxanim list --names                   # the 286 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
@@ -894,9 +894,10 @@ outcome does not depend on it (40 seeds of 40 end on a shortest path with
 these settings). `tests/test_gridworld.py` replays every recorded step with
 the rule and checks the convergence and the numbers above.
 
-### The next 109: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
+### The next 158: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
 
-A further 109 animations, in sixteen groups, added in 1.6.0. They are listed in
+A further 158 animations, in twenty-six groups: 109 added in 1.6.0, and in 1.7.0 eight on
+randomness and 41 for a physics course on data analysis and machine learning. They are listed in
 `next_catalog.json` and
 registered like every other preset, so `list`, `info`, `still`, `render`, `qa` and `prepare`
 all work on them.
@@ -1109,7 +1110,124 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `label-embedding-autoencoder` | **Telling the decoder the label.** Hand an autoencoder's decoder the label's row beside the code, and a small code stops spending itself on which digit it is. |
 | `label-embedding-generation` | **Change the label, keep the style.** Keep an image's code and swap the label row the decoder is given, and the same handwriting is drawn as another digit, as long as the code is small. |
 
-The last two groups were added after the hundred. The five family comparisons share one set of
+**Randomness and entropy.** Where random numbers come from, what a seed decides, and how unpredictability is measured.
+
+| name | shows |
+| --- | --- |
+| `pseudo-random-generators` | **Pseudo-random numbers.** A generator is a small state and a fixed rule that walks a closed path; bad rules leave patterns in their numbers and better scrambles hide them. |
+| `seeds-and-streams` | **Seeds and streams.** The same seed always gives the same numbers; neighbouring seeds can give related streams unless the seed is scrambled first, and parallel workers need streams of their own. |
+| `sampling-a-distribution` | **Sampling a distribution.** Evenly spread random numbers are turned into draws from any distribution, the draws match it better the more there are, and a bad source spoils which draw follows which. |
+| `entropy-sources` | **Where randomness comes from.** A generator only stretches its seed, so the unpredictability must be gathered from the machine, cleaned, mixed and only then stretched. |
+| `measuring-entropy` | **Measuring entropy.** Entropy estimated from a source's output can see lopsided counts and simple patterns, but a generator can score perfectly on everything while holding only as much as its seed. |
+| `markov-chains` | **A Markov chain from real text.** Counting which character follows which in Shakespeare gives a table of chances; a walker hopping by that table settles into fixed proportions, forgets where it started, and writes better text the more characters it remembers, until its contexts become too rare. |
+| `seeds-and-training-outcomes` | **One network, many seeds.** The same network trained on the same data from many seeds ends at different accuracies and makes different mistakes; each source of randomness alone causes much of that, and telling two nearly equal settings apart takes several seeds of each. |
+| `gpt2-seeds-and-sampled-text` | **One prompt, many seeds.** A language model gives the same chances for the next word every time; the seed supplies the number that picks one, so different seeds write different texts, sooner and more wildly as temperature rises, while cutting off the unlikely tail keeps the variety without the junk. |
+
+<!-- course groups: generated from next_catalog.json -->
+
+**Probability: frequentist and Bayesian.** Two readings of the same measurement, and the distributions every count and average follows.
+
+| name | shows |
+| --- | --- |
+| `frequentist-and-bayesian` | **Two readings of one count.** One small count read twice, as the range of true rates for which that count would be unsurprising and as an updated belief about the rate: where the two answers agree, where they part, and what each one claims. |
+| `bayes-theorem-areas` | **Bayes' theorem as areas.** A population drawn as a square, split by how common something is and by how a test comes out, so the chance that a positive result is right is one rectangle compared with two: for a rare disease, and for picking out one kind of particle. |
+| `prior-washing-out` | **A prior washing out.** Three people with different starting beliefs about a coin watch the same flips and end up agreeing, while someone who ruled the truth out in advance never can. |
+| `interval-coverage` | **What coverage means.** Many repeated experiments each draw their error bar around a value we secretly know: a 68% interval is a recipe that works 68% of the time, and the usual quick error bars on small counts do not. |
+| `binomial-poisson-gaussian` | **Binomial, Poisson, Gaussian.** The count of events in one bin, followed as one histogram that turns from the many-rare-chances shape into the bell curve, with a look at the far tails, where the bell curve stays badly wrong. |
+| `central-limit-theorem` | **The central limit theorem.** Averages of dice rolls, then of lopsided decay times, pile up into the same bell shape, narrowing as more are averaged; except for one kind of distribution whose average never settles at all. |
+
+**Minimisation and chi-square fitting.** Fitting a model to data points with errors, and how a minimiser finds the best fit.
+
+| name | shows |
+| --- | --- |
+| `chi-square-fit` | **Chi-square as a landscape.** A straight line through a few points: each point pulls on the line like a spring, the pulls add up to chi-square, and that sum is a bowl whose bottom is the best fit and whose width gives the errors. |
+| `chi-square-per-dof` | **What a good chi-square looks like.** The same points fitted with a model that is too simple, the right one and one with too many parameters: what chi-square should be, how the fit probability is read off its distribution, and what wrong error bars do to it. |
+| `minimisers-on-chi-square` | **How a minimiser walks.** Three ways of walking downhill on the same chi-square surface, counting every evaluation, on a surface with a second, wrong bottom that traps the starts on its side. |
+| `binned-vs-unbinned-fits` | **Binned or unbinned?** One sample of decay times fitted three ways: why a chi-square fit to a histogram with few events per bin gives a biased lifetime while likelihood fits do not, and what binning costs in precision. |
+
+**Maximum likelihood and errors.** Where a best-fit value and its error come from.
+
+| name | shows |
+| --- | --- |
+| `likelihood-curve` | **The likelihood curve.** Each measured decay time gets a probability from the model; multiply them, slide the lifetime, and the product peaks at the best estimate. |
+| `likelihood-intervals` | **Errors from the likelihood.** The error on a fitted value is read off where the log-likelihood has dropped by one half, and with few events that interval is lopsided. |
+| `error-propagation` | **Error propagation by cloud.** A cloud of possible measurements is pushed through a formula; the usual error formula matches the cloud only while the function is nearly straight over the errors. |
+| `error-on-the-mean` | **The error on the mean.** Repeat an experiment many times and its average scatters far less than single measurements do, shrinking as one over the square root of how many you take. |
+| `bootstrap-errors` | **The bootstrap.** With one dataset and no formula, draw from the data itself over and over; how much the recomputed answer varies is the error. |
+
+**Correlated errors and systematic uncertainties.** What changes when errors are shared between parameters or measurements.
+
+| name | shows |
+| --- | --- |
+| `error-ellipse` | **The error ellipse.** Fitting a line gives two numbers whose errors are tied together, and the tilt of their cloud says how. |
+| `statistical-vs-systematic` | **Statistical against systematic error.** More data shrinks the scatter of an average but not a miscalibration shared by every event, unless the miscalibration is itself measured. |
+| `nuisance-parameters-profiling` | **Profiling a nuisance parameter.** When a background is only roughly known, pretending it is exact gives an error bar that is too small; profiling it gives an honest one. |
+| `combining-measurements` | **Combining measurements.** Two results that share a source of error must not be averaged as if independent; the best combination can even lie outside both. |
+
+**Data selection and significance.** Choosing events, and what the choice does to signal, background and the shape of the data.
+
+| name | shows |
+| --- | --- |
+| `moving-a-cut` | **Moving a cut.** A cut slides across a signal and a background histogram, and the counts, purity and significance follow it, with each measure of best picking a different cut. |
+| `cuts-vs-multivariate` | **Cuts against a combined variable.** Two thresholds, one on each of two correlated variables, compared with a single diagonal line through both, and then with a curved boundary where no line will do. |
+| `sideband-background` | **Background from the sidebands.** The background under a peak is estimated by fitting the spectrum on either side of it, and the estimate goes wrong when the assumed shape is wrong or the sides contain signal. |
+| `selection-sculpting` | **How a selection sculpts a spectrum.** A trigger threshold and a detector's acceptance turn a smoothly falling spectrum into one with a peak, and a cut on momentum does the same to a mass spectrum. |
+
+**Hypothesis tests.** Deciding between two hypotheses, and the two ways of being wrong.
+
+| name | shows |
+| --- | --- |
+| `type-i-and-type-ii-errors` | **Two ways for a test to be wrong.** A counting experiment under two hypotheses and a threshold on the count: the two kinds of error as the parts of each distribution on the wrong side, traded against each other as the threshold slides. |
+| `p-values` | **What a p-value is, and is not.** One measured result set against the distribution it would have if there were nothing to find, then why a small p-value is not the chance that there is nothing to find. |
+| `neyman-pearson` | **The likelihood ratio is the best test.** Three ways to turn two measured values into one test, cut to the same false-alarm rate: the likelihood ratio catches the most signal, and no other direction of cut does better. |
+| `look-elsewhere-effect` | **The look-elsewhere effect.** A spectrum with nothing in it still shows a striking excess somewhere when enough places are searched; many such spectra show how often, and what a local significance is worth after the search. |
+
+**Discoveries, exclusion and upper limits.** Claiming a signal, or saying how large a signal could be hiding.
+
+| name | shows |
+| --- | --- |
+| `bump-hunt` | **A bump hunt, from fit to global significance.** One mass spectrum followed from the background fit to a bump's local significance, and then to what that significance is worth once every mass has been searched. |
+| `poisson-upper-limits` | **An upper limit from counting.** Seeing few or no events still rules out large signals: where the famous 2.3 comes from, and what the 90% promises. |
+| `cls-method` | **The CLs method.** When fewer events turn up than the background alone predicts, the plain limit rules out signals the experiment could never see; dividing by a second tail area repairs that, at a price. |
+| `brazil-band` | **The bands of a limit plot.** The green and yellow bands show the range of limits an experiment would set if there were nothing to find, built here one pseudo-experiment at a time and then compared with an observed limit. |
+| `why-five-sigma` | **Why five sigma.** As data accumulate a real signal keeps growing while chance bumps rise and fade, and with many places and moments to look, three sigma turns up routinely and five almost never. |
+
+**Machine learning in a physics analysis.** Networks and trees used the way an analysis uses them: to estimate a quantity or to select events.
+
+| name | shows |
+| --- | --- |
+| `network-regression` | **Regression with a network.** A network with one unsquashed output learns to give back the angle a digit was turned by, and its errors show its resolution and bias. |
+| `classifier-score-as-variable` | **A classifier's score as a variable.** A network's score separates signal from background; a cut on it trades efficiency for purity, and its shape can be fitted for how much signal a sample holds. |
+| `boosted-regression-trees` | **Boosted trees for regression.** Small trees are added one at a time, each fitted to what the sum so far still gets wrong, first on one measured number and then on a whole detector read-out. |
+| `overtraining-check` | **The overtraining check.** The scores of the events a classifier was trained on are laid over those of events it never saw; where they part, it has learnt its sample rather than the rule. |
+
+**Anomalies, collapse and smooth backgrounds.** An autoencoder as a detector of the unexpected, a GAN that forgets, and a Gaussian process as a background model.
+
+| name | shows |
+| --- | --- |
+| `autoencoder-anomaly-detection` | **Anomaly detection with an autoencoder.** An autoencoder trained without one kind of digit rebuilds that kind badly, and the size of the error flags what it never saw. |
+| `gan-mode-collapse` | **Mode collapse in a GAN.** A generator that settles on a few digits instead of all ten, counted by a separate classifier, and how telling both networks the label brings the digits back. |
+| `gp-background-fit` | **A Gaussian-process background.** A fixed function leaves a wave that looks like signal; a Gaussian process follows the background instead, but a short length scale swallows a real bump. |
+| `anomaly-loss-and-latent` | **Two places an anomaly can show.** One picture through an autoencoder gets two scores, how badly it is rebuilt and how far its code lies from the training codes, and an unusual input can show in both, in one or in neither. |
+| `anomaly-two-score-flow` | **An anomaly search with two scores.** The whole procedure from training on normal data to a decision: a density fitted to the codes, two thresholds set on normal data, three ways of combining the two scores, and what a second cut costs in false alarms. |
+
+<!-- end of course groups -->
+
+The nine groups above follow a course for physics undergraduates: probability, fitting,
+likelihood and errors, systematics, selection, hypothesis tests, discovery and limits, and the
+machine learning an analysis uses. They teach with pseudo-experiments, the standard method in
+physics: seeded draws from a model stated on screen, with the true values shown beside the data
+and the estimate, and the exact answer drawn against the pseudo-experiments wherever one exists.
+Every phase carries a tag saying which it shows (exact, pseudo-experiments, or measured on
+MNIST). The machine-learning ones use real handwritten digits as stand-in events and say so,
+naming the physics counterpart.
+
+Three earlier groups were also added after the hundred. The randomness group writes its small
+generators out in integer arithmetic so every number can be followed, labels each phase with
+the kind of evidence it shows, and in two animations (`entropy-sources`, `measuring-entropy`)
+measures the machine it is built on: timer jitter and the operating system's bytes. Those
+numbers differ on every machine, so those two do not reproduce pixel for pixel elsewhere.
+Of the other two groups, the five family comparisons share one set of
 trained models (`study_families.models()`: an autoencoder, a VAE, a GAN, DEC and IDEC with the
 same decoder shape, on the same 20,000 digits, three seeds, at code sizes 2 and 16). The four on
 label embeddings share one set of label-conditioned autoencoders (`study_labels.py`).

@@ -267,10 +267,31 @@ NEXT_SECTIONS = {
           "An autoencoder, a VAE, a GAN and DEC trained on the same digits: objectives, codes, samples."),  # noqa: E501
     "P": ("label-embeddings", "Label embeddings",
           "A class label as a learned vector: in a classifier, in an autoencoder, and at generation."),  # noqa: E501
+    "Q": ("randomness", "Randomness and entropy",
+          "Where random numbers come from, what a seed decides, and how unpredictability "
+          "is measured."),
+    "R": ("probability", "Probability: frequentist and Bayesian",
+          "Two readings of the same measurement, and the distributions every count and average follows."),  # noqa: E501
+    "S": ("fitting", "Minimisation and chi-square fitting",
+          "Fitting a model to data points with errors, and how a minimiser finds the best fit."),
+    "T": ("likelihood", "Maximum likelihood and errors",
+          "Where a best-fit value and its error come from."),
+    "U": ("systematics", "Correlated errors and systematic uncertainties",
+          "What changes when errors are shared between parameters or measurements."),
+    "V": ("selection", "Data selection and significance",
+          "Choosing events, and what the choice does to signal, background and the shape of the data."),  # noqa: E501
+    "W": ("tests", "Hypothesis tests",
+          "Deciding between two hypotheses, and the two ways of being wrong."),
+    "X": ("discovery", "Discoveries, exclusion and upper limits",
+          "Claiming a signal, or saying how large a signal could be hiding."),
+    "Y": ("analysis-ml", "Machine learning in a physics analysis",
+          "Networks and trees used the way an analysis uses them: to estimate a quantity or to select events."),  # noqa: E501
+    "Z": ("anomaly-and-background", "Anomalies, collapse and smooth backgrounds",
+          "An autoencoder as a detector of the unexpected, a GAN that forgets, and a Gaussian process as a background model."),  # noqa: E501
 }
 # Where each group sits on the page: the catalogue's order, except that the two groups added
 # after the hundred follow the generative models they build on, not the end of the page.
-NEXT_ORDER = "ABCDEFGHOPIJKLMN"
+NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMN"
 assert sorted(NEXT_ORDER) == sorted(NEXT_SECTIONS)
 for _letter in NEXT_ORDER:
     _anchor, _heading, _intro = NEXT_SECTIONS[_letter]

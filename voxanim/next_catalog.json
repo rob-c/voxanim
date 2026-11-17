@@ -979,5 +979,446 @@
   "module": "study_labels",
   "title": "Change the label, keep the style",
   "summary": "Keep an image's code and swap the label row the decoder is given, and the same handwriting is drawn as another digit, as long as the code is small."
+ },
+ {
+  "number": 110,
+  "name": "pseudo-random-generators",
+  "description": "Six generators written out in integer arithmetic and checked against published values, with numpy's as the reference. Periods are exact: 16 for the 4-bit example, 2^29 for RANDU, 2^32 for the 32-bit linear congruential generator, 2^32 - 1 for xorshift32, 2^64 for PCG32. Bit k of the linear congruential generator repeats every 2^(k+1) outputs, and RANDU's consecutive triples lie on exactly 15 planes. Over 2^20 triples and three seeds, RANDU reaches 23.2% of 64^3 cells where the others reach 98.2%, the share an ideal source would; serial correlation is under 0.002 for all of them, RANDU included, so that statistic separates nothing.",
+  "section": "Q. Randomness and entropy (8)",
+  "module": "study_random",
+  "title": "Pseudo-random numbers",
+  "summary": "A generator is a small state and a fixed rule that walks a closed path; bad rules leave patterns in their numbers and better scrambles hide them."
+ },
+ {
+  "number": 111,
+  "name": "seeds-and-streams",
+  "description": "Statistics of generators' outputs. Over 100,000 outputs the same seed twice is identical, and seeds 42 and 43 through PCG32 share no output and 50.0% of bits. With the seed used directly as a linear congruential generator's state, the first outputs of 256 adjacent seeds correlate 1.000 with the seed, and the stream of seed 3 is predicted from those of seeds 1 and 2 for every output; with the seed hashed first the correlation is -0.105 and nothing is predicted. The usual correlation coefficient between those related streams is 0.008: it sees none of it. Four workers throwing 1,000 darts each at a circle, 400 trials: the error of their mean is 0.054 with one shared seed, as if there were one worker, and 0.026 with streams of their own.",
+  "section": "Q. Randomness and entropy (8)",
+  "module": "study_random",
+  "title": "Seeds and streams",
+  "summary": "The same seed always gives the same numbers; neighbouring seeds can give related streams unless the seed is scrambled first, and parallel workers need streams of their own."
+ },
+ {
+  "number": 112,
+  "name": "sampling-a-distribution",
+  "description": "The five token probabilities are written out, not measured; the draws are real. 200,000 inverse-CDF draws give shares within 0.001 of the probabilities; rejection sampling keeps 56.19% of its points (9/16 expected); Box-Muller on 400,000 values gives mean 0.001 and spread 0.999. Over 200 repeats the error of the shares falls from 0.237 at 10 draws to 0.0019 at 163,840, a slope of -0.498 against the -0.5 of one over root n. With a linear congruential generator's low byte as the source the tokens repeat every 256 draws, 2 of the 25 successive pairs never occur, and the error of the pairs stays at 0.066 while numpy's falls to 0.004. The effect shows only in pairs: single-token shares from the bad source are fine.",
+  "section": "Q. Randomness and entropy (8)",
+  "module": "study_random",
+  "title": "Sampling a distribution",
+  "summary": "Evenly spread random numbers are turned into draws from any distribution, the draws match it better the more there are, and a bad source spoils which draw follows which."
+ },
+ {
+  "number": 113,
+  "name": "entropy-sources",
+  "description": "Partly measured on the machine that built it, and different on every other: the low byte of the gaps between timer readings holds about 2.0 bits per byte by single-byte Shannon entropy and about 1.0 given the previous byte; the operating system's bytes 8.00; a counter 8.00 by single bytes and 0.00 given the previous one. Exact or seeded: von Neumann's trick takes a coin showing ones 80% of the time to 50.2%, keeping 0.160 bits per bit collected; it does not fully clean the timer bit, whose bits are correlated. XOR of one to six biased coins matches the exact values to 0.001. A k-bit seed gives exactly 2^k different streams for k = 4 to 20, though a 16-bit seed's output scores 8.00 bits per byte.",
+  "section": "Q. Randomness and entropy (8)",
+  "module": "study_random",
+  "title": "Where randomness comes from",
+  "summary": "A generator only stretches its seed, so the unpredictability must be gathered from the machine, cleaned, mixed and only then stretched."
+ },
+ {
+  "number": 114,
+  "name": "measuring-entropy",
+  "description": "262,144 bytes from each of six sources. Single-byte Shannon entropy is 4.77 bits per byte for Tiny Shakespeare and 8.00 for the same text compressed, a small PCG generator, a linear congruential generator's low byte, the operating system's bytes (measured locally) and a counter. Entropy given the previous byte is 3.48 for the text and 0.00 for the counter and the low byte, which single bytes cannot tell from random; zlib shrinks those two to 0.04 bits per byte. The estimate is biased low on small samples: equal-share bytes score 3.94 at 16 bytes and 7.99 at 16,384. The generator passes chi-square, serial-correlation and runs tests for three seeds, yet a search of all 2^32 seeds recovers its seed from three 16-bit outputs: its output holds 32 bits however long it is.",
+  "section": "Q. Randomness and entropy (8)",
+  "module": "study_random",
+  "title": "Measuring entropy",
+  "summary": "Entropy estimated from a source's output can see lopsided counts and simple patterns, but a generator can score perfectly on everything while holding only as much as its seed."
+ },
+ {
+  "number": 115,
+  "name": "markov-chains",
+  "description": "Transition counts over the 892,323 character pairs of the Tiny Shakespeare training split, for four character classes (the drawn example) and for all 65 characters. Exact arithmetic gives the fixed vector, which equals the character frequencies; the distance to it from four different starts falls from about 1 to at most 0.003 in 12 steps. Shannon entropy is 6.02 bits per character if uniform, 4.77 for single characters and 3.53 for the chain's entropy rate. Chains of order 0 to 6, smoothed on a validation split, score 4.83, 3.62, 3.12, 2.86, 2.85, 3.20 and 3.72 bits per character on held-out text: best at order 4, after which contexts are too rare (at order 6, 27% of held-out contexts never occurred in training). The same counts scored on their own text only fall, an estimate biased low, shown as such.",
+  "section": "Q. Randomness and entropy (8)",
+  "module": "study_chance",
+  "title": "A Markov chain from real text",
+  "summary": "Counting which character follows which in Shakespeare gives a table of chances; a walker hopping by that table settles into fixed proportions, forgets where it started, and writes better text the more characters it remembers, until its contexts become too rare."
+ },
+ {
+  "number": 116,
+  "name": "seeds-and-training-outcomes",
+  "description": "A 784-64-10 MNIST network with dropout is trained 320 times on 20,000 images and tested on all 10,000 test images, each run with separate seeded generators for its weights, its data order and its dropout masks. Over 64 seeds accuracy runs from 93.55% to 94.57% (standard deviation 0.21 points); two runs share 64% of their mistakes, and 212 digits are wrong in every run. Varying one source alone gives a standard deviation of 0.18 to 0.19 points for weights, 0.14 to 0.20 for data order and 0.09 to 0.13 for dropout masks: the variances do not add up. Two settings 0.22 points apart (64 against 72 hidden units) are ranked the wrong way by one seed each 23% of the time, and under 5% from six seeds each. The same seed twice gives bit-identical weights, checked on one machine.",
+  "section": "Q. Randomness and entropy (8)",
+  "module": "study_chance",
+  "title": "One network, many seeds",
+  "summary": "The same network trained on the same data from many seeds ends at different accuracies and makes different mistakes; each source of randomness alone causes much of that, and telling two nearly equal settings apart takes several seeds of each."
+ },
+ {
+  "number": 117,
+  "name": "seeds-and-sampled-text",
+  "description": "The pinned GPT-2 continues six held-out Tiny Shakespeare passages for 12 tokens from 20 seeds, at temperatures 0, 0.4, 0.7, 1.0 and 1.3 and with top-40 and top-p 0.9 truncation; each seed supplies one uniform number per token. At temperature 0 every seed writes the same text; at 0.4, 52% of pairs of seeds are still together after one token and 16 of 20 texts are distinct; at 1.0, 34% and all 20, with 95% of texts containing a token GPT-2 gave under 0.1%. Top-40 at temperature 1 keeps 19.8 distinct texts and cuts that to 2%; top-p 0.9 removes few such tokens here. The same seed and settings reproduce the same text exactly. Unlikeliness under GPT-2 itself stands in for junk; nobody judged the texts.",
+  "section": "Q. Randomness and entropy (8)",
+  "module": "study_chance",
+  "title": "One prompt, many seeds",
+  "summary": "A language model gives the same chances for the next word every time; the seed supplies the number that picks one, so different seeds write different texts, sooner and more wildly as temperature rises, while cutting off the unlikely tail keeps the variety without the junk."
+ },
+ {
+  "number": 118,
+  "name": "frequentist-and-bayesian",
+  "description": "A Poisson count of 3. The exact confidence belt, read across at 3, gives 1.37 to 5.92; the posterior from a flat prior gives 2.09 to 5.92. For every count from 0 to 20 the upper ends agree exactly. The confidence interval holds the truth at least 68.3% of the time for every true mean, while the credible interval ranges from 53% to 83%; at a true mean of 3, 20,000 pseudo-experiments give 87.1% and 76.8% (exact 86.6% and 76.5%). With a known background of 3 and no events seen, the confidence interval for the signal is entirely negative, while a posterior whose prior is zero below zero gives 0.17 to 1.84. Central intervals only.",
+  "section": "R. Probability: frequentist and Bayesian (6)",
+  "module": "study_stats_prob",
+  "title": "Two readings of one count",
+  "summary": "One small count read twice, as the range of true rates for which that count would be unsurprising and as an updated belief about the rate: where the two answers agree, where they part, and what each one claims."
+ },
+ {
+  "number": 119,
+  "name": "bayes-theorem-areas",
+  "description": "Exact areas for a disease in 1 in 1,000 people and a test positive for 99% of the ill and 5% of the healthy: of 100,000 people, 99 true positives against 4,995 false ones, so a positive result is right 1.94% of the time; testing again gives 28.2%, then 88.6%. A kaon tag in a sample of 10% kaons, with 90% efficiency and 5% of pions mistaken for kaons, has a purity of 66.7%; 100,000 seeded particles give 66.2%. At 1 kaon in 1,000 the purity is 1.8%, or 31.1% if only 0.2% of pions are mistaken. The rates are round illustrative numbers, and repeated tests are assumed independent.",
+  "section": "R. Probability: frequentist and Bayesian (6)",
+  "module": "study_stats_prob",
+  "title": "Bayes' theorem as areas",
+  "summary": "A population drawn as a square, split by how common something is and by how a test comes out, so the chance that a positive result is right is one rectangle compared with two: for a rare disease, and for picking out one kind of particle."
+ },
+ {
+  "number": 120,
+  "name": "prior-washing-out",
+  "description": "One seeded run of 100,000 flips of a coin with a 0.7 chance of heads updates five priors exactly: flat, optimistic, sceptical, narrow, and dogmatic (zero outside 0.4 to 0.6). The distance from the sceptical posterior to the flat prior's is 0.65 after 10 flips, 0.56 after 100 and 0.18 after 1,000. After 100,000 flips the optimistic and sceptical posteriors are within 0.02 of it, the narrow one is still 0.11 away, and the dogmatic one is as far away as it can be, with its mean stuck at 0.600. The spread over 50 other runs is drawn.",
+  "section": "R. Probability: frequentist and Bayesian (6)",
+  "module": "study_stats_prob",
+  "title": "A prior washing out",
+  "summary": "Three people with different starting beliefs about a coin watch the same flips and end up agreeing, while someone who ruled the truth out in advance never can."
+ },
+ {
+  "number": 121,
+  "name": "interval-coverage",
+  "description": "Of 10,000 seeded Gaussian measurements, 68.0% of the one-sigma intervals contain the true value (70 of the first 100). For a count quoted as n ± root n at a true mean of 2.5, only counts of 2, 3 and 4 give an interval containing 2.5: 60.4% exactly. Over true means from 0.05 to 20 that recipe covers between 5% and 81%, while the exact interval never falls below 68.7%. For an efficiency from 20 trials the usual binomial error bar covers as little as 9% and has zero width at 20 of 20; the Clopper-Pearson interval never covers less than 68.4%. The exact intervals cover more than they promise.",
+  "section": "R. Probability: frequentist and Bayesian (6)",
+  "module": "study_stats_prob",
+  "title": "What coverage means",
+  "summary": "Many repeated experiments each draw their error bar around a value we secretly know: a 68% interval is a recipe that works 68% of the time, and the usual quick error bars on small counts do not."
+ },
+ {
+  "number": 122,
+  "name": "binomial-poisson-gaussian",
+  "description": "Exact distributions, with 20,000 seeded rows of ten trials as a check. The distance between a binomial with mean 3 and a Poisson of mean 3 falls from 0.086 at 10 trials to 0.0008 at 1,000; with the chance held at 0.3 it does not fall at all. A Poisson against a Gaussian of the same mean and width: 0.14 at a mean of 1, where the Gaussian puts 6.7% on negative counts, 0.040 at 10 and 0.004 at 1,000. In the upper tail at a mean of 10, a five-sigma count has an exact probability 37 times the Gaussian's; the factor is 5.1 at a mean of 100 and 1.8 at 1,000.",
+  "section": "R. Probability: frequentist and Bayesian (6)",
+  "module": "study_stats_prob",
+  "title": "Binomial, Poisson, Gaussian",
+  "summary": "The count of events in one bin, followed as one histogram that turns from the many-rare-chances shape into the bell curve, with a look at the far tails, where the bell curve stays badly wrong."
+ },
+ {
+  "number": 123,
+  "name": "central-limit-theorem",
+  "description": "Exact distributions of the mean of 1, 2, 5 and 30 dice, and 20,000 seeded pseudo-experiments for each number averaged from 1 to 100, for dice, exponential decay times and Breit-Wigner draws. The spread of the mean matches sigma over root N within 3%. The exact distance to a Gaussian for decay times falls from 0.159 for one to 0.024 for 30 and 0.013 for 100. For the Breit-Wigner the width of the mean stays at 1.00, 0.99 and 0.99 for 1, 30 and 100 draws, and running means over 10,000 draws are still moving by 2.7 to 21.6 across the last 9,000.",
+  "section": "R. Probability: frequentist and Bayesian (6)",
+  "module": "study_stats_prob",
+  "title": "The central limit theorem",
+  "summary": "Averages of dice rolls, then of lopsided decay times, pile up into the same bell shape, narrowing as more are averaged; except for one kind of distribution whose average never settles at all."
+ },
+ {
+  "number": 124,
+  "name": "chi-square-fit",
+  "description": "Six points with unequal Gaussian errors, drawn from a known line. Chi-square is evaluated exactly over the intercept and slope: a trial line scores 45.8 and the least-squares solution 2.68, for 4 degrees of freedom. The contour one unit above the minimum, found on a grid without the covariance formula, has half-widths 0.297 and 0.0762 against the formula's 0.298 and 0.0766. In 10,000 pseudo-experiments the fitted intercept lies within its error of the truth 68.1% of the time, and the pair lies inside the contour 39.7% of the time (39.3% exact). For a straight line the bowl is an exact paraboloid; for other models it is an approximation.",
+  "section": "S. Minimisation and chi-square fitting (4)",
+  "module": "study_stats_fit",
+  "title": "Chi-square as a landscape",
+  "summary": "A straight line through a few points: each point pulls on the line like a spring, the pulls add up to chi-square, and that sum is a bowl whose bottom is the best fit and whose width gives the errors."
+ },
+ {
+  "number": 125,
+  "name": "chi-square-per-dof",
+  "description": "Twelve points drawn from a parabola with Gaussian errors. A straight line gives a chi-square of 46.1 for 10 degrees of freedom (probability 1.4 in a million), the parabola 3.5 for 9, and a seventh-degree polynomial 1.3 for 4. Over 20,000 pseudo-experiments the parabola's chi-square follows the exact curve for 9 degrees of freedom. Chi-square per degree of freedom does not flag the fit with too many parameters; what does is that each parameter beyond the needed one lowers chi-square by only 1.00 on average, and the fitted curve ends further from the truth (0.82 against 0.50 errors). With error bars claimed at half, equal to and twice their true size, chi-square per degree of freedom averages 4.01, 1.00 and 0.25.",
+  "section": "S. Minimisation and chi-square fitting (4)",
+  "module": "study_stats_fit",
+  "title": "What a good chi-square looks like",
+  "summary": "The same points fitted with a model that is too simple, the right one and one with too many parameters: what chi-square should be, how the fit probability is read off its distribution, and what wrong error bars do to it."
+ },
+ {
+  "number": 126,
+  "name": "minimisers-on-chi-square",
+  "description": "A one-peak model fitted for position and width to 24 Poisson counts that also contain a neighbouring peak, so chi-square has two minima: 178 at the right peak and 353 at the neighbour. Gradient descent, Newton's method without safeguards, the simplex and a variable-metric method of the kind MINUIT runs start from 1,035 points. They reach the best fit from 46%, 8%, 60% and 44% of starts and the wrong bottom from 31%, 3%, 25% and 25%, in a median of 75, 35, 59 and 68 evaluations. Where the curvature is negative, Newton's method jumps to a negative width. The model lacks the neighbour by construction, so even its best fit is poor.",
+  "section": "S. Minimisation and chi-square fitting (4)",
+  "module": "study_stats_fit",
+  "title": "How a minimiser walks",
+  "summary": "Three ways of walking downhill on the same chi-square surface, counting every evaluation, on a surface with a second, wrong bottom that traps the starts on its side."
+ },
+ {
+  "number": 127,
+  "name": "binned-vs-unbinned-fits",
+  "description": "Decay times from an exponential with a lifetime of 2.2 microseconds, fitted by a binned chi-square with errors of root n from the data, a binned Poisson likelihood and an unbinned likelihood; 4,000 pseudo-experiments per setting. In ten bins the chi-square lifetime is biased by +12% at 30 events, -3.7% at 120 (a third of its spread), -1.7% at 1,000 and -0.3% at 4,000, while the likelihoods are within 0.7% from 120 events. The sign changes because empty bins are left out at small samples. The unbinned fit's spread is within 4% of the best possible from 120 events up; with only two bins, both binned fits spread 1.33 times wider. The chi-square with errors from the fitted curve was not run.",
+  "section": "S. Minimisation and chi-square fitting (4)",
+  "module": "study_stats_fit",
+  "title": "Binned or unbinned?",
+  "summary": "One sample of decay times fitted three ways: why a chi-square fit to a histogram with few events per bin gives a biased lifetime while likelihood fits do not, and what binning costs in precision."
+ },
+ {
+  "number": 128,
+  "name": "likelihood-curve",
+  "description": "Five decay times drawn from an exponential with a lifetime of 2.2 microseconds. The likelihood, evaluated exactly, peaks at 1.675 microseconds, against a sample mean of 1.676. With 20 and 80 events of the same run the curve narrows and its peak sits at 2.08 and 1.87. In 20,000 pseudo-experiments of five decays per seed, three seeds, the best lifetime averages 2.203 and spreads by 0.992, against the exact 0.984, and its histogram follows the exact distribution of a mean of five exponentials.",
+  "section": "T. Maximum likelihood and errors (5)",
+  "module": "study_stats_likelihood",
+  "title": "The likelihood curve",
+  "summary": "Each measured decay time gets a probability from the model; multiply them, slide the lifetime, and the product peaks at the best estimate."
+ },
+ {
+  "number": 129,
+  "name": "likelihood-intervals",
+  "description": "Decay times from an exponential with a lifetime of 2.2 microseconds. With 50 decays the curvature of the log-likelihood gives an error of 0.367 and the half-unit drop gives -0.33 +0.40; with 5 decays, -1.14 +2.08 against a symmetric 1.50. Coverage comes from 20,000 pseudo-experiments per seed and from the exact distribution, which agree within 0.6 points. Against the textbook expectation, the symmetric interval does not cover worse in total at 5 decays (67.8% against 67.4%); what differs is the side it misses on: it lies wholly below the truth 27% of the time and above it 5%, where the half-unit interval gives 20% and 13%.",
+  "section": "T. Maximum likelihood and errors (5)",
+  "module": "study_stats_likelihood",
+  "title": "Errors from the likelihood",
+  "summary": "The error on a fitted value is read off where the log-likelihood has dropped by one half, and with few events that interval is lopsided."
+ },
+ {
+  "number": 130,
+  "name": "error-propagation",
+  "description": "Two Gaussian measurements, 10.0 ± 0.5 and 5.00 ± 0.25, and their ratio; 100,000 pairs per seed, five seeds. The formula gives 0.141 and the cloud 0.142. With a correlation of 0.6 the formula with its correlation term gives 0.089 and the cloud 0.090; without the term it is 57% too large. With the denominator known only to 30% the formula says 2.00 ± 0.61, while the cloud's central 68% is -0.47 +0.86: 83% wider upwards than downwards. In that case the cloud's standard deviation never settles between seeds, because a ratio with a Gaussian denominator has no finite variance, so half-widths are reported instead.",
+  "section": "T. Maximum likelihood and errors (5)",
+  "module": "study_stats_likelihood",
+  "title": "Error propagation by cloud",
+  "summary": "A cloud of possible measurements is pushed through a formula; the usual error formula matches the cloud only while the function is nearly straight over the errors."
+ },
+ {
+  "number": 131,
+  "name": "error-on-the-mean",
+  "description": "Gaussian measurements with a spread of 2; 10,000 experiments at each size from 1 to 1,024 measurements, three seeds. The spread of the mean is 1.997, 1.000, 0.499 and 0.251 for 1, 4, 16 and 64 measurements, a slope of -0.500 on log axes, within 3% of sigma over root N everywhere; a lopsided distribution of the same spread follows the same line. Dividing the summed squared deviations by N gives 75.0% of the true variance at four measurements, by N - 1 gives 100.0%, and the standard deviation itself still averages 92.1% of the truth.",
+  "section": "T. Maximum likelihood and errors (5)",
+  "module": "study_stats_likelihood",
+  "title": "The error on the mean",
+  "summary": "Repeat an experiment many times and its average scatters far less than single measurements do, shrinking as one over the square root of how many you take."
+ },
+ {
+  "number": 132,
+  "name": "bootstrap-errors",
+  "description": "One dataset of 20 events, resampled 2,000 times with replacement, for a mean, a median, a ratio of means, a correlation and a maximum; the true spread of each comes from 20,000 fresh datasets per seed. Over 400 datasets the bootstrap error is typically 0.91, 1.02, 0.96 and 0.87 of the true spread for the first four, with a wide band from one dataset to another (about 0.6 to 1.4). It fails for the maximum: 63% of resamples return the sample's own largest value, and the error is typically 41% of the truth. The dataset drawn has one unusually large event, so its own numbers for the mean are about 45% high; the animation shows the 400-dataset result beside them.",
+  "section": "T. Maximum likelihood and errors (5)",
+  "module": "study_stats_likelihood",
+  "title": "The bootstrap",
+  "summary": "With one dataset and no formula, draw from the data itself over and over; how much the recomputed answer varies is the error."
+ },
+ {
+  "number": 133,
+  "name": "error-ellipse",
+  "description": "A straight line is fitted to five points with Gaussian noise of 0.5, 20,000 times per seed over three seeds. The covariance of the fitted intercept and slope matches the exact matrix to the third decimal place, with a correlation of -0.905. The chi-square + 1 contour of a single fit matches the cloud's ellipse to within 0.8% and holds the true pair in 39.8% of fits (39.3% exact), while the intercept's own error bar holds the true intercept in 68.5%. With the slope refitted the intercept is known to 0.524; with the slope held, to 0.224. Counting x from the middle of the data removes the tilt: correlation -0.01.",
+  "section": "U. Correlated errors and systematic uncertainties (4)",
+  "module": "study_stats_syst",
+  "title": "The error ellipse",
+  "summary": "Fitting a line gives two numbers whose errors are tied together, and the tilt of their cloud says how."
+ },
+ {
+  "number": 134,
+  "name": "statistical-vs-systematic",
+  "description": "Each event is 100 plus a shift shared by the whole run plus Gaussian noise of 10; the shift is known only as 0 ± 0.5. Over 4,000 runs per seed and three seeds, the distance of the mean from the truth follows the two errors added in quadrature to within 4%: 0.71 at 400 events, where the two are equal, and 0.509 at 10,000. An interval built from the statistical error alone holds the truth 52% of the time at 400 events and 16% at 10,000; with the total error, 68 to 69%. Measuring the shift on a control sample a quarter the size gives an error that keeps falling, and beats the uncorrected one from 1,600 events; below that it is worse. The run drawn ends 0.61 above the truth, a two-sigma fluctuation on top of its shift of 0.4.",
+  "section": "U. Correlated errors and systematic uncertainties (4)",
+  "module": "study_stats_syst",
+  "title": "Statistical against systematic error",
+  "summary": "More data shrinks the scatter of an average but not a miscalibration shared by every event, unless the miscalibration is itself measured."
+ },
+ {
+  "number": 135,
+  "name": "nuisance-parameters-profiling",
+  "description": "A count with 20 signal events expected at a signal strength of 1, on a background known as 50 ± 10. For the first pseudo-experiment, which counts 80, the signal strength is 1.07 to 1.96 with the background fixed at 50, missing the true value, 0.84 to 2.18 profiled and 0.86 to 2.21 marginalised. Over 20,000 pseudo-experiments per seed in which the true background varies within its uncertainty, the interval holds the true signal strength in 48.9% of cases with the background fixed, 68.1% profiled and 68.3% marginalised; exact sums give 48.5%, 68.0% and 68.2%.",
+  "section": "U. Correlated errors and systematic uncertainties (4)",
+  "module": "study_stats_syst",
+  "title": "Profiling a nuisance parameter",
+  "summary": "When a background is only roughly known, pretending it is exact gives an error bar that is too small; profiling it gives an honest one."
+ },
+ {
+  "number": 136,
+  "name": "combining-measurements",
+  "description": "Two measurements of a true value of 10, with errors 1.0 and 2.6 and a shared shift that correlates them by 0.74; 20,000 pairs per seed, three seeds. Weighting by one over the error squared, as if independent, quotes ± 0.93 but scatters by 1.14, worse than the better measurement alone (1.00), and holds the truth 59.1% of the time. The best linear combination has weights 1.235 and -0.235, scatters by 0.88, holds the truth 68.4% of the time, and always lies outside both inputs. Exactly, the second weight is zero at a correlation of 0.385, the ratio of the two errors, and negative beyond.",
+  "section": "U. Correlated errors and systematic uncertainties (4)",
+  "module": "study_stats_syst",
+  "title": "Combining measurements",
+  "summary": "Two results that share a source of error must not be averaged as if independent; the best combination can even lie outside both."
+ },
+ {
+  "number": 137,
+  "name": "moving-a-cut",
+  "description": "Pseudo-data: 50 signal events on 1,000 background events, both Gaussian, one unit apart in a single variable. Keeping events above 1 leaves 43 signal and 164 background. From the model exactly, s over root (s + b) is best at a cut of 1.96, the likelihood-ratio formula at 2.47 and s over root b at 3.33, where it claims 7.0 sigma on 0.43 background events against 3.7 from the exact Poisson probability; purity only rises, so its best cut keeps nothing. Over 5,000 pseudo-experiments the estimated signal averages 50.1 with a cut fixed beforehand and 67.1 with the cut that looks best on the same events; with no signal, an excess past 2 sigma appears in 2.6% and 15.3% of them.",
+  "section": "V. Data selection and significance (4)",
+  "module": "study_stats_select",
+  "title": "Moving a cut",
+  "summary": "A cut slides across a signal and a background histogram, and the counts, purity and significance follow it, with each measure of best picking a different cut."
+ },
+ {
+  "number": 138,
+  "name": "cuts-vs-multivariate",
+  "description": "Pseudo-data: two Gaussian clouds correlated by 0.8, the signal shifted in the first variable only. Selections are chosen on 5,000 events of each kind and measured on 20,000 others, over five seeds. At 80% signal efficiency the best pair of thresholds keeps 43.8% of the background, no better than the first variable alone (43.3%); Fisher's line, computed from the means and the pooled covariance, keeps 20.5%, and is below the cuts at every efficiency from 5% to 95%. In a second model with a crescent of signal round a blob, the best line keeps 27.3% and a contour of the model's own likelihood ratio 2.1%; that contour is taken from the model, not learned.",
+  "section": "V. Data selection and significance (4)",
+  "module": "study_stats_select",
+  "title": "Cuts against a combined variable",
+  "summary": "Two thresholds, one on each of two correlated variables, compared with a single diagonal line through both, and then with a curved boundary where no line will do."
+ },
+ {
+  "number": 139,
+  "name": "sideband-background",
+  "description": "Pseudo-data: 6,000 background events on a falling exponential with a Gaussian peak of 300 at 125 GeV. The background is fitted in the sidebands only and carried under the peak: in the spectrum drawn, 1,324 events in the window less a background of 1,011 ± 19 gives 313 ± 41, where the truth in the window is 296. Over 5,000 spectra per case the estimate is off by -1.5 events with the right shape, and the quoted error is right 68.4% of the time; by -96 events (2.3 sigma) when a straight line is fitted to the curved background; and by -34 events when the peak is wide enough for 32% of it to fall outside the window.",
+  "section": "V. Data selection and significance (4)",
+  "module": "study_stats_select",
+  "title": "Background from the sidebands",
+  "summary": "The background under a peak is estimated by fitting the spectrum on either side of it, and the estimate goes wrong when the assumed shape is wrong or the sides contain signal."
+ },
+ {
+  "number": 140,
+  "name": "selection-sculpting",
+  "description": "Pseudo-data: 200,000 events on a falling exponential, a trigger that turns on around 30 GeV, and a detector that sees part of the solid angle. The recorded spectrum peaks at 36 to 40 GeV; the truth has no peak. Dividing by an efficiency measured on a calibration sample recovers the truth above 38 GeV to within 0.1% on average over 4,000 pseudo-experiments, with errors of 2 to 5%; where the efficiency is 0.1% the error is 59% and the estimate is biased high by 28%. In a second model of pairs with no resonance, requiring both momenta above a threshold puts a peak in the mass spectrum that moves up by about 2 GeV per GeV of threshold. The acceptance here is flat in energy, so the trigger does all the sculpting of the first spectrum.",
+  "section": "V. Data selection and significance (4)",
+  "module": "study_stats_select",
+  "title": "How a selection sculpts a spectrum",
+  "summary": "A trigger threshold and a detector's acceptance turn a smoothly falling spectrum into one with a peak, and a cut on momentum does the same to a mass spectrum."
+ },
+ {
+  "number": 141,
+  "name": "type-i-and-type-ii-errors",
+  "description": "A counting experiment with 10 background events expected if there is no signal and 18 if there is. Rejecting the no-signal hypothesis at 16 or more events, the smallest threshold with a false-alarm rate of at most 5%, gives by exact Poisson sums a false-alarm rate of 4.87%, a miss rate of 28.7% and a power of 71.3%; 5,000 pseudo-experiments under each hypothesis gave 4.8% and 27.3%. With the threshold chosen again for each amount of data, power is 71.3% at one run, 89.8% at two and 99.4% at four. Counts are whole numbers, so the false-alarm rate sits between 3.1% and 5.0% and the power curve has steps.",
+  "section": "W. Hypothesis tests (4)",
+  "module": "study_stats_tests",
+  "title": "Two ways for a test to be wrong",
+  "summary": "A counting experiment under two hypotheses and a threshold on the count: the two kinds of error as the parts of each distribution on the wrong side, traded against each other as the threshold slides."
+ },
+ {
+  "number": 142,
+  "name": "p-values",
+  "description": "Ten measurements with errors of 2.0 against a prediction of 20 give a chi-square of 24.92. Of 20,000 pseudo-experiments with nothing to find, 104 reach that value (p = 0.0052); the exact tail for 10 degrees of freedom is 0.0055, or 2.54 sigma one-sided. The p-values of those pseudo-experiments are flat: 4.98% fall below 0.05. In a population where 10% of experiments have a real effect of that size, a stated assumption, 41% of the results with p below 0.05 are false alarms.",
+  "section": "W. Hypothesis tests (4)",
+  "module": "study_stats_tests",
+  "title": "What a p-value is, and is not",
+  "summary": "One measured result set against the distribution it would have if there were nothing to find, then why a small p-value is not the chance that there is nothing to find."
+ },
+ {
+  "number": 143,
+  "name": "neyman-pearson",
+  "description": "Two hypotheses about a pair of independent Gaussian measurements. At a false-alarm rate of 5% the exact power is 44.2% cutting on the first value alone, 54.0% on their sum and 60.9% on the likelihood ratio; 20,000 pseudo-events of each hypothesis give 44.2%, 53.6% and 60.7%. Over every direction of straight cut the power peaks at the likelihood ratio's own direction, and a different function that rises with the ratio passes exactly the same events. With equal spreads under both hypotheses the best boundary is a straight line, so curved regions are not shown.",
+  "section": "W. Hypothesis tests (4)",
+  "module": "study_stats_tests",
+  "title": "The likelihood ratio is the best test",
+  "summary": "Three ways to turn two measured values into one test, cut to the same false-alarm rate: the likelihood ratio catches the most signal, and no other direction of cut does better."
+ },
+ {
+  "number": 144,
+  "name": "look-elsewhere-effect",
+  "description": "A falling background of 60 bins with no signal, scanned with a four-bin window at 57 positions, in 100,000 pseudo-experiments. The largest local excess passes 3 sigma in 5.2% of spectra against 0.135% for one fixed window, a trials factor of 38, which corresponds to about 43 independent places; treating all 57 overlapping windows as independent would give 6.8%. A local 3 sigma is a global 1.63 sigma and a local 4 sigma a global 3.03. The spectrum drawn is the first of the 100,000 with a window past 3 sigma, and says so. No spectrum reached a local 5 sigma, so that row is an extrapolation and is labelled as one.",
+  "section": "W. Hypothesis tests (4)",
+  "module": "study_stats_tests",
+  "title": "The look-elsewhere effect",
+  "summary": "A spectrum with nothing in it still shows a striking excess somewhere when enough places are searched; many such spectra show how often, and what a local significance is worth after the search."
+ },
+ {
+  "number": 145,
+  "name": "bump-hunt",
+  "description": "One pseudo-data spectrum: about 3,000 background events on a falling exponential with 70 signal events injected at 125. Fits without and with a signal give 86 ± 22 signal events and a likelihood-ratio statistic of 16.76, a local significance of 4.09 sigma. Over 100,000 background-only spectra that statistic is zero in 50.2% and passes 1, 2 and 3 sigma in 15.9%, 2.23% and 0.107% (exact 15.9%, 2.28%, 0.135%). Scanning 49 masses, 15 of 20,000 background-only scans reach 4.09 sigma somewhere: a global significance of 3.17 sigma, a trials factor of about 35. The spectrum drawn fluctuated upwards: the typical significance for this signal is 3.30 sigma. The global figure rests on 15 pseudo-experiments.",
+  "section": "X. Discoveries, exclusion and upper limits (5)",
+  "module": "study_stats_discovery",
+  "title": "A bump hunt, from fit to global significance",
+  "summary": "One mass spectrum followed from the background fit to a bump's local significance, and then to what that significance is worth once every mass has been searched."
+ },
+ {
+  "number": 146,
+  "name": "poisson-upper-limits",
+  "description": "Exact Poisson arithmetic: the 90% upper limits on a signal mean are 2.30, 3.89, 5.32 and 6.68 for 0, 1, 2 and 3 events seen. With a known background of 3 the limit is that less 3, which is negative when no events are seen. Coverage is checked with 20,000 counts at each of 40 true signals: never below 89.7% (exactly, never below 90.0%) and 95.0% on average, because counts are whole numbers. One worked line turns the limit into a cross-section: with 20 inverse femtobarns and an efficiency of 0.25, no events seen means less than 0.46 femtobarns.",
+  "section": "X. Discoveries, exclusion and upper limits (5)",
+  "module": "study_stats_discovery",
+  "title": "An upper limit from counting",
+  "summary": "Seeing few or no events still rules out large signals: where the famous 2.3 comes from, and what the 90% promises."
+ },
+ {
+  "number": 147,
+  "name": "cls-method",
+  "description": "A counting experiment with a known background of 10 at 95% confidence. Seeing 4 events, a chosen example, the plain limit on the signal is -0.85 and the CLs limit 4.28. Over 100,000 background-only counts the plain method excludes signals of 0, 1 and 2 events in 2.9%, 6.7% and 12.9% of experiments; CLs never does, since its limit never falls below 3.0. The price is coverage above what is promised: never under 95.2%, and 100% for a signal of 0.5, with a typical limit of 8.08 against 6.96.",
+  "section": "X. Discoveries, exclusion and upper limits (5)",
+  "module": "study_stats_discovery",
+  "title": "The CLs method",
+  "summary": "When fewer events turn up than the background alone predicts, the plain limit rules out signals the experiment could never see; dividing by a second tail area repairs that, at a price."
+ },
+ {
+  "number": 148,
+  "name": "brazil-band",
+  "description": "Twelve counting windows across a mass range, each with a known falling background and a model signal; limits are 95% CLs limits divided by the model's prediction. From 5,000 background-only counts per mass, the point at 120 has a median of 0.87, a 68% band of 0.60 to 1.17 and a 95% band of 0.46 to 1.66. An observed limit from one pseudo-dataset with the model injected at 140 is 2.47 there against 0.91 expected, the only point outside the yellow band. Over 20,000 background-only plots a given point is outside the yellow band 3.9% of the time, not 5%, because counts are whole numbers, and at least one of the twelve is outside in 38% of plots.",
+  "section": "X. Discoveries, exclusion and upper limits (5)",
+  "module": "study_stats_discovery",
+  "title": "The bands of a limit plot",
+  "summary": "The green and yellow bands show the range of limits an experiment would set if there were nothing to find, built here one pseudo-experiment at a time and then compared with an observed limit."
+ },
+ {
+  "number": 149,
+  "name": "why-five-sigma",
+  "description": "A search of 20 independent bins with a known flat background, looked at 30 times as data accumulate. A signal of 5 events per unit of data reaches 5.6 sigma by the end; the largest background-only bin peaks at 2.3 sigma and fades to 1.1. Over 100,000 background-only searches, one bin at the last look reaches 3 sigma in 0.12%, any of the 20 bins at any look in 19.9%, and at least one of ten such searches in 89%; five sigma is reached somewhere in 4 of 100,000. The exact one-sided tails are 1 in 741 and 1 in 3.5 million. The data needed for a typical five-sigma result is 103, 27 and 8 units for signals of 2.5, 5 and 10 events per unit.",
+  "section": "X. Discoveries, exclusion and upper limits (5)",
+  "module": "study_stats_discovery",
+  "title": "Why five sigma",
+  "summary": "As data accumulate a real signal keeps growing while chance bumps rise and fade, and with many places and moments to look, three sigma turns up routinely and five almost never."
+ },
+ {
+  "number": 150,
+  "name": "network-regression",
+  "description": "Real MNIST digits stand in for events: each is turned by a known angle within 45 degrees either way and read as 7 by 7 cells, as an analysis would regress a particle's energy from detector readings. A network with one linear output, trained with squared error on 10,000 digits over five seeds, has a held-out resolution of 11.2 degrees (10.9 to 11.3), against 26.0 for always answering zero. The resolution is flat across the range, but the bias is +10.3 degrees at the lowest angles and -7.6 at the highest: answers are pulled towards the middle of the range.",
+  "section": "Y. Machine learning in a physics analysis (4)",
+  "module": "study_phys_apps",
+  "title": "Regression with a network",
+  "summary": "A network with one unsquashed output learns to give back the angle a digit was turned by, and its errors show its resolution and bias."
+ },
+ {
+  "number": 151,
+  "name": "classifier-score-as-variable",
+  "description": "MNIST 4s stand for signal and 9s for background, read coarsely so the classes overlap. On held-out digits the network's ROC area is 0.953 over five seeds. A cut at 0.5 keeps 81% of signal and rejects 94% of background: 93% pure with equal numbers, 22% pure at one signal event per fifty background. There the cut that maximises significance moves from about 0.4 to about 0.95. Fitting the score's shape recovers signal fractions of 0.05 to 0.5 to within 0.006 over 2,000 pseudo-experiments each, with a smaller spread than counting above a cut. The one-in-fifty numbers are scaled shares, so the background above a cut of 0.95 rests on about ten held-out digits.",
+  "section": "Y. Machine learning in a physics analysis (4)",
+  "module": "study_phys_apps",
+  "title": "A classifier's score as a variable",
+  "summary": "A network's score separates signal from background; a cut on it trades efficiency for purity, and its shape can be fitted for how much signal a sample holds."
+ },
+ {
+  "number": 152,
+  "name": "boosted-regression-trees",
+  "description": "On the same turned digits as the regression network. With one real feature, the tilt of the ink, and 300 training digits, the training error falls from 25.5 degrees to 22.9, 21.0 and 18.5 after 1, 2 and 50 small trees, while the held-out error is lowest after 10 trees. On all 49 cells with 10,000 digits, 300 trees and three seeds, the held-out error runs from 18.4 degrees to 12.1 over twelve settings of learning rate and depth. More trees do not overfit at small learning rates within 300 trees; at a rate of 1 they do, from 10 trees on at depth 5. The network on the same events gets 11.2 degrees, ahead of the best trees in every seed.",
+  "section": "Y. Machine learning in a physics analysis (4)",
+  "module": "study_phys_apps",
+  "title": "Boosted trees for regression",
+  "summary": "Small trees are added one at a time, each fitted to what the sum so far still gets wrong, first on one measured number and then on a whole detector read-out."
+ },
+ {
+  "number": 153,
+  "name": "overtraining-check",
+  "description": "A large network trained on 25 to 2,000 MNIST 4s and 9s per class, five seeds, compared on its training events and on about 5,800 held-out ones. With 100 per class every training score ends in the outermost bins while 10% of held-out 4s sit at the wrong end. The Kolmogorov-Smirnov distance between the two score distributions falls from 0.36 at 25 per class to 0.04 at 2,000, and the gap in ROC area from 0.128 to 0.013. Stopping early or weight decay roughly halves the distance at 100 per class. Against the usual telling, overtraining barely lowers the held-out ROC area here (0.927 to 0.921) while the validation loss triples: it spoils what the score means, not the ranking.",
+  "section": "Y. Machine learning in a physics analysis (4)",
+  "module": "study_phys_apps",
+  "title": "The overtraining check",
+  "summary": "The scores of the events a classifier was trained on are laid over those of events it never saw; where they part, it has learnt its sample rather than the rule."
+ },
+ {
+  "number": 154,
+  "name": "autoencoder-anomaly-detection",
+  "description": "An autoencoder is trained on 20,000 MNIST digits with one class removed entirely, for each of the ten classes, seven code sizes and three seeds; the removed class stands for new physics in a model-independent search trained on known processes. Each of 5,000 held-out digits is scored by its reconstruction error. With the 0s removed and a code of 8 numbers, 74% of the unseen 0s are flagged where 95% of seen digits pass; area under the ROC curve 0.95. By removed class the area runs from 0.95 for 0 and 2, through 0.76 for 7 and 0.63 for 9, down to 0.32 for 1, worse than a coin toss on every seed: an unseen 1 is rebuilt better than a typical seen digit. The mean area peaks at a code of 8 (0.81) and falls to 0.62 at 128: a roomy code rebuilds unseen digits too. The code size drawn is the best one, chosen on the held-out digits, which a real search could not do.",
+  "section": "Z. Anomalies, collapse and smooth backgrounds (5)",
+  "module": "study_phys_adv",
+  "title": "Anomaly detection with an autoencoder",
+  "summary": "An autoencoder trained without one kind of digit rebuilds that kind badly, and the size of the error flags what it never saw."
+ },
+ {
+  "number": 155,
+  "name": "gan-mode-collapse",
+  "description": "A small GAN is trained on 20,000 MNIST digits in four settings, five seeds each, and a separately trained classifier reads 1,000 of its samples every 100 updates. With one generator update per discriminator update it ends covering 8.7 of the ten digits; with three, the only change, it covers 1.9 and all five seeds collapse, each onto a digit of its own, hopping between digits on the way. Given the label as an extra input to both networks, the generator-heavy runs cover 7.8 digits and none collapses, and 73 to 77% of samples are read as the digit asked for, against 10% by chance. That is not every class on demand: a longer one-seed run reached 92%. Samples at this size are rough.",
+  "section": "Z. Anomalies, collapse and smooth backgrounds (5)",
+  "module": "study_phys_adv",
+  "title": "Mode collapse in a GAN",
+  "summary": "A generator that settles on a few digits instead of all ten, counted by a separate classifier, and how telling both networks the label brings the digits back."
+ },
+ {
+  "number": 156,
+  "name": "gp-background-fit",
+  "description": "Pseudo-data: a falling spectrum of about 98,000 events in 80 bins whose true shape is a sum of two exponentials, fitted with a single exponential and with a Gaussian process on top of that fit; 4,000 pseudo-experiments with and without an injected resonance of 160 events, at 13 length scales, each beside the exact calculation. With no signal the single exponential leaves -21.8 events at 300 GeV, and up to almost 7 errors of spurious signal elsewhere; the process at a length scale of 60 GeV leaves +1.7 and stays within one error everywhere. Of the injected signal the exponential keeps 92%, the process 65% at 60 GeV and 3% at 10 GeV. The background is fitted to the whole spectrum, signal region included.",
+  "section": "Z. Anomalies, collapse and smooth backgrounds (5)",
+  "module": "study_phys_adv",
+  "title": "A Gaussian-process background",
+  "summary": "A fixed function leaves a wave that looks like signal; a Gaussian process follows the background instead, but a short length scale swallows a real bump."
+ },
+ {
+  "number": 157,
+  "name": "anomaly-loss-and-latent",
+  "description": "The autoencoders of autoencoder-anomaly-detection, trained on MNIST with one class removed, for each of the ten classes and three seeds; the removed class stands for new physics in a model-independent search. Each of 5,000 held-out digits gets a reconstruction error and the distance from its code to the 5th nearest training code. With a code of 8 numbers the areas under the ROC curve are 0.81 for the loss and 0.69 for the distance. For the unseen 1s the loss gives 0.32 and the distance 0.78: their codes do sit apart, but with each threshold passing 95% of normal digits only 19% are caught, by the code alone, and 80% by neither. Over all removed classes 36% are caught by the loss only, 11% by the code only, 4% by both and 50% by neither. Of eight ways of spoiling a digit, inverted ones are caught by both, noisy, shifted and turned ones by the loss alone, and dimmed or averaged ones by neither. A Mahalanobis distance scores 0.29, worse than a coin toss; the neighbour distance was chosen over it after seeing these areas. Thresholds use normal digits only.",
+  "section": "Z. Anomalies, collapse and smooth backgrounds (5)",
+  "module": "study_anomaly",
+  "title": "Two places an anomaly can show",
+  "summary": "One picture through an autoencoder gets two scores, how badly it is rebuilt and how far its code lies from the training codes, and an unusual input can show in both, in one or in neither."
+ },
+ {
+  "number": 158,
+  "name": "anomaly-two-score-flow",
+  "description": "The same autoencoders at code sizes 2, 8, 32 and 128, ten removed classes and three seeds. A Gaussian, a mixture of ten and a small normalizing flow are fitted to the training codes; the mixture fits held-out normal codes best and is used, a choice made without anomalies. As anomaly scores their areas are 0.29, 0.63 and 0.56, and a plain neighbour distance beats all three (0.69). At 5% false alarms the loss alone catches 40% of anomalies, the code alone 12%, either cut 32%, a sum of the two 22% and an ellipse round the normal cloud 4%. On average the second score buys nothing at 8 numbers; its gain is the class the loss cannot see, the unseen 1s, from 0.4% caught to 7%. Two cuts at 5% each flag 10.2% of normal digits, so each is set at 2.6%. As the code grows the loss's area falls from 0.81 to 0.62 while the code density's rises from 0.63 to 0.86 at 32 numbers: the anomaly moves from the loss into the code, though not for the 1s. The flow is small and not a strong representative of flows.",
+  "section": "Z. Anomalies, collapse and smooth backgrounds (5)",
+  "module": "study_anomaly",
+  "title": "An anomaly search with two scores",
+  "summary": "The whole procedure from training on normal data to a decision: a density fitted to the codes, two thresholds set on normal data, three ways of combining the two scores, and what a second cut costs in false alarms."
  }
 ]

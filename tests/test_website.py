@@ -77,7 +77,7 @@ def test_the_next_catalogue_is_listed_under_its_own_titles():
     listed = {n: t for *_, items in site.SECTIONS for n, t in items}
     anchors = [anchor for anchor, *_ in site.SECTIONS]
     assert len(anchors) == len(set(anchors))
-    assert len(site.NEXT_SECTIONS) == 16
+    assert len(site.NEXT_SECTIONS) == 26
     new = len(site.NEXT_SECTIONS)
     for item in ITEMS:
         assert listed[item["preset"]] == item["title"] == drawing(item["name"]).TITLE
@@ -88,6 +88,9 @@ def test_the_next_catalogue_is_listed_under_its_own_titles():
     # the two later groups sit with the generative models, not at the end of the page
     assert headings.index("Generative families compared") == headings.index("Generative models") + 1
     assert headings.index("Label embeddings") == headings.index("Generative families compared") + 1
+    # randomness follows the classical methods it is the groundwork for
+    classical = headings.index("Classical machine learning")
+    assert headings.index("Randomness and entropy") == classical + 1
     assert headings[-1] == "Memory, dynamics and curiosities"
     for _anchor, heading, intro, items in site.SECTIONS[-new:]:
         assert heading and intro.endswith(".") and items

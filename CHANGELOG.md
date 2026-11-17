@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.7.0
+
+- **Randomness and entropy**: eight animations in a new section (catalogue entries 110 to 117;
+  `mech_random.py`, `mech_chance.py` and their `study_*.py`). `pseudo-random-generators`,
+  `seeds-and-streams`, `sampling-a-distribution`, `entropy-sources`, `measuring-entropy`,
+  `markov-chains`, `seeds-and-training-outcomes`, `gpt2-seeds-and-sampled-text`. The small
+  generators are written out in integer arithmetic and checked against published values; each
+  phase is labelled with its kind of evidence. `entropy-sources` and `measuring-entropy` measure
+  timer jitter and the operating system's bytes on the machine that builds them, so their
+  numbers and pixels differ between machines.
+- **Statistics and machine learning for a physics analysis course**: 41 animations in nine new
+  sections (catalogue entries 118 to 158; `mech_stats_*.py`, `mech_phys_*.py`, `mech_anomaly.py`
+  and their `study_*.py`). Probability, frequentist and Bayesian (6); minimisation and
+  chi-square fitting (4); maximum likelihood and errors (5); correlated errors and systematic
+  uncertainties (4); data selection and significance (4); hypothesis tests (4); discoveries,
+  exclusion and upper limits (5); machine learning in a physics analysis (4); anomalies,
+  collapse and smooth backgrounds (5). The statistics is taught with seeded pseudo-experiments
+  from a model stated on screen, against the exact answer wherever one exists; each phase is
+  tagged with the kind of evidence it shows. The machine-learning ones train on MNIST, with
+  digits standing in for events.
+
 ## 1.6.0
 
 - **One hundred more animations** in fourteen new sections of the site (attention wiring,
