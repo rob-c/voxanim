@@ -87,7 +87,8 @@ MNIST |= {"seeds-and-training-outcomes"}
 MNIST |= {"network-regression", "classifier-score-as-variable", "boosted-regression-trees",
           "overtraining-check", "autoencoder-anomaly-detection", "gan-mode-collapse",
           "anomaly-loss-and-latent", "anomaly-two-score-flow", "cpu-and-gpu-training"}
-MNIST |= {item["name"] for item in ITEMS if 160 <= item["number"] <= 169}     # trees and boosting
+# trees and boosting, then the KL term and DEC's centroids
+MNIST |= {item["name"] for item in ITEMS if 160 <= item["number"] <= 171}
 TEXT = {
     item["name"]
     for item in ITEMS
@@ -160,6 +161,7 @@ DRAWN_BY = (
     ("mech_hardware", 159, 159),
     ("mech_trees", 160, 164),
     ("mech_boost", 165, 169),
+    ("mech_kl", 170, 171),
 )
 NUMBER = {item["name"]: item["number"] for item in ITEMS}
 

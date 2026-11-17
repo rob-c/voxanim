@@ -115,6 +115,8 @@ def test_the_page_is_ordered_as_one_course():
     names = list(presets.REGISTRY)
     page = site.page_html(dict.fromkeys(names, 30.0), "v9.9.9")
     assert page.count('class="part"') == len(site.PARTS)
+    # the paragraph under the headline says how many parts, and nothing is left unfilled
+    assert "one course in %d parts" % len(site.PARTS) in page and "{{" not in page
     for k, (title, _intro, part) in enumerate(site.PARTS):
         at = page.index('id="part-%d"' % (k + 1))
         assert at < page.index('<section class="group" id="%s"' % part[0])

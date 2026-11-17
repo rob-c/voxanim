@@ -566,3 +566,22 @@ build machine's and are labelled so; the operation counts beside them are reprod
 
 **Chosen for the demonstration:** gamma = 5 in the round drawn in `xgboost-one-round`, set after
 seeing that gamma = 1 pruned nothing; the two drawable features in the tree group, after trying others.
+
+## The KL term and DEC's centroids, 17 November 2026
+
+Two animations added to the generative-families group (catalogue entries 170 and 171,
+`mech_kl.py`, `study_kl.py`), asked for as an explanation of the KL term "showing the 'trained-LS'
+distribution at various steps/epochs and how over time this distribution becomes more gaussian
+like", keeping the per-label colours, and "the centroids moving as the DEC model trains from the
+initial AE LS distributions out to the final DEC well-separated clusters". Released in 1.10.0.
+
+**Shown as measured, where it differs from the request's picture:**
+- `vae-kl-term`: the cloud is nearest the prior before any training, bursts apart in the first 40
+  updates, and only then settles towards it. It becomes more Gaussian-like without becoming a
+  bell (76% inside the second ring against 86%); the digits' clusters remain. A weight of 10 on
+  the KL term widens the blobs five times but is not a full collapse. A plain autoencoder
+  rebuilds no better at a code of two numbers.
+- `dec-centroids-training`: the clusters do become well separated (silhouette 0.36 to 0.73), but
+  not right: cluster accuracy only goes from 0.46 to 0.51. A ten-number code is no better. The run
+  drawn, fixed in advance, is the least accurate of the three seeds. K-means' own accuracy falls
+  while its objective improves on that start.

@@ -903,7 +903,7 @@
   "number": 101,
   "name": "generative-objectives",
   "description": "Five families (an autoencoder, a VAE, a GAN, DEC and IDEC) share one decoder shape, 20,000 MNIST training digits and three seeds; only the objective differs. With 16-number codes, each is scored on 2,000 held-out digits by four yardsticks, one per objective: rebuilding error (AE 0.013, VAE 0.013, GAN 0.027 by a search of its noise, DEC 0.070, IDEC 0.018), share of codes inside the standard bell's 99% radius (VAE 100%, the others 0%), cluster accuracy (DEC 0.50 and IDEC 0.51 against 0.46 for k-means on the autoencoder's codes and 0.53 on the VAE's), and a separate classifier's confidence in new samples (0.73 to 0.88). DEC's decoder is the autoencoder's, never retrained, which is why its rebuilding error rises. The networks are small and no family is declared best.",
-  "section": "O. Generative families compared (5)",
+  "section": "O. Generative families compared (7)",
   "module": "study_families",
   "title": "Four families, four objectives",
   "summary": "What an autoencoder, a VAE, a GAN and DEC are each trained to do with the same parts on the same digits, and what each ends up good at."
@@ -912,7 +912,7 @@
   "number": 102,
   "name": "generative-latent-spaces",
   "description": "Five families (an autoencoder, a VAE, a GAN, DEC and IDEC) share one decoder shape, 20,000 MNIST training digits and three seeds; only the objective differs. With two-number codes, 2,000 held-out digits are encoded by each of the four that have an encoder: the same-digit share of a code's ten nearest neighbours is 0.65 (AE), 0.60 (VAE), 0.50 (DEC) and 0.64 (IDEC), against 0.83 for raw pixels; 97% of the VAE's codes lie inside the standard bell's 99% radius against 56%, 30% and 32%; cluster accuracy is 0.46 to 0.52. The GAN has no encoder: what is measured for it is the digit a separate classifier reads at each point of its noise plane, which is the same for neighbouring points 86% of the time.",
-  "section": "O. Generative families compared (5)",
+  "section": "O. Generative families compared (7)",
   "module": "study_families",
   "title": "Four code spaces, one noise plane",
   "summary": "Where held-out digits sit in the two-number code space of an autoencoder, a VAE, DEC and IDEC, and what a GAN draws across its noise plane, since it cannot place a real digit there."
@@ -921,7 +921,7 @@
   "number": 103,
   "name": "generative-sampling",
   "description": "Five families (an autoencoder, a VAE, a GAN, DEC and IDEC) share one decoder shape, 20,000 MNIST training digits and three seeds; only the objective differs. With 16-number codes, 2,000 samples are drawn from each per seed, all from the same noise: an autoencoder decoding codes from the standard bell (and from a bell fitted to its own codes), a VAE's prior, a GAN, and DEC and IDEC decoding around their cluster centres. A separate classifier's confidence is 0.73, 0.78, 0.78, 0.88, 0.87 and 0.84 (0.96 for real held-out digits); the autoencoder's plain bell draws cover 5 to 7 of the ten digits and the fitted bell, VAE, GAN and IDEC all ten; variety is highest for the GAN and IDEC; no family's samples sit unusually close to a training digit. The classifier is small and overconfident on smudges, so confidence is shown beside the other measures.",
-  "section": "O. Generative families compared (5)",
+  "section": "O. Generative families compared (7)",
   "module": "study_families",
   "title": "New digits from four families",
   "summary": "New digits drawn from each family, and how recognisable, how varied and how far from the training digits they are."
@@ -930,7 +930,7 @@
   "number": 104,
   "name": "generative-reconstruction",
   "description": "Five families (an autoencoder, a VAE, a GAN, DEC and IDEC) share one decoder shape, 20,000 MNIST training digits and three seeds; only the objective differs. With 16-number codes, 500 held-out digits are encoded and decoded by each; the GAN, which has no encoder, searches its noise by gradient descent (300 steps, 8 starts). Error is 0.013 (AE), 0.013 (VAE), 0.027 (GAN), 0.070 (DEC, through the autoencoder's untrained-for-this decoder) and 0.018 (IDEC); a separate classifier still reads the same digit in 94%, 95%, 88%, 47% and 92%. The same search returns the GAN's own samples at 0.0001, so its 0.027 is what its generator cannot draw, not a failed search. The GAN's rebuilds keep the sharpest strokes.",
-  "section": "O. Generative families compared (5)",
+  "section": "O. Generative families compared (7)",
   "module": "study_families",
   "title": "There and back: rebuilding a digit",
   "summary": "The same held-out digits put through each family and brought back, by a search of its noise for the GAN, which has no encoder, and what each one loses."
@@ -939,7 +939,7 @@
   "number": 105,
   "name": "generative-interpolation",
   "description": "Five families (an autoencoder, a VAE, a GAN, DEC and IDEC) share one decoder shape, 20,000 MNIST training digits and three seeds; only the objective differs. With 16-number codes, 200 pairs of different held-out digits are joined by a straight nine-point walk in each family's code space (the GAN between its two searched noise points), with a pixel cross-fade as the control. A separate classifier's confidence dips half-way on every walk, to 0.74 to 0.82 against 0.75 for the cross-fade: by that reader no code-space walk beats fading. By distance to the nearest training digit every code-space walk stays nearer real digits than the cross-fade in every seed (+0.34 to +0.64 against +0.88). DEC's flat line is not a good walk: half its ends are already read as the wrong digit.",
-  "section": "O. Generative families compared (5)",
+  "section": "O. Generative families compared (7)",
   "module": "study_families",
   "title": "Walking between two digits",
   "summary": "A straight walk between two digits in each family's code space, the images on the way, and how recognisable and how digit-like the middle is compared with simply fading one image into the other."
@@ -1519,5 +1519,23 @@
   "module": "study_boost",
   "title": "One round of XGBoost",
   "summary": "One boosting round followed for real events from the current predictions to a new tree and back, then many rounds, the knobs that restrain it, and four other ways to use trees."
+ },
+ {
+  "number": 170,
+  "name": "vae-kl-term",
+  "description": "A VAE with a code of two numbers is trained on 20,000 MNIST digits and its 2,000 held-out codes are recorded at 14 points in training, coloured by digit, with three seeds. At the start the encoder says nothing, so every code already sits on the prior; reconstruction bursts the cloud apart over the first 40 updates, and the KL term then settles it into the rings: its distance from the bell peaks at 4.4 and falls to 0.10. The cloud becomes more Gaussian-like without becoming a bell: 76% of codes lie inside the second ring against 86% for a Gaussian, and the digits' clusters remain. The same network with no KL term ends 9.3 from the bell with 41% inside the second ring, and rebuilds no better at this size. With the KL term weighted by 0.1 the cloud stays ragged (1.93); weighted by 10 it fits the rings (0.02) but each digit's blob widens five times and reconstruction costs 19 nats more.",
+  "section": "O. Generative families compared (7)",
+  "module": "study_kl",
+  "title": "The KL term of a VAE",
+  "summary": "One digit followed through a VAE, what the KL half of its loss measures, and the cloud of codes settling into the bell's rings as training goes on."
+ },
+ {
+  "number": 171,
+  "name": "dec-centroids-training",
+  "description": "K-means on the two-number codes of a trained autoencoder is drawn round by round, then DEC is followed through 1,500 updates at 11 checkpoints, with the held-out codes coloured by digit and the ten centres leaving trails; three seeds. The clusters tighten and separate: the silhouette rises from 0.36 to 0.73 and the assignments sharpen from 0.49 to 0.74. The labels barely follow: cluster accuracy goes from 0.46 to 0.51, because DEC sharpens whatever k-means began with, mistakes included; in the run drawn 4s and 9s, 5s and 8s, and 2s and 3s still share clusters. Keeping the decoder (IDEC) gives the same accuracy and half the reconstruction error (0.042 against 0.081). A ten-number code is no better (0.51), and the outcome depends more on the autoencoder's seed than on where k-means starts. The run drawn, fixed in advance, is the least accurate of the three.",
+  "section": "O. Generative families compared (7)",
+  "module": "study_kl",
+  "title": "DEC: the centroids move",
+  "summary": "K-means places ten centres in an autoencoder's code space, then DEC pulls the codes and the centres into tight, separate clusters, which are not the same thing as the right ones."
  }
 ]

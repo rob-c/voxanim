@@ -160,6 +160,10 @@ a:hover .frame .open, a:focus-visible .frame .open, a.frame:hover .open, a.frame
 }
 :root[data-theme="dark"] .hero-video { -webkit-mask-image: none; mask-image: none; }
 
+/* the paragraph between the headline and the section bar: what the page covers, in order */
+.intro { max-width: 1280px; margin: 0 auto; padding: 8px var(--gutter) 40px; }
+.intro p { max-width: 62rem; font-size: 1.125rem; line-height: 1.6; color: var(--ink); }
+
 /* ------------------------------------------------------------ section steps
  * The section index works like the step bar along the top of each
  * animation: done in ink, current in blue, still to come in grey. */

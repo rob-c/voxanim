@@ -77,7 +77,7 @@ def test_every_catalogue_entry_is_registered_once():
     from voxanim import presets
     from voxanim.next_catalog import ITEMS
 
-    assert len(ITEMS) == 169            # the hundred of TODO.md and the groups added after
+    assert len(ITEMS) == 171            # the hundred of TODO.md and the groups added after
     assert len({v["preset"] for v in ITEMS}) == len(ITEMS)
     assert all(v["preset"] in presets.REGISTRY for v in ITEMS)
 

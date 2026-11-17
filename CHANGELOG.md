@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.10.0
+
+- `vae-kl-term`: one digit followed through a VAE, what the KL half of its loss measures, and the
+  held-out codes, coloured by digit, at 14 points in training as the cloud settles into the
+  prior's rings; against the same network with no KL term and with the term weighted 0.1 and 10.
+- `dec-centroids-training`: k-means drawn round by round on an autoencoder's codes, then DEC
+  followed through training with the ten centres leaving trails; separation and label purity
+  measured side by side.
+- Website: a paragraph under the headline says what the page covers and in what order.
+
 ## 1.9.0
 
 - **Decision trees, forests and boosting**: ten animations in a new section (catalogue entries

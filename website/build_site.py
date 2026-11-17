@@ -569,6 +569,7 @@ def page_html(durations, tag, sections=None):
     hero_data = clip_data(HERO, hero_title, hero, durations[HERO], tag)
     fill = {
         "count": str(len(durations)), "version": __version__, "tag": html.escape(tag),
+        "parts": str(len(PARTS)),
         "repo": REPO, "hero": hero.media, "hero_name": HERO, "index": "\n".join(index),
         "sections": "\n\n".join(body), "open": OPEN,
         "hero_clip": html.escape(json.dumps(hero_data, ensure_ascii=False), quote=True),

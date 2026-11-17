@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 297 animations, from a 3×3
+numpy. 299 animations, from a 3×3
 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
@@ -26,7 +26,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 297 animations
+python3 -m voxanim list --names                   # the 299 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
@@ -894,9 +894,9 @@ outcome does not depend on it (40 seeds of 40 end on a shortest path with
 these settings). `tests/test_gridworld.py` replays every recorded step with
 the rule and checks the convergence and the numbers above.
 
-### The next 169: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
+### The next 171: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
 
-A further 169 animations, in twenty-seven groups: 109 added in 1.6.0, in 1.7.0 eight on
+A further 171 animations, in twenty-seven groups: 109 added in 1.6.0, in 1.7.0 eight on
 randomness and 41 for a physics course on data analysis and machine learning, and in 1.8.0
 one on training with and without a GPU, and in 1.9.0 ten on decision trees, forests and
 boosting. The GPU one, `cpu-and-gpu-training`, is the catalogue's
@@ -1105,6 +1105,8 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `generative-sampling` | **New digits from four families.** New digits drawn from each family, and how recognisable, how varied and how far from the training digits they are. |
 | `generative-reconstruction` | **There and back: rebuilding a digit.** The same held-out digits put through each family and brought back, by a search of its noise for the GAN, which has no encoder, and what each one loses. |
 | `generative-interpolation` | **Walking between two digits.** A straight walk between two digits in each family's code space, the images on the way, and how recognisable and how digit-like the middle is compared with simply fading one image into the other. |
+| `vae-kl-term` | **The KL term of a VAE.** One digit followed through a VAE, what the KL half of its loss measures, and the cloud of codes settling into the bell's rings as training goes on. |
+| `dec-centroids-training` | **DEC: the centroids move.** K-means places ten centres in an autoencoder's code space, then DEC pulls the codes and the centres into tight, separate clusters, which are not the same thing as the right ones. |
 
 **Label embeddings.** A class label as a learned vector: in a classifier, in an autoencoder, and at generation.
 
