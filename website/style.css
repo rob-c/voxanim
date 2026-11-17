@@ -113,6 +113,8 @@ button[aria-pressed="true"] { border-color: var(--ink); }
 }
 .hero h1 { font-size: clamp(2.125rem, 1.4rem + 2.6vw, 3.5rem); letter-spacing: -0.025em; }
 .hero p { margin-top: 20px; color: var(--ink-2); font-size: 1.125rem; }
+/* the line above the headline */
+.hero .tagline { margin: 0 0 14px; font-style: italic; font-size: 1.25rem; color: var(--ink-2); }
 @media (min-width: 960px) {
   .hero { grid-template-columns: minmax(0, 5fr) minmax(0, 9fr); align-items: end; gap: 40px; }
   .hero-text { padding-bottom: 7%; }
@@ -167,12 +169,30 @@ a:hover .frame .open, a:focus-visible .frame .open, a.frame:hover .open, a.frame
   background: var(--floor);
   border-bottom: 1px solid var(--rule);
 }
-/* every section on view, wrapping onto as many lines as it takes */
-.steps ol {
-  display: flex; flex-wrap: wrap; gap: 6px 26px; list-style: none; counter-reset: step;
-  max-width: 1280px; margin: 0 auto; padding: 12px var(--gutter);
-  font-size: 0.9375rem;
+/* one line, scrolled sideways: with 49 sections a wrapping list covered half the window.
+ * The current section is kept in view by the script. */
+.steps-row {
+  display: flex; align-items: center; gap: 10px;
+  max-width: 1280px; margin: 0 auto; padding: 0 var(--gutter);
 }
+/* fast-forward and rewind: to the next section, or the top of this one and then the one before */
+.steps-skip {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--rule); border-radius: 50%; color: var(--ink); background: var(--floor);
+  cursor: pointer;
+}
+.steps-skip:hover { border-color: var(--ink-2); }
+.steps-skip:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.steps-skip:disabled { color: var(--rule); cursor: default; border-color: var(--rule); }
+.steps ol {
+  display: flex; flex-wrap: nowrap; gap: 26px; list-style: none; counter-reset: step;
+  flex: 1; min-width: 0; margin: 0; padding: 12px 0;
+  font-size: 0.9375rem;
+  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+}
+.steps ol::-webkit-scrollbar { height: 6px; }
+.steps ol::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
 .steps li { counter-increment: step; white-space: nowrap; }
 .steps-toggle { display: none; }
 /* narrow screens: a button that names the current section and opens the list */
@@ -189,7 +209,12 @@ a:hover .frame .open, a:focus-visible .frame .open, a.frame:hover .open, a.frame
     transform: rotate(45deg) translateY(-2px);
   }
   .steps-toggle[aria-expanded="true"] .steps-caret { transform: rotate(225deg) translateY(-2px); }
-  .steps ol { display: none; flex-direction: column; gap: 10px; padding-top: 0; }
+  .steps-row { display: block; padding: 0; }
+  .steps-skip { display: none; }
+  .steps ol {
+    display: none; flex-direction: column; gap: 10px; padding: 0 var(--gutter) 12px;
+    overflow-x: visible; max-height: 60vh; overflow-y: auto;
+  }
   .steps.open ol { display: flex; }
 }
 .steps a { color: var(--ink-2); text-decoration: none; }
@@ -200,9 +225,19 @@ a:hover .frame .open, a:focus-visible .frame .open, a.frame:hover .open, a.frame
 
 /* ------------------------------------------------------------ sections */
 
+/* a part of the course: a rule and a title ahead of its first section */
+.part {
+  max-width: 1280px; margin: 96px auto 0; padding: 28px var(--gutter) 0;
+  border-top: 1px solid var(--rule); scroll-margin-top: 64px;
+}
+.part-n { font-size: 0.875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--blue); }
+.part-name { margin-top: 6px; font-size: clamp(2rem, 1.5rem + 1.8vw, 3rem); font-weight: 600; line-height: 1.1; }
+.part-intro { margin-top: 10px; max-width: var(--measure); color: var(--ink-2); }
+.part + .group { padding-top: 40px; }
+
 .group {
   max-width: 1280px; margin: 0 auto; padding: 64px var(--gutter) 8px;
-  scroll-margin-top: 120px;          /* the sticky section bar can be three lines tall */
+  scroll-margin-top: 64px;           /* the sticky section bar is one line */
 }
 .group > header { margin-bottom: 32px; }
 .group h2 { font-size: clamp(1.625rem, 1.3rem + 1vw, 2.125rem); }

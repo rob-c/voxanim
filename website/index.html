@@ -38,6 +38,7 @@
 <main>
   <section class="hero" aria-labelledby="hero-h">
     <div class="hero-text">
+      <p class="tagline"><em>It’s the AI trying to understand itself…</em></p>
       <h1 id="hero-h">Watch the numbers move through a neural network</h1>
       <p>{{count}} animations of convolutions, training, generative models, transformers and GPT-2.
       Every weight, activation and gradient on screen comes from a model trained
@@ -56,9 +57,13 @@
     <button type="button" class="steps-toggle" aria-expanded="false" aria-controls="steps-list">
       <span class="steps-current">Sections</span><span class="steps-caret" aria-hidden="true"></span>
     </button>
-    <ol id="steps-list">
+    <div class="steps-row">
+      <button type="button" class="steps-skip" data-skip="-1" aria-label="Back to the top of this section, then the one before" title="Previous section"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 3 3 8l5 5M13 3 8 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <ol id="steps-list">
 {{index}}
-    </ol>
+      </ol>
+      <button type="button" class="steps-skip" data-skip="1" aria-label="Forward to the next section" title="Next section"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 3l5 5-5 5M3 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
   </nav>
 
 {{sections}}

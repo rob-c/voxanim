@@ -304,10 +304,11 @@ class SiteError(RuntimeError):
     """The site cannot be built as asked (a missing video, an unlisted preset)."""
 
 
-def check_sections(sections=SECTIONS, registry=None):
+def check_sections(sections=None, registry=None):
     """Raise :class:`SiteError` unless every preset in ``registry`` (default:
     all registered) appears in ``sections`` exactly once, and nothing else."""
     registry = presets.REGISTRY if registry is None else registry
+    sections = SECTIONS if sections is None else sections
     listed = [name for *_, items in sections for name, _ in items]
     dupes = sorted({n for n in listed if listed.count(n) > 1})
     missing = sorted(set(registry) - set(listed))
@@ -456,14 +457,102 @@ def released(sections, durations):
     return [section for section in kept if section[3]]
 
 
-def page_html(durations, tag, sections=SECTIONS):
+# ------------------------------------------------------------------ the order of the page
+# The page reads as one course, from a first look at probability to large language models:
+# statistics, trees and classical methods, networks from first principles, convolutions, models
+# in use, autoencoders and generative models, Gaussian processes, then sequences, attention,
+# language models and what comes after the transformer. The sections above are written down in
+# the order they were built; this is the order they are read in.
+
+def _regroup(sections):
+    """A few animations change section so each part can be read without the next: the decision
+    tree joins the classical methods it belongs with, the recurrent networks get a section of
+    their own ahead of attention, and the attention training step joins the transformers."""
+    by = {anchor: [anchor, heading, intro, list(items)]
+          for anchor, heading, intro, items in sections}
+
+    def take(anchor, names):
+        moved = [pair for pair in by[anchor][3] if pair[0] in names]
+        assert len(moved) == len(names), (anchor, names)
+        by[anchor][3] = [pair for pair in by[anchor][3] if pair[0] not in names]
+        return moved
+
+    by["classical-ml"][3][:0] = take("classifiers", {"decision-tree"})
+    by["classical-ml"][1] = "Decision trees and classical machine learning"
+    by["classical-ml"][2] = ("A model you can read, then the classical ideas every later model "
+                             "is judged by.")
+    by["recurrent"] = ["recurrent", "Recurrent networks",
+                       "Networks that read a sequence one step at a time and carry a memory along.",
+                       take("training", {"rnn-training-step", "lstm-training-step",
+                                         "rnn-batch-training", "gated-memory"})]
+    by["training"][2] = "Forward pass, loss, gradients and update, one step at a time."
+    by["transformers"][3][1:1] = take("training", {"attention-training-step"})
+    return by
+
+
+PARTS = (
+    ("Statistics for data analysis",
+     "Probability, fits, errors, tests and limits: what a measurement says, and how sure it is.",
+     ("probability", "randomness", "fitting", "likelihood", "systematics", "selection", "tests",
+      "discovery")),
+    ("Trees and classical machine learning",
+     "The first models: ones you can read, and the ideas used to judge every model after them.",
+     ("classical-ml",)),
+    ("Neural networks from first principles",
+     "One small network taken apart: the sums, the gradients, and what makes training work.",
+     ("maths", "mlp", "training", "classifiers", "activation", "optimisation", "deep",
+      "generalisation", "regularisation", "capacity")),
+    ("Convolutions and vision",
+     "Networks for images: a filter sliding over a picture, and what is built from it.",
+     ("convolutions", "lessons", "vision")),
+    ("Models in use",
+     "Networks and trees doing a job, and the craft of training, shrinking and running them.",
+     ("analysis-ml", "optimisation-deeper", "pruning", "finetune", "efficiency", "systems")),
+    ("Other ways to learn",
+     "Learning from reward instead of labels, and a few systems that learn in their own way.",
+     ("rl", "reinforcement-learning-methods", "memory-and-dynamics")),
+    ("Autoencoders and generative models",
+     "From squeezing a picture into a few numbers to drawing new ones: AE, VAE, GAN and DEC.",
+     ("latent", "generative-families", "label-embeddings", "generative-models",
+      "anomaly-and-background")),
+    ("Gaussian processes",
+     "A different kind of model: a distribution over functions, with its uncertainty built in.",
+     ("gp",)),
+    ("Sequences and recurrent networks",
+     "Data that comes in order: networks with a memory, and words turned into vectors.",
+     ("recurrent", "embeddings")),
+    ("Attention and transformers",
+     "Every position looking at every other, and the block that GPT-2 stacks twelve times.",
+     ("transformers", "attention-wiring", "transformer-block")),
+    ("Large language models",
+     "Training them, getting text out of them, steering them, and looking inside, with GPT-2.",
+     ("training-language-models", "decoding", "behaviour", "fine-tuning", "interpretability",
+      "retrieval")),
+    ("After the transformer",
+     "State-space models and other large sequence models built to go beyond it.",
+     ("modern",)),
+)
+
+_grouped = _regroup(SECTIONS)
+assert sorted(a for *_, anchors in PARTS for a in anchors) == sorted(_grouped), "a section is lost"
+SECTIONS = [tuple(_grouped[a]) for *_, anchors in PARTS for a in anchors]
+PART_OF = {a: k for k, (*_, anchors) in enumerate(PARTS) for a in anchors}
+
+
+def page_html(durations, tag, sections=None):
     """The whole page.  ``durations`` maps preset names to seconds; an
     animation without one (not in the release yet) is left off the page."""
-    sections = released(sections, durations)
+    sections = released(SECTIONS if sections is None else sections, durations)
     with open(os.path.join(HERE, "index.html"), encoding="utf-8") as fh:
         template = fh.read()
-    index, body = [], []
+    index, body, part = [], [], None
     for anchor, heading, intro, items in sections:
+        if PART_OF.get(anchor, part) != part:       # the first section of a part: say so
+            part = PART_OF[anchor]
+            body.append('<div class="part" id="part-%d">\n<p class="part-n">Part %d of %d</p>\n'
+                        '<p class="part-name">%s</p>\n<p class="part-intro">%s</p>\n</div>'
+                        % (part + 1, part + 1, len(PARTS), html.escape(PARTS[part][0]),
+                           html.escape(PARTS[part][1])))
         index.append('<li><a href="#%s">%s</a></li>' % (anchor, html.escape(heading)))
         clips = "\n".join(clip_html(n, t, presets.REGISTRY[n], durations[n], tag)
                           for n, t in items)

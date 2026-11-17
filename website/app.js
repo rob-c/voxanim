@@ -134,7 +134,62 @@ function markStep(current) {
     else a.removeAttribute("aria-current");
   });
   if (i >= 0) stepsCurrent.textContent = (i + 1) + "\u2002" + steps[i].textContent;
+  if (i >= 0) showStep(steps[i]);
 }
+
+// The bar is one line scrolled sideways: bring the current section's name to its middle.
+// Only the bar moves; scrollIntoView would also move the page.
+const stepsList = stepsNav.querySelector("ol");
+function showStep(a) {
+  if (stepsList.scrollWidth <= stepsList.clientWidth) return;
+  const li = a.parentElement;
+  const left = li.offsetLeft - stepsList.offsetLeft - (stepsList.clientWidth - li.offsetWidth) / 2;
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  stepsList.scrollTo({ left: Math.max(0, left), behavior: calm ? "auto" : "smooth" });
+}
+
+// Fast-forward and rewind, at the ends of the bar: on to the next section, or back to the
+// top of this one and then to the one before, like a player's skip buttons. A section that
+// opens a part of the course is reached at the part's heading, so the heading is seen.
+const stops = sections.filter(Boolean).map((sec) => {
+  const before = sec.previousElementSibling;
+  return before && before.classList.contains("part") ? before : sec;
+});
+const skips = [...stepsNav.querySelectorAll(".steps-skip")];
+const skipLine = () => stepsNav.offsetHeight + 12;      // just under the sticky bar
+function stopAt() {                       // the stop the top of the window is in, or -1
+  const line = skipLine() + 4;
+  let k = -1;
+  stops.forEach((el, j) => { if (el.getBoundingClientRect().top <= line) k = j; });
+  return k;
+}
+function markSkips() {
+  const k = stopAt();
+  skips.forEach((b) => { b.disabled = +b.dataset.skip < 0 ? k < 0 : k >= stops.length - 1; });
+}
+function goTo(top) {
+  const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  try {
+    window.scrollTo({ top, behavior: calm ? "auto" : "smooth" });
+  } catch (e) {
+    window.scrollTo(0, top);              // a browser without scroll options
+  }
+}
+skips.forEach((b) => b.addEventListener("click", () => {
+  const k = stopAt();
+  let to = k + 1;
+  if (+b.dataset.skip < 0) {              // rewind: this section's top first
+    const into = k >= 0 ? skipLine() - stops[k].getBoundingClientRect().top : 0;
+    to = into > 120 ? k : k - 1;
+  }
+  if (to < 0) goTo(0);
+  else if (to < stops.length) {
+    goTo(Math.round(stops[to].getBoundingClientRect().top + window.scrollY - skipLine()));
+  }
+  setTimeout(markSkips, 700);             // once the page has come to rest
+}));
+window.addEventListener("scroll", markSkips, { passive: true });
+markSkips();
 
 // on narrow screens the list is behind a button naming the current section
 function openSteps(open) {

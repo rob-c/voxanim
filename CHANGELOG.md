@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.8.1
+
+Website only; no animation changed.
+
+- The page is ordered as one course in twelve parts, each announced by a heading: statistics for
+  data analysis, trees and classical machine learning, neural networks from first principles,
+  convolutions and vision, models in use, other ways to learn, autoencoders and generative
+  models, Gaussian processes, sequences and recurrent networks, attention and transformers,
+  large language models, and what comes after the transformer.
+- Six animations changed section to make that order readable: the decision tree joins the
+  classical methods, the recurrent networks get a section of their own, and the self-attention
+  training step joins the transformers. No section link changed.
+- The section bar is one line that scrolls sideways and follows the current section, with
+  buttons at its ends to skip to the next section or back to the top of this one.
+- A tag line above the headline.
+
 ## 1.8.0
 
 - `cpu-and-gpu-training`: a longer animation (about three minutes) following a model's weights

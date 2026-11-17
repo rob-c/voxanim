@@ -84,17 +84,41 @@ def test_the_next_catalogue_is_listed_under_its_own_titles():
         first, about = site.describe(presets.REGISTRY[item["preset"]])
         assert first == site.prose(item["summary"])           # the card shows the plain summary
         assert item["description"].split()[0] in about         # the dialog adds what was measured
-    headings = [heading for _a, heading, *_ in site.SECTIONS]
-    # the two later groups sit with the generative models, not at the end of the page
-    assert headings.index("Generative families compared") == headings.index("Generative models") + 1
-    assert headings.index("Label embeddings") == headings.index("Generative families compared") + 1
-    # randomness follows the classical methods it is the groundwork for
-    classical = headings.index("Classical machine learning")
-    assert headings.index("Randomness and entropy") == classical + 1
-    assert headings[-1] == "Memory, dynamics and curiosities"
-    for _anchor, heading, intro, items in site.SECTIONS[-new:]:
+    assert new == 26
+    for _anchor, heading, intro, items in site.SECTIONS:
         assert heading and intro.endswith(".") and items
         assert "review" not in intro.lower()
+
+
+def test_the_page_is_ordered_as_one_course():
+    """Statistics first, then trees, basic networks, autoencoders and generative models,
+    Gaussian processes, recurrent networks, attention, language models, and what follows."""
+    anchors = [anchor for anchor, *_ in site.SECTIONS]
+    assert anchors == [a for *_, part in site.PARTS for a in part]
+    assert len(site.PARTS) == 12 and all(intro.endswith(".") for _t, intro, _a in site.PARTS)
+    where = {n: k for k, (*_, items) in enumerate(site.SECTIONS) for n, _ in items}
+    route = ["bayes-theorem-areas", "chi-square-fit", "bump-hunt", "decision-tree",
+             "mlp-1-forward-layer1", "conv2d", "cpu-and-gpu-training", "autoencoder-dense-2d",
+             "vae-dense-2d", "generative-objectives", "gp-prior", "rnn-training-step",
+             "lstm-training-step", "embedding-lookup", "attention-training-step",
+             "gpt2-attention", "causal-vs-bidirectional", "gpt2-beam-search",
+             "gpt2-hallucination", "mamba-selective-scan"]
+    order = [where[n] for n in route]
+    assert order == sorted(order)
+    assert anchors[0] == "probability" and anchors[-1] == "modern"
+    # the animations that changed section to make the order readable
+    section = {n: a for a, _h, _i, items in site.SECTIONS for n, _ in items}
+    assert section["decision-tree"] == "classical-ml"
+    assert section["lstm-training-step"] == section["gated-memory"] == "recurrent"
+    assert section["attention-training-step"] == "transformers"
+    # each part is announced once on the page, ahead of its first section
+    names = list(presets.REGISTRY)
+    page = site.page_html(dict.fromkeys(names, 30.0), "v9.9.9")
+    assert page.count('class="part"') == len(site.PARTS)
+    for k, (title, _intro, part) in enumerate(site.PARTS):
+        at = page.index('id="part-%d"' % (k + 1))
+        assert at < page.index('<section class="group" id="%s"' % part[0])
+        assert site.html.escape(title) in page[at:at + 400]
 
 
 def test_an_animation_without_a_video_in_the_release_is_left_off_the_page():
@@ -109,7 +133,9 @@ def test_an_animation_without_a_video_in_the_release_is_left_off_the_page():
     shown = {c["name"] for c in p.clips}
     assert shown == set(durations) and not shown & held_back
     assert "%d animations" % len(durations) in page
-    assert not any(anchor in p.ids for anchor, *_ in site.SECTIONS[-len(site.NEXT_SECTIONS):])
+    for anchor, _heading, _intro, items in site.SECTIONS:      # a section with nothing to show
+        assert (anchor in p.ids) == any(n in durations for n, _ in items)
+    assert page.count('class="part"') < len(site.PARTS)        # nor a part with no section
     # every section survives when everything has a video
     assert len(site.released(site.SECTIONS, dict.fromkeys(names, 1.0))) == len(site.SECTIONS)
 
