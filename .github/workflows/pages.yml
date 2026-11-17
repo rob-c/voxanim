@@ -3,6 +3,11 @@ name: Website
 # Builds the GitHub Pages site (website/build_site.py) and deploys it.  The videos
 # are not in git: the build downloads them from the latest release, so the
 # site is rebuilt whenever a release is published as well as on every push.
+#
+# Pages only accepts a deployment from main, and a release runs on its tag: a
+# build started by the release was refused at the deploy step every time
+# (v1.5.0 to v1.9.0), and the site had to be rebuilt by hand.  So a release does
+# not build: it starts this workflow again on main, and that run deploys.
 
 on:
   push:
@@ -16,12 +21,25 @@ permissions:
   pages: write
   id-token: write
 
+# One build at a time.  The release's hand-over is in a group of its own, so a
+# build waiting in the queue cannot push it out before it has run.
 concurrency:
-  group: pages
+  group: pages-${{ github.event_name == 'release' && 'handover' || 'build' }}
   cancel-in-progress: false
 
 jobs:
+  on-main:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - run: gh workflow run pages.yml -R ${{ github.repository }} --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   build:
+    if: github.event_name != 'release'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
