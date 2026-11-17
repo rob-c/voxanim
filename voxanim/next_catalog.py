@@ -86,7 +86,7 @@ MNIST |= {"seeds-and-training-outcomes"}
 # machine learning in a physics analysis, and the anomaly and collapse animations
 MNIST |= {"network-regression", "classifier-score-as-variable", "boosted-regression-trees",
           "overtraining-check", "autoencoder-anomaly-detection", "gan-mode-collapse",
-          "anomaly-loss-and-latent", "anomaly-two-score-flow"}
+          "anomaly-loss-and-latent", "anomaly-two-score-flow", "cpu-and-gpu-training"}
 TEXT = {
     item["name"]
     for item in ITEMS
@@ -156,6 +156,7 @@ DRAWN_BY = (
     ("mech_phys_apps", 150, 153),
     ("mech_phys_adv", 154, 156),
     ("mech_anomaly", 157, 158),
+    ("mech_hardware", 159, 159),
 )
 NUMBER = {item["name"]: item["number"] for item in ITEMS}
 

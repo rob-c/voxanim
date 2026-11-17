@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.0
+
+- `cpu-and-gpu-training`: a longer animation (about three minutes) following a model's weights
+  and a batch of digits between memory, the CPU and a GPU, with a small classifier against a
+  larger autoencoder, and what the difference means for how long a real training run takes.
+  Its speeds are representative round figures, not measurements, and every phase that shows one
+  says so: the one explicit exception in the catalogue to the rule that results on screen are
+  computed or measured (see TODO.md). Its learning curves are trained on MNIST.
+
 ## 1.7.0
 
 - **Randomness and entropy**: eight animations in a new section (catalogue entries 110 to 117;

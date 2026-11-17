@@ -768,7 +768,7 @@
   "number": 86,
   "name": "data-parallel-allreduce",
   "description": "A small tanh classifier is trained on MNIST by data-parallel SGD: at each of 200 steps four workers compute real gradients on 16 different digits each and average them with a ring all-reduce simulated in NumPy (reduce-scatter, then all-gather). The same start is trained on one machine with each whole 64-digit batch. The averaged gradient equals the whole-batch gradient to rounding at every step, one step with either gives the same weights, and the two runs' held-out loss curves coincide. Bytes sent are exact counts for the simulated schedule, not measurements of a network.",
-  "section": "L. Systems and scale (5)",
+  "section": "L. Systems and scale (6)",
   "module": "next_systems",
   "title": "Data parallelism and ring all-reduce",
   "summary": "Four workers computing gradients on different data and averaging them by passing chunks round a ring."
@@ -777,7 +777,7 @@
   "number": 87,
   "name": "tensor-and-pipeline-parallel",
   "description": "One layer of a trained MNIST classifier (its 12x16 weights and the activations of 16 held-out digits) is computed whole and split over four devices by column and by row; outputs agree to rounding and held-out accuracy is unchanged. The classifier's four layers are then executed as a four-stage pipeline over micro-batches; the occupancy timeline and utilisation are recorded from that executed schedule. Time steps are the schedule's, not measured seconds; no device is simulated.",
-  "section": "L. Systems and scale (5)",
+  "section": "L. Systems and scale (6)",
   "module": "next_systems",
   "title": "Tensor and pipeline parallelism",
   "summary": "One layer split across devices by column or by row, and a model's layers run as a pipeline with idle slots."
@@ -786,7 +786,7 @@
   "number": 88,
   "name": "zero-sharding",
   "description": "Parameter, gradient and optimizer-state storage for ZeRO stages is calculated from explicit assumed tensor sizes and worker counts. All-gather traffic and memory savings are analytical accounting, not a trained-model result or measured cluster memory.",
-  "section": "L. Systems and scale (5)",
+  "section": "L. Systems and scale (6)",
   "module": "next_systems",
   "title": "ZeRO: sharding the training state",
   "summary": "Training state cut into slices so that each device holds only its share."
@@ -795,7 +795,7 @@
   "number": 89,
   "name": "activation-checkpointing",
   "description": "A 16-layer tanh classifier is trained on MNIST with checkpointed backpropagation. One gradient is then taken at every checkpoint spacing from 1 to 16 by a NumPy implementation that stores only every k-th activation and recomputes each segment on the way back; activations alive in memory and layer evaluations are counted as it runs. Spacing 1 is plain backpropagation (17 held, 16 runs); memory falls to 8 at spacings 3 to 6 while runs rise towards 31; gradients equal plain backpropagation exactly. No device-performance claim.",
-  "section": "L. Systems and scale (5)",
+  "section": "L. Systems and scale (6)",
   "module": "next_systems",
   "title": "Activation checkpointing",
   "summary": "Storing only some activations on the way forward and recomputing the rest on the way back."
@@ -804,7 +804,7 @@
   "number": 90,
   "name": "roofline",
   "description": "Operation and byte counts for four operations (matmul, attention, layer norm, decoding) are exact formulas. The machine's two ceilings are timed on their own in NumPy on one thread: bytes per second from copying 256 MB, operations per second from repeated in-cache matrix products of shapes not on the chart. The four operations are then timed (25 calls, median and spread) and placed under that roof. Timings are local observations cached at first build, not chip specifications.",
-  "section": "L. Systems and scale (5)",
+  "section": "L. Systems and scale (6)",
   "module": "next_systems",
   "title": "The roofline performance model",
   "summary": "An operation is limited by arithmetic or by memory traffic: counting both and placing it under the roof."
@@ -1420,5 +1420,14 @@
   "module": "study_anomaly",
   "title": "An anomaly search with two scores",
   "summary": "The whole procedure from training on normal data to a decision: a density fitted to the codes, two thresholds set on normal data, three ways of combining the two scores, and what a second cut costs in false alarms."
+ },
+ {
+  "number": 159,
+  "name": "cpu-and-gpu-training",
+  "description": "A classifier of about 100,000 weights and an autoencoder of 5.4 million, 71 times the arithmetic per step, trained on MNIST. The speeds shown are representative round figures for an ordinary desktop CPU and a separate mid-range graphics card, not measurements, and every phase that shows one says so: per training step on 128 digits, 1 ms on the CPU and 0.5 ms on the GPU for the classifier, 40 ms and 2 ms for the autoencoder. So the autoencoder is 40 times slower than the classifier on the CPU and 4 times slower on the GPU, yet on the GPU it is still 20 times faster than on the CPU, while the small classifier gains only 2 times because fixed costs are most of its GPU step. Time against batch size follows a simple stated cost model. By arithmetic from those figures, twenty passes over the data take the autoencoder 6.2 minutes on the CPU and 19 seconds on the GPU, and a model 100 times larger on 1,000 times the data 433 days and 22 days. Only the learning curves are measured, on held-out MNIST digits over three seeds.",
+  "section": "L. Systems and scale (6)",
+  "module": "study_hardware",
+  "title": "Training on a CPU and on a GPU",
+  "summary": "Where a model's weights and a batch of digits sit in a computer, where the arithmetic happens with and without a GPU, and how long a small and a larger model typically take to train on each."
  }
 ]

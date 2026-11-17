@@ -512,3 +512,24 @@ Each says so on screen or in its limitations.
 **Not verified:** uncached build time on an idle machine for `autoencoder-anomaly-detection`
 (361 s under load), `gan-mode-collapse` (about 211 s under load) and `anomaly-two-score-flow`
 (171 to 201 s under load, with the first anomaly study's runs cached).
+
+## Training on a CPU and on a GPU, 17 November 2026
+
+One longer animation, about three minutes (catalogue entry 159, `mech_hardware.py`,
+`study_hardware.py`), asked for to show weights and a batch of digits moving between memory, the
+CPU and a GPU, a small classifier against a larger autoencoder, and to reset the expectation that
+training runs at the speed of an app on a phone. Released in 1.8.0.
+
+**An explicit exception to the data rule, by the owner's decision.** Its speeds are not measured.
+They are representative round figures for an ordinary desktop CPU and a separate, mid-range
+graphics card, chosen to illustrate: per step on 128 digits, 1.0 ms and 0.5 ms for the classifier,
+40 ms and 2.0 ms for the autoencoder. They are one table of constants in `study_hardware.py`, and
+every phase that shows a speed is tagged "representative figures, not measured". The owner's words:
+"don't measure the cpu vs gpu, quote representative numbers demonstrating this", and "I want the
+cpu<->gpu animation to be an explicit exception". It is the only animation in the catalogue whose
+results are illustrative figures. The learning curves in it are still trained on MNIST.
+
+**For the record, what a measurement gave.** Before that decision the speeds were measured on one
+laptop-class machine whose GPU shares memory with its CPU: 0.36 ms and 0.84 ms for the classifier
+(slower on the GPU), 6.49 ms and 2.27 ms for the autoencoder (2.9 times faster on the GPU), on a
+machine that was not idle. Those numbers are not in the animation.

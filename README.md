@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 286 animations, from a 3×3
+numpy. 287 animations, from a 3×3
 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
@@ -26,7 +26,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 286 animations
+python3 -m voxanim list --names                   # the 287 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
@@ -894,10 +894,13 @@ outcome does not depend on it (40 seeds of 40 end on a shortest path with
 these settings). `tests/test_gridworld.py` replays every recorded step with
 the rule and checks the convergence and the numbers above.
 
-### The next 158: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
+### The next 159: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
 
-A further 158 animations, in twenty-six groups: 109 added in 1.6.0, and in 1.7.0 eight on
-randomness and 41 for a physics course on data analysis and machine learning. They are listed in
+A further 159 animations, in twenty-six groups: 109 added in 1.6.0, in 1.7.0 eight on
+randomness and 41 for a physics course on data analysis and machine learning, and in 1.8.0
+one on training with and without a GPU. That one, `cpu-and-gpu-training`, is the catalogue's
+single explicit exception to the rule that results on screen are computed or measured: its
+speeds are representative round figures, labelled as such in every phase. They are listed in
 `next_catalog.json` and
 registered like every other preset, so `list`, `info`, `still`, `render`, `qa` and `prepare`
 all work on them.
@@ -1070,6 +1073,7 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `zero-sharding` | **ZeRO: sharding the training state.** Training state cut into slices so that each device holds only its share. |
 | `activation-checkpointing` | **Activation checkpointing.** Storing only some activations on the way forward and recomputing the rest on the way back. |
 | `roofline` | **The roofline performance model.** An operation is limited by arithmetic or by memory traffic: counting both and placing it under the roof. |
+| `cpu-and-gpu-training` | **Training on a CPU and on a GPU.** Where a model's weights and a batch of digits sit in a computer, where the arithmetic happens with and without a GPU, and how long a small and a larger model really take to train on each. |
 
 **Reinforcement learning methods.** Learning from reward alone: bandits, policy gradients, values and search.
 
