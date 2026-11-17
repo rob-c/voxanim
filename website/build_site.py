@@ -288,10 +288,13 @@ NEXT_SECTIONS = {
           "Networks and trees used the way an analysis uses them: to estimate a quantity or to select events."),  # noqa: E501
     "Z": ("anomaly-and-background", "Anomalies, collapse and smooth backgrounds",
           "An autoencoder as a detector of the unexpected, a GAN that forgets, and a Gaussian process as a background model."),  # noqa: E501
+    # the alphabet is used up: later groups take lower-case letters
+    "a": ("trees", "Decision trees, forests and boosting",
+          "From one split to bagging, forests, boosting and the workings of XGBoost."),
 }
 # Where each group sits on the page: the catalogue's order, except that the two groups added
 # after the hundred follow the generative models they build on, not the end of the page.
-NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMN"
+NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMNa"
 assert sorted(NEXT_ORDER) == sorted(NEXT_SECTIONS)
 for _letter in NEXT_ORDER:
     _anchor, _heading, _intro = NEXT_SECTIONS[_letter]
@@ -497,7 +500,7 @@ PARTS = (
       "discovery")),
     ("Trees and classical machine learning",
      "The first models: ones you can read, and the ideas used to judge every model after them.",
-     ("classical-ml",)),
+     ("classical-ml", "trees")),
     ("Neural networks from first principles",
      "One small network taken apart: the sums, the gradients, and what makes training work.",
      ("maths", "mlp", "training", "classifiers", "activation", "optimisation", "deep",

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.0
+
+- **Decision trees, forests and boosting**: ten animations in a new section (catalogue entries
+  160 to 169; `mech_trees.py`, `mech_boost.py` and their `study_*.py`): choosing a split, holding
+  a tree back, why one tree is unstable, bagging, a random forest, AdaBoost, the settings of
+  gradient boosting, and three on how XGBoost works: how it scores a split, its histograms and
+  missing values, and one round end to end. The XGBoost ones implement the published algorithm in
+  numpy and say so on screen; no number comes from the library. All train on MNIST, with two
+  confusable digits standing in for signal and background.
+
 ## 1.8.1
 
 Website only; no animation changed.

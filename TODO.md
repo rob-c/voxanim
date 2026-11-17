@@ -533,3 +533,36 @@ results are illustrative figures. The learning curves in it are still trained on
 laptop-class machine whose GPU shares memory with its CPU: 0.36 ms and 0.84 ms for the classifier
 (slower on the GPU), 6.49 ms and 2.27 ms for the autoencoder (2.9 times faster on the GPU), on a
 machine that was not idle. Those numbers are not in the animation.
+
+## Decision trees, forests and boosting, 17 November 2026
+
+Ten animations in a new group (catalogue entries 160 to 169), asked for as "~10 new animations on
+boosted decision trees and how things like bagging and such work and how to optimize a decision
+tree and ultimately how xgboost works behind the scenes graphically". Released in 1.9.0. All use MNIST
+4s as signal and 9s as background, held-out numbers, five seeds.
+
+**XGBoost is implemented, not imported.** The three XGBoost animations run the published algorithm
+written out in numpy (second-order gain, regularised leaf values, histograms with the subtraction
+trick, learnt default directions, shrinkage, row and column sampling), tested piece by piece against
+brute force, and say so on screen. No number is the library's.
+
+**Shown as measured, against the usual telling:**
+- `tree-instability`: the root question rarely changes between resamples; trees part from the second.
+- `tree-pruning-and-depth`: on 49 features held-out error flattens with depth and pruning gains little.
+- `random-forest`: the best number of features to try is 14 of 49, not the square root.
+- `bagging`: out-of-bag error is pessimistic, and far too high for small bags.
+- `adaboost`: the margin does not grow, and training error never reaches zero with one-question trees.
+- `boosting-shrinkage-and-early-stopping`: below a learning rate of 0.1 the gain is inside seed noise.
+- `xgboost-split-gain`: using the curvature changes 57% of later splits but not the held-out loss;
+  the split fee gamma only makes trees smaller.
+- `xgboost-histograms-and-missing-values`: leaf-wise growth shows no advantage; a fixed side for
+  missing values does as well as a learnt one when low readings are the ones missing; exact split
+  finding is no better than 32 bins.
+- `xgboost-one-round`: sampling half the rows does not restrain a loose setting; the XGBoost-style
+  method beats plain gradient boosting in every seed but by under a point.
+
+**Machine-dependent:** the split-finding times in `xgboost-histograms-and-missing-values` are this
+build machine's and are labelled so; the operation counts beside them are reproducible.
+
+**Chosen for the demonstration:** gamma = 5 in the round drawn in `xgboost-one-round`, set after
+seeing that gamma = 1 pruned nothing; the two drawable features in the tree group, after trying others.

@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 287 animations, from a 3×3
+numpy. 297 animations, from a 3×3
 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
@@ -26,7 +26,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 287 animations
+python3 -m voxanim list --names                   # the 297 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
@@ -894,11 +894,12 @@ outcome does not depend on it (40 seeds of 40 end on a shortest path with
 these settings). `tests/test_gridworld.py` replays every recorded step with
 the rule and checks the convergence and the numbers above.
 
-### The next 159: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
+### The next 169: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
 
-A further 159 animations, in twenty-six groups: 109 added in 1.6.0, in 1.7.0 eight on
+A further 169 animations, in twenty-seven groups: 109 added in 1.6.0, in 1.7.0 eight on
 randomness and 41 for a physics course on data analysis and machine learning, and in 1.8.0
-one on training with and without a GPU. That one, `cpu-and-gpu-training`, is the catalogue's
+one on training with and without a GPU, and in 1.9.0 ten on decision trees, forests and
+boosting. The GPU one, `cpu-and-gpu-training`, is the catalogue's
 single explicit exception to the rule that results on screen are computed or measured: its
 speeds are representative round figures, labelled as such in every phase. They are listed in
 `next_catalog.json` and
@@ -1214,6 +1215,21 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `gp-background-fit` | **A Gaussian-process background.** A fixed function leaves a wave that looks like signal; a Gaussian process follows the background instead, but a short length scale swallows a real bump. |
 | `anomaly-loss-and-latent` | **Two places an anomaly can show.** One picture through an autoencoder gets two scores, how badly it is rebuilt and how far its code lies from the training codes, and an unusual input can show in both, in one or in neither. |
 | `anomaly-two-score-flow` | **An anomaly search with two scores.** The whole procedure from training on normal data to a decision: a density fitted to the codes, two thresholds set on normal data, three ways of combining the two scores, and what a second cut costs in false alarms. |
+
+**Decision trees, forests and boosting.** From one split to bagging, forests, boosting and the workings of XGBoost.
+
+| name | shows |
+| --- | --- |
+| `tree-splits-and-impurity` | **Choosing a split.** How a tree node picks its question: every threshold on every feature is scored by how much purer it leaves the two sides, and the best one wins. |
+| `tree-pruning-and-depth` | **Holding a tree back.** A tree grown until every leaf is pure has learnt its sample; depth limits, leaf sizes, a minimum gain and pruning cut it back to what holds up on new events. |
+| `tree-instability` | **One tree is unstable.** Resample the same training events and a single tree changes its questions and its answers; deep trees are right on average but scatter, which is why many are used. |
+| `bagging` | **Bagging.** Many trees, each grown on a resample of the data, vote: the wobble of single trees averages away, down to the part they all share. |
+| `random-forest` | **A random forest.** Bagging with one more trick: each split may only look at a random handful of features, so the trees differ usefully; then which features the forest relies on. |
+| `adaboost` | **AdaBoost: weights on the mistakes.** Stumps are fitted one after another, each to events re-weighted so that the last one's mistakes count for more, and their weighted vote carves up the plane. |
+| `boosting-shrinkage-and-early-stopping` | **Gradient boosting: the settings.** Each new tree is fitted to how strongly the loss pulls every event towards its label; small steps, a share of the rows, the right depth and stopping when validation loss turns make it work. |
+| `xgboost-split-gain` | **How XGBoost scores a split.** Every event carries a slope and a curvature of its loss; a leaf's best value and a split's worth are simple sums of them, read off the bottoms of parabolas. |
+| `xgboost-histograms-and-missing-values` | **XGBoost's histograms.** Why it is fast: each feature is cut into a few bins once, splits come from bin totals, a child's totals come by subtraction, and missing values go to whichever side gains more. |
+| `xgboost-one-round` | **One round of XGBoost.** One boosting round followed for real events from the current predictions to a new tree and back, then many rounds, the knobs that restrain it, and four other ways to use trees. |
 
 <!-- end of course groups -->
 

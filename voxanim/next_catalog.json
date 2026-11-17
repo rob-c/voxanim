@@ -1429,5 +1429,95 @@
   "module": "study_hardware",
   "title": "Training on a CPU and on a GPU",
   "summary": "Where a model's weights and a batch of digits sit in a computer, where the arithmetic happens with and without a GPU, and how long a small and a larger model typically take to train on each."
+ },
+ {
+  "number": 160,
+  "name": "tree-splits-and-impurity",
+  "description": "MNIST 4s stand for signal and 9s for background, with two measured features so the split can be drawn. On twelve real events every threshold of both features is scored by Gini, entropy and misclassification error: the best takes Gini from 0.500 to 0.143. With 2,000 training events the best threshold on the ink's vertical spread gains 0.265 against 0.206 for the best on the other feature, and all three criteria choose the same root in each of five seeds. Further down they differ: at one real node no threshold lowers the error while Gini still gains 0.032, and that happens at 20% of Gini's nodes. Whole trees on 49 features have a held-out error of 9.1% grown with Gini, 9.0% with entropy and 11.8% with misclassification error, which stops early.",
+  "section": "a. Decision trees, forests and boosting (10)",
+  "module": "study_trees",
+  "title": "Choosing a split",
+  "summary": "How a tree node picks its question: every threshold on every feature is scored by how much purer it leaves the two sides, and the best one wins."
+ },
+ {
+  "number": 161,
+  "name": "tree-pruning-and-depth",
+  "description": "On two features of 500 training digits, a tree grown until nothing can be split has 58 leaves, no training error and a held-out error of 14.6%. Cut at depth 3 it has 8 leaves and 11.3%; with at least 20 events per leaf, 11.3%; with a minimum gain, 7 leaves and 10.9%. Cost-complexity pruning gives nine nested trees from 58 leaves to 1, and five-fold cross-validation picks the one with 7 leaves. Over five seeds the fully grown tree is worse than the best depth in every seed (15.1% against 11.1%). On 49 features with 2,000 events the held-out error does not turn up with depth; it flattens, and pruning gains about 0.7 points.",
+  "section": "a. Decision trees, forests and boosting (10)",
+  "module": "study_trees",
+  "title": "Holding a tree back",
+  "summary": "A tree grown until every leaf is pure has learnt its sample; depth limits, leaf sizes, a minimum gain and pruning cut it back to what holds up on new events."
+ },
+ {
+  "number": 162,
+  "name": "tree-instability",
+  "description": "Four trees grown on resamples of the same 500 digits do not all agree on 17% of held-out events, though each alone is 13 to 14% wrong. Over five seeds two fully grown trees disagree on 12 to 13% of held-out events, against 4 to 7% for one-question trees. Replacing 1% of the training events changes 5% of answers. Over 40 separate training samples the squared bias falls from 0.172 for one question to 0.036 for a full tree while the variance rises from 0.005 to 0.060, and the majority of the 40 trees is 4.3% wrong against 9.6% for one. The first question itself rarely changes (the same feature in 91 to 100% of resamples); the trees part ways from the second question down.",
+  "section": "a. Decision trees, forests and boosting (10)",
+  "module": "study_trees",
+  "title": "One tree is unstable",
+  "summary": "Resample the same training events and a single tree changes its questions and its answers; deep trees are right on average but scatter, which is why many are used."
+ },
+ {
+  "number": 163,
+  "name": "bagging",
+  "description": "A bootstrap of 16 real events is drawn pick by pick: 12 come up and 4 are left out, and on resamples of 2,000 events 63.2% come up. On 49 features, over 20 separate training samples, the held-out error is 10.8% for one tree, 6.1% for ten and 4.9% for a hundred, falling in every sample. The variance of the vote follows the formula for correlated trees, with a measured correlation of 0.060, to within 3%, and stops at a floor set by that correlation. The out-of-bag error at 100 trees is 5.3% against 4.9% held-out: a little pessimistic, and far too high for small bags (8.2% against 6.1% at ten trees).",
+  "section": "a. Decision trees, forests and boosting (10)",
+  "module": "study_trees",
+  "title": "Bagging",
+  "summary": "Many trees, each grown on a resample of the data, vote: the wobble of single trees averages away, down to the part they all share."
+ },
+ {
+  "number": 164,
+  "name": "random-forest",
+  "description": "With all 49 features tried at each split, all 100 trees ask about the same cell first; with 7 tried they start from 21 different cells. Over five seeds, as the features tried go from 49 to 1 the correlation between trees falls from 0.30 to 0.11 while single trees get worse (10.7% to 23.0% held-out). The forest's held-out error is 5.6% at 1 feature, 4.4% at 7, 4.1% at 14 and 4.8% at 49, which is bagging: 14 is best in every seed, not the usual square root of 49. One cell holds 18% of the total gain, and shuffling it raises the error from 4.4% to 14.4%; below it the two measures of importance part, with ten cells that each hold over 1% of the gain yet cost under 0.1 points when shuffled.",
+  "section": "a. Decision trees, forests and boosting (10)",
+  "module": "study_trees",
+  "title": "A random forest",
+  "summary": "Bagging with one more trick: each split may only look at a random handful of features, so the trees differ usefully; then which features the forest relies on."
+ },
+ {
+  "number": 165,
+  "name": "adaboost",
+  "description": "MNIST 4s stand for signal and 9s for background, read as 16 cells. On two cells with 200 events the first one-question tree gets 61 wrong, which gives it a say of 0.41; the events it got wrong then weigh 1.64 times the average, and the next tree is fitted to those weights. The weighted vote of 1, 2, 3, 10 and 100 such trees has a held-out error of 35.6%, 30.9%, 29.5%, 23.1% and 23.3%. On all 16 cells with 2,000 events and five seeds, 400 trees reach 15.6% held-out error and a ROC area of 0.923. The heaviest 1% of events end with 9% of the weight; the eight heaviest are shown as digits. Against the usual telling the margin does not grow here, and with one-question trees the training error never reaches zero.",
+  "section": "a. Decision trees, forests and boosting (10)",
+  "module": "study_boost",
+  "title": "AdaBoost: weights on the mistakes",
+  "summary": "Stumps are fitted one after another, each to events re-weighted so that the last one's mistakes count for more, and their weighted vote carves up the plane."
+ },
+ {
+  "number": 166,
+  "name": "boosting-shrinkage-and-early-stopping",
+  "description": "Gradient boosting for classification, in numpy, 2,000 rounds over five seeds on MNIST 4s against 9s. The lowest held-out loss is 0.336 at a learning rate of 1 (after about 19 trees), 0.270 at 0.3, 0.266 at 0.1 and 0.265 at 0.03 (after about 1,077): smaller steps need more trees and end lower, though below 0.1 the gain is inside the spread between seeds. Half the rows per tree gives 0.261 against 0.266 for all of them; a tenth, 0.315. Trees three questions deep are best (0.266; one question 0.343, six 0.283). Stopping when the validation loss has not improved for 50 rounds keeps 375 trees and a held-out loss of 0.274, where running all 2,000 gives 0.445.",
+  "section": "a. Decision trees, forests and boosting (10)",
+  "module": "study_boost",
+  "title": "Gradient boosting: the settings",
+  "summary": "Each new tree is fitted to how strongly the loss pulls every event towards its label; small steps, a share of the rows, the right depth and stopping when validation loss turns make it work."
+ },
+ {
+  "number": 167,
+  "name": "xgboost-split-gain",
+  "description": "The algorithm XGBoost uses, written out in numpy and tested against brute force; no number comes from the library. One event's loss is drawn with its slope and curvature; eight real events as one leaf give a best value of 0.19; a cut slides through them with the sums on each side and the gain, which peaks at 0.21. On a real node, the penalty lambda at 0, 1 and 10 shrinks a leaf value from -1.22 to -0.16 to -0.02, a split fee gamma of 1 refuses the split, and a minimum child weight of 1 forbids 11 of 28 thresholds. Over five seeds, lambda at 10 gives the lowest held-out loss (0.257 against 0.271 with none), while gamma only makes trees smaller. Using the curvature changes which split is chosen at 57% of nodes in later rounds, but makes no measurable difference to the held-out loss here.",
+  "section": "a. Decision trees, forests and boosting (10)",
+  "module": "study_boost",
+  "title": "How XGBoost scores a split",
+  "summary": "Every event carries a slope and a curvature of its loss; a leaf's best value and a split's worth are simple sums of them, read off the bottoms of parabolas."
+ },
+ {
+  "number": 168,
+  "name": "xgboost-histograms-and-missing-values",
+  "description": "The algorithm XGBoost uses, written out in numpy. For one tree three questions deep on 2,000 events, exact split finding sorts 96,000 readings and scores 45,748 gaps; with 32 bins it scores 1,765 cuts, and the subtraction trick halves the readings added into bins. Held-out loss by number of bins: 0.455 with 2, 0.296 with 8, 0.263 with 32 and with 64, and 0.266 exact. With 30% of readings removed at random, the learnt side for missing values gives 0.404 against 0.425 to 0.429 for a fixed side; when low readings are the ones missing, a fixed side does as well. Growing leaf by leaf shows no advantage over level by level here. On the machine that built it the binned search took about a seventh of the time; that timing varies by machine, the counts do not.",
+  "section": "a. Decision trees, forests and boosting (10)",
+  "module": "study_boost",
+  "title": "XGBoost's histograms",
+  "summary": "Why it is fast: each feature is cut into a few bins once, splits come from bin totals, a child's totals come by subtraction, and missing values go to whichever side gains more."
+ },
+ {
+  "number": 169,
+  "name": "xgboost-one-round",
+  "description": "The algorithm XGBoost uses, written out in numpy. Round one: eight events with their scores, slopes and curvatures, the root's histograms, the best of 265 cuts, one weak split pruned, leaf values, the step, and the training loss from 0.693 to 0.592. Over 600 rounds the lowest held-out loss is 0.261. Each restraint is then turned on alone from a loose setting that ends at 0.669: a small learning rate gives 0.304, shallow trees 0.277, lambda 0.284, a minimum child weight 0.281, while sampling half the rows does not help (0.691). On the same events over five seeds, held-out error is 19.7% for one tuned tree, 15.6% for AdaBoost, 13.3% for forest-style averaging, 11.4% for gradient boosting and 10.9% for the XGBoost-style method, ahead of gradient boosting in every seed but by under a point.",
+  "section": "a. Decision trees, forests and boosting (10)",
+  "module": "study_boost",
+  "title": "One round of XGBoost",
+  "summary": "One boosting round followed for real events from the current predictions to a new tree and back, then many rounds, the knobs that restrain it, and four other ways to use trees."
  }
 ]
