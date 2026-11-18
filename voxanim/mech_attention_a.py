@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import next_attention as NA
-from . import realdata
+from . import realdata, theme
 from . import study_attention_a as SA
 from . import tinylm as T
 from .cache import cached_npz
@@ -126,7 +126,7 @@ class CausalVsBidirectional(Mechanism):
             size=0.034)
         mx, my, side = self.MASK_AT
         cell = self.grid(sc, mask, mx, my, side, side, op, reveal=(turn + 1) / self.N,
-                         ring=[(turn, turn)], hot=ink)
+                         ring=[(turn, turn)], hot=ink, mask=True)
         self.text(sc, mx, my - 0.29, "who may read whom", op, strong=True, size=0.034)
         self.text(sc, mx, my + 0.285, "row: the reader   column: the one read", op)
         self.text(sc, cell(turn, 0)[0] - 0.035, cell(turn, 0)[1], self.chars[turn], op,
@@ -290,7 +290,7 @@ class PrefixLM(Mechanism):
             size=0.034)
         mx, my, side = self.MASK_AT
         cell = self.grid(sc, mask, mx, my, side, side, op, reveal=(turn + 1) / N,
-                         ring=[(turn, turn)], hot=ink)
+                         ring=[(turn, turn)], hot=ink, mask=True)
         self.text(sc, mx, my - 0.29, "who may read whom", op, strong=True, size=0.034)
         self.text(sc, mx, my + 0.285, "row: the reader   column: the one read", op)
         self.text(sc, cell(turn, 0)[0] - 0.03, cell(turn, 0)[1], self.chars[turn], op,
@@ -314,7 +314,7 @@ class PrefixLM(Mechanism):
             self.text(sc, cx, 0.375, "%d of %d pairs" % (count[i], N * N), op,
                       strong=True)
             cell = self.grid(sc, shown[i], cx, 0.62, side, side, op, reveal=u / 0.2, vmax=1.0,
-                             hot=ink)
+                             hot=ink, mask=True)
             if i >= 1 and g1 > 0:
                 bx, by = cell((K - 1) / 2, (K - 1) / 2)
                 self.rect(sc, self.P(bx, by), side * K / N + 3, side * K / N + 3, AMBER, op * g1,
@@ -356,7 +356,8 @@ class PrefixLM(Mechanism):
         late = op * smoothstep(0.70, 0.82, u)
         self.lines(sc, 0.05, 0.875, [
             "In training the bidirectional reply could read the slot ahead of it: its own answer.",
-            "Writing alone, that slot is still empty. (A dark box is a wrong character.)"],
+            "Writing alone, that slot is still empty. (A %s box is a wrong character.)"
+            % theme.word("dark", "pale")],
             late, step=0.044)
 
     def phase_4(self, sc, u, op):
@@ -948,7 +949,7 @@ class GroupedQueryAttention(Mechanism):
             self.text(sc, cx, 0.315, self.NAMES[i], op, ink=dark(ink), size=0.038)
             width = kv * cell_w
             self.grid(sc, np.ones((L, kv)), cx, 0.62, width, height, op, reveal=shown / L,
-                      vmax=1.0, hot=ink, lines=0)
+                      vmax=1.0, hot=ink, lines=0, mask=True)
             half = self.frac(width / 2, height / 2)
             for k in range(1, kv):
                 x = cx - half[0] + self.frac(k * cell_w)[0]
@@ -1199,7 +1200,7 @@ class KVCache(Mechanism):
                 (0.75, "with the cache", self.ON, np.eye(N), self.work[1][:step].sum())):
             self.text(sc, cx, 0.315, name, op, ink=dark(ink), size=0.038)
             self.grid(sc, cells, cx, 0.625, side, side, op, reveal=step / N, vmax=1.0, hot=ink,
-                      lines=0.3)
+                      lines=0.3, mask=True)
             self.text(sc, cx, 0.915, "%d computed" % count, op, strong=True, size=0.036)
         self.text(sc, 0.50, 0.47, "step %d" % step, op, strong=True, size=0.042)
         self.text(sc, 0.50, 0.53, "of %d" % N, op)
@@ -1214,7 +1215,7 @@ class KVCache(Mechanism):
         mx, my, w, h = 0.21, 0.63, 260.0, 192.0
         self.text(sc, mx, 0.315, "the cache", op, ink=dark(self.ON), size=0.038)
         self.text(sc, mx, 0.365, "a column for every token kept", op)
-        self.grid(sc, cells, mx, my, w, h, op, vmax=1.0, hot=self.ON, lines=0.3)
+        self.grid(sc, cells, mx, my, w, h, op, vmax=1.0, hot=self.ON, lines=0.3, mask=True)
         self.text(sc, mx, 0.875, "a row for each of the %d layers" % L, op)
         self.text(sc, mx, 0.92, "a cell: a key and a value, %s bytes" % commas(
             self.per_token / L), op)

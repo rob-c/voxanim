@@ -172,7 +172,7 @@ class SlidingWindow(Mechanism):
             self.W, self.W - 1), op, anchor="lm")
         mx, my, side = self.MASK_AT
         cell = self.grid(sc, mask, mx, my, side, side, op, reveal=(turn + 1) / self.N,
-                         ring=[(turn, turn)], hot=RED)
+                         ring=[(turn, turn)], hot=RED, mask=True)
         self.text(sc, mx, my - 0.29, "who may read whom", op, strong=True, size=0.034)
         self.text(sc, mx, my + 0.285, "row: the reader   column: the one read", op)
         self.text(sc, cell(turn, 0)[0] - 0.035, cell(turn, 0)[1], self.chars[turn], op,
@@ -220,7 +220,7 @@ class SlidingWindow(Mechanism):
                 self.box(sc, xs[j], ys[0], 36, 38, DIM, op * 0.85, ch, size=0.036)
         self.box(sc, xs[-1], ys[L], 30, 22, ink, op, glow=0.2, radius=4)
         mx, side = 0.835, 200.0
-        self.grid(sc, self.reach[L - 1], mx, 0.56, side, side, op, hot=ink,
+        self.grid(sc, self.reach[L - 1], mx, 0.56, side, side, op, hot=ink, mask=True,
                   ring=[(n - 1, j) for j in range(max(first(0), 0), n)])
         self.text(sc, mx, 0.33, "reach after %s" % self.NAMES[L - 1], op, strong=True,
                   size=0.034)
@@ -424,7 +424,7 @@ class SparsePatterns(Mechanism):
             self.chars[turn], int(mask[turn].sum()), turn + 1), op, anchor="lm")
         mx, my, side = self.MASK_AT
         cell = self.grid(sc, mask, mx, my, side, side, op, reveal=(turn + 1) / self.N,
-                         ring=[(turn, turn)], hot=ink)
+                         ring=[(turn, turn)], hot=ink, mask=True)
         self.text(sc, mx, my - 0.29, "who may read whom", op, strong=True, size=0.034)
         self.text(sc, mx, my + 0.285, "%d pairs allowed, of dense's %d" % (
             self.pairs[k], self.pairs[0]), op)
@@ -436,7 +436,7 @@ class SparsePatterns(Mechanism):
         for row, (kind, ink, mask, value) in enumerate(zip(self.KINDS, self.INK, self.masks,
                                                            values)):
             y = y0 + row * step
-            self.grid(sc, mask, x, y, side, side, op, hot=ink)
+            self.grid(sc, mask, x, y, side, side, op, hot=ink, mask=True)
             self.text(sc, x + 0.045, y - 0.022, kind, op, anchor="lm", ink=dark(ink), size=0.034)
             self.text(sc, x + 0.045, y + 0.024, value, op, anchor="lm", strong=True)
 
@@ -556,7 +556,7 @@ class SparsePatterns(Mechanism):
         for row, (kind, ink, mask, acc, pairs, reach) in enumerate(zip(
                 self.KINDS, self.INK, self.full, self.acc, self.full_pairs, self.reach)):
             y = 0.385 + row * 0.092
-            self.grid(sc, mask, 0.105, y, 36.0, 36.0, op, hot=ink)
+            self.grid(sc, mask, 0.105, y, 36.0, 36.0, op, hot=ink, mask=True)
             self.hbar(sc, x, y, full * float(acc.mean()), ink, op, kind, "", grow, thick=28.0,
                       track=full)
             at = self.P(x, y)

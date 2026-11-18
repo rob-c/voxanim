@@ -41,7 +41,7 @@ import hashlib
 import numpy as np
 
 from . import color as C
-from . import layout, posenc
+from . import layout, posenc, theme
 from .cache import cached_npz
 from .diagram import EDGE, Diagram, draw_image
 from .easing import ease_in_out, ease_out, remap, smoothstep
@@ -352,7 +352,10 @@ class RopeContextExtension(Diagram):
         tex[shown:] = C.BACKGROUND
         c = self.P(*MATRIX_AT)
         W = MATRIX_PX
-        draw_image(self, sc, c, tex, W, W, op, grid=0.0, lift=0.0)
+        # A grey ramp that starts at the page colour: kept as data, dark mode turned only
+        # its page-coloured cells, so the faintest weights stood out white and the strongest
+        # sank into the page.  Turned whole it is the same ramp, light for more weight.
+        draw_image(self, sc, c, tex, W, W, op, grid=0.0, lift=0.0, keep_theme=False)
 
         def cell(i, j, lift=0.0):
             return self.shift(c, ((j + 0.5) / n - 0.5) * W, ((i + 0.5) / n - 0.5) * W) + \
@@ -362,8 +365,8 @@ class RopeContextExtension(Diagram):
                    "%d" % (self.head, n), 0.027, anchor="mb", opacity=op, ink=layout.STRONG_INK)
         self.label(sc, self.shift(c, 0, W / 2 + 8), "row: the position reading; column: what it "
                    "attends to", 0.025, anchor="mt", opacity=op)
-        self.label(sc, self.shift(c, 0, W / 2 + 30), "darker: more weight (shaded by √weight)",
-                   0.025, anchor="mt",
+        self.label(sc, self.shift(c, 0, W / 2 + 30), "%s: more weight (shaded by √weight)"
+                   % theme.word("darker", "lighter"), 0.025, anchor="mt",
                    opacity=op, ink=layout.NOTE_INK)
         # the training length, across the matrix
         L = posenc.TRAIN_LEN

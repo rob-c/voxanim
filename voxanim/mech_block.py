@@ -1439,7 +1439,7 @@ class EncoderDecoderFamily(Built):
     def _mask(self, sc, op, which, rows, turn):
         mx, my, side = self.MASK_AT
         cell = self.grid(sc, self.masks[which], mx, my, side, side, op, reveal=rows / 12.0,
-                         ring=[(turn, turn)], hot=self.COLOURS[which])
+                         ring=[(turn, turn)], hot=self.COLOURS[which], mask=True)
         self.text(sc, mx, my - 0.27, "who may read whom", op, strong=True, size=0.034)
         half = self.frac(side / 4)[0]
         self.text(sc, mx - half, my + 0.245, "damaged text", op)

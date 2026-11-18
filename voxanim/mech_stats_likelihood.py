@@ -22,7 +22,7 @@ import math
 
 import numpy as np
 
-from . import layout
+from . import layout, theme
 from . import study_stats_likelihood as S
 from .easing import smoothstep
 from .losschart import LossChart, pow10
@@ -1208,7 +1208,8 @@ class ErrorOnTheMean(Stats):
             self.polyline(sc, [self.P(chart.fx(v), chart.y1 + 0.018),
                                self.P(chart.fx(v), chart.y1 + 0.028)], 1.2, AXIS, 0.8 * op)
             self.text(sc, chart.fx(v), chart.y1 + 0.05, "%d" % v, op, size=0.029)
-        self.lines(sc, 0.62, 0.815, ["black: the bell curve of width σ/√N",
+        self.lines(sc, 0.62, 0.815, ["%s: the bell curve of width σ/√N"
+                                     % theme.word("black", "white"),
                                      "thick bar: ± the measured spread"], op, size=0.029,
                    step=0.042)
         self.tag(sc, "%s against exact curves" % TOYS, op)
@@ -1630,7 +1631,8 @@ class BootstrapErrors(Stats):
             if base < 0.6:
                 self.path(sc, chart, self.max_x, self.exact_max, DIGIT_INK, op, 2.2,
                           go=smoothstep(0.2, 0.3, u))
-                self.text(sc, x1, base - 0.1, "black: exact", op * smoothstep(0.2, 0.3, u),
+                self.text(sc, x1, base - 0.1, "%s: exact" % theme.word("black", "white"),
+                          op * smoothstep(0.2, 0.3, u),
                           anchor="rm", size=0.029)
             else:
                 on = op * smoothstep(0.48, 0.58, u)

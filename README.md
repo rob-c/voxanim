@@ -9,8 +9,8 @@ one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
 
 Watch them all on the [website](https://rob-c.github.io/voxanim/). The
-rendered MP4s and GIFs, with a SHA-256 manifest, are attached to the
-[GitHub releases](../../releases).
+rendered MP4s and GIFs, in light and dark mode, with a SHA-256 manifest of
+each, are attached to the [GitHub releases](../../releases).
 
 - **Reproducible:** the same commit renders the same pixels and the same
   encoded bytes. See [Reproducibility](#reproducibility).
@@ -29,8 +29,9 @@ python3 -m pip install -r requirements-lock.txt   # the exact reference versions
 python3 -m voxanim list --names                   # the 299 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
+python3 -m voxanim render gradient-descent --theme dark   # the dark-mode copy
 python3 -m voxanim prepare                        # download MNIST + GPT-2, train every model
-python3 -m voxanim render all --clean-frames      # everything (hours; see below)
+python3 -m voxanim render all --theme both --clean-frames   # everything, light then dark (hours)
 python3 -m pytest tests                           # the test suite
 ```
 
@@ -44,6 +45,8 @@ Other commands:
 - `gpucheck [names]`: the accelerated renderer against numpy, frame by
   frame (see [Acceleration](#acceleration)).
 - `encode <name>`: re-encode frames a previous `render` left behind.
+- `previews [names]`: make the website's poster and small preview clip again
+  from the MP4s in `build/out`, without rendering.
 - `master <name>`: 4K/8K HDR broadcast masters.
 - `compare <name>`: ours next to the original GIF, when the
   [animatedai.github.io](https://animatedai.github.io) media folder is at
@@ -54,6 +57,17 @@ Options for `still`, `render` and `encode`:
 - `--quality draft|preview|final|max`: draft drops supersampling, motion
   blur and reflections, for quick iteration; final is 2× supersampled, max 3×.
 - `--scale 2` or `--res 4k`: a larger render.
+- `--theme light|dark` (`render` and `encode` also take `both`: the light
+  pass, then the dark one). Dark mode is the same frame with its neutrals
+  turned over: the backdrop, text and borders invert, the colours of the data
+  stay. A dark render's files carry `-dark` after the name
+  (`<media>-dark.mp4`, `.gif`, `.json`, frames in `build/<name>-dark/`), so
+  both themes sit side by side in `build/out`, and each manifest records its
+  `theme`. `VOXANIM_THEME=dark` does the same for any command.
+- `--out DIR`: for `render` and `encode`, write the encoded files and the
+  manifest into `DIR` and the frames into `DIR/frames/`, not `build/`.
+- Every frame carries the voxanim mark and the site's address, small and
+  grey, in its bottom-right corner; `VOXANIM_BRAND=0` leaves it off.
 - `--fps` and `--jobs`.
 - `--formats mp4,gif,webm`, `--gif-fps`.
 - Model options for some animations: `--digit` (an MNIST test-set index),
@@ -1579,35 +1593,80 @@ everything except GPT-2.
 
 The website (`website/`) is one static page generated from the preset
 registry by `website/build_site.py`. `SECTIONS` there groups and titles the
-animations. The MP4s are not in git: the build takes them from the latest
-release, or from a local render, and makes three small files of each: a
-poster, a 480 px preview at full frame rate, and a thumbnail (the first half
-of the animation at 320 px and 12 frames a second, holding its last frame
-for 2 s before it loops; under 100 KB). The grid plays the thumbnails all
-the time, which costs a weak machine little; pointing at or focusing a clip
-plays its sharper full-rate preview; opening it plays the full file. Under
-reduced motion the thumbnails stay still. Dark mode follows the system or
-the "Dark mode" button (remembered per browser).
+animations. No media is in git, and no full video is on the site:
+
+- A render also makes two small files of its MP4 (`voxanim/previews.py`): a
+  640 px poster (`<media>.jpg`, about 20 KB) and a preview clip
+  (`<media>-thumb.mp4`: the first half of the animation at 480 px and 10
+  frames a second, holding its last frame for 2 s before it loops; about
+  40 KB), and the same pair for the dark render (`<media>-dark.jpg`,
+  `<media>-dark-thumb.mp4`). `python3 -m voxanim previews` makes them again
+  from existing MP4s.
+- A release carries them, with every manifest, in one file,
+  `voxanim-site.tar.gz`. The site build downloads that archive from the
+  latest release and nothing else, and runs no ffmpeg: for all 299 animations
+  in both themes it is about 37 MB, against GitHub Pages' limit of 1 GB.
+- Each card shows the poster and plays the preview of the page's theme, and
+  swaps them when the "Dark mode" button is pressed; only the theme on show
+  is downloaded. An animation with no dark preview keeps its light one. Under
+  reduced motion the previews stay still. Dark mode follows the system or the
+  button (remembered per browser).
+- Opening a card plays the full video, streamed from the GitHub release
+  itself (`https://github.com/<repo>/releases/download/<tag>/<media>.mp4`, or
+  `<media>-dark.mp4` when the page is dark): the same repository's release,
+  not a copy in the Pages build. The player has a Light / Dark switch for
+  the video on show, keeps its position when the theme changes, and offers
+  both MP4s and the two GIF archives as downloads. A release serves its files
+  as `application/octet-stream`, so the page states the type
+  (`<source type="video/mp4">`); without it Safari refuses the video. If a
+  stream fails the player asks once more at the same position (GitHub
+  redirects each request to a temporary address, which a long pause can
+  outlive), then shows a message with a download link.
 
 ```bash
-python3 website/build_site.py _site --media build/out   # needs ffmpeg
+python3 website/build_site.py _site --media build/out   # a local preview: no release, no ffmpeg
 python3 -m http.server -d _site                          # http://localhost:8000
 ```
 
-`.github/workflows/pages.yml` builds it and deploys it to GitHub Pages on
-every push to `main` and every published release.
+With `--media DIR` (a render folder, or one filled by
+`tools/release_assets.py`) the player plays `DIR`'s own videos, and
+animations `DIR` does not have are left off the page.
 
-**Making a release:** render everything, gather the assets, tag, publish.
+`.github/workflows/pages.yml` builds it and deploys it to GitHub Pages on
+every push to `main` and every published release. It needs a release that
+has `voxanim-site.tar.gz`: against an older one the build stops with a
+message and the site that is already deployed stays as it is.
+
+**Making a release:** render everything in both themes, gather the assets,
+tag, publish.
 
 ```bash
-python3 -m voxanim render all --jobs 8 --clean-frames   # hours; build/out/
-python3 tools/release_assets.py /tmp/release           # renders + manifests, weights, SHA256SUMS
+python3 -m voxanim render all --theme both --jobs 8 --clean-frames   # hours; build/out/
+python3 tools/release_assets.py /tmp/release           # what a release holds, checked
 git tag -a v1.1.0 -m "voxanim 1.1.0" && git push origin v1.1.0
 gh release create v1.1.0 --title "voxanim 1.1.0" --notes-file NOTES.md /tmp/release/*
 ```
 
-`release_assets.py` refuses to run while any animation lacks a render or a
-render disagrees with its manifest; the weights archive is deterministic.
+A release holds:
+
+- every video as its own file, in both themes: `<media>.mp4` and
+  `<media>-dark.mp4` (what the site's player streams);
+- `voxanim-gifs-light.tar` and `voxanim-gifs-dark.tar`: every GIF of each
+  theme. They are stored, not compressed: gzip took 1.8% off a sample of
+  twenty;
+- `voxanim-site.tar.gz`: the posters and preview clips of both themes and
+  every manifest (`<media>.json`, `<media>-dark.json`);
+- `voxanim-weights.tar.gz`: the trained models;
+- `SHA256SUMS` over all of them.
+
+That is 603 files for 299 animations; GitHub is understood to allow 1,000 in
+a release, and one file per video, GIF and manifest in two themes would be
+1,794. `release_assets.py` prints the count against the cap. It refuses to
+run while any animation lacks a render in either theme (`--light-only`
+allows a release without dark renders; `--allow-partial` leaves out
+animations that are not rendered at all, to try the packaging on a few), a
+render disagrees with its manifest, or a poster or preview is missing or
+older than its video; the archives are deterministic.
 The website redeploys itself when the release is published, provided the
 `github-pages` environment allows tags `v*` to deploy (that run's ref is the
 tag; Settings → Environments → github-pages → deployment branches and tags).

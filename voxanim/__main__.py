@@ -8,14 +8,20 @@
     sheet    NAME                         contact sheet of the whole animation
     render   NAME [NAME ...] | all        frames -> build/NAME/, then encode (web)
     encode   NAME [NAME ...] | all        re-encode existing frames
+    previews [NAME ...]                   the website's poster and small clip, from the MP4s
     master   NAME [NAME ...] | all        broadcast master, streamed (8K HDR by default)
     qa       [NAME ...]                   layout checks: clipped / colliding text, safe areas
     gpucheck [NAME ...]                   accelerated frames against numpy (voxanim.gpucheck)
 
 Common options: --quality draft|preview|final|max, --scale 2 or --res 4k|8k,
---fps, --jobs.  ``render --install`` writes the encoded files into ../media
+--fps, --jobs, --theme light|dark (``render`` and ``encode`` also take ``both``: the light
+pass, then the dark one).  A dark render's files carry ``-dark`` after the animation's
+name (``<media>-dark.mp4``, frames in ``build/NAME-dark/``), so both themes sit side by
+side.  ``render --out DIR`` writes the encoded files and the manifest into DIR and the
+frames into DIR/frames/.  ``render --install`` writes the encoded files into ../media
 (under the site's file names) instead of build/out/; either way a JSON
-manifest of the render goes to build/out/.  ``still --hdr pq`` writes the
+manifest of the render goes to build/out/ (or ``--out``).  A render also makes the
+website's previews of its MP4 (:mod:`voxanim.previews`).  ``still --hdr pq`` writes the
 16-bit PQ frame plus an SDR preview of the HDR grade.
 """
 
@@ -30,7 +36,7 @@ import time
 import numpy as np
 from PIL import Image
 
-from . import presets
+from . import presets, previews, theme
 from .camera import REF_W
 from .fonts import FontNotFoundError
 from .gpt2_anim import PromptLengthError
@@ -82,8 +88,25 @@ def _setup(args, subdir):
 
 def _out_path(args, out, tail):
     """``out/<name><options suffix><tail>``."""
-    return os.path.join(out, "%s%s%s" % (args.name, presets.options_suffix(
-        args.name, **opts(args)), tail))
+    return os.path.join(out, "%s%s%s" % (args.name, _suffix(args.name, args), tail))
+
+
+def _suffix(name, args):
+    """What follows an animation's name in its files: its options, then ``-dark`` in dark
+    mode, so a dark render never overwrites the light one."""
+    return presets.options_suffix(name, **opts(args)) + theme.suffix()
+
+
+def _out_dir(args):
+    """Where encoded files and manifests go: ``--out``, else ``build/out``."""
+    return args.out or os.path.join(BUILD, "out")
+
+
+def _frames_dir(name, args):
+    """Where ``name``'s PNG frames go: ``build/<name><suffix>``, or under ``--out``'s
+    ``frames/`` so a render sent elsewhere leaves nothing in ``build/``."""
+    root = os.path.join(args.out, "frames") if args.out else BUILD
+    return os.path.join(root, name) + _suffix(name, args)
 
 
 def _targets(names):
@@ -220,20 +243,26 @@ def cmd_sheet(args):
 
 
 def _encode(name, args, style):
-    """Encode ``build/<name><suffix>/`` frames into the web formats and write
-    the render's manifest to ``build/out/<media><suffix>.json``."""
+    """Encode ``build/<name><suffix>/`` frames into the web formats, write the render's
+    manifest to ``build/out/<media><suffix>.json`` and make the website's previews of the
+    MP4."""
     p = presets.get(name)
-    suffix = presets.options_suffix(name, **opts(args))
-    frames = os.path.join(BUILD, name) + suffix
-    base = os.path.join(MEDIA if args.install else os.path.join(BUILD, "out"),
-                        p.media + suffix)
+    suffix = _suffix(name, args)
+    frames = _frames_dir(name, args)
+    base = os.path.join(MEDIA if args.install else _out_dir(args), p.media + suffix)
     gif_width = style.width if args.gif_width is None else args.gif_width
     formats = args.formats.split(",")
     outputs = encode(frames, args.fps, base, formats, gif_fps=args.gif_fps,
                      gif_width=gif_width)
-    write_manifest(os.path.join(BUILD, "out", p.media + suffix + ".json"), name, opts(args),
+    # "frames" is how the website learns an animation's length without ffprobe
+    count = sum(f.startswith("frame_") and f.endswith(".png") for f in os.listdir(frames))
+    write_manifest(os.path.join(_out_dir(args), p.media + suffix + ".json"), name, opts(args),
                    style, args.fps, outputs, quality=args.quality, formats=formats,
-                   gif_fps=args.gif_fps, gif_width=gif_width)
+                   gif_fps=args.gif_fps, gif_width=gif_width, theme=theme.name(),
+                   frames=count)
+    # another site's media folder (--install) wants no previews of ours
+    if base + ".mp4" in outputs and not args.install:
+        previews.make(base + ".mp4", force=True)
 
 
 ENCODE_AHEAD = 6      # animations whose encoding may still run while the next one renders
@@ -257,7 +286,7 @@ def cmd_render(args):
             shutil.rmtree(frames)
 
     def frames_dir(name):
-        return os.path.join(BUILD, name) + presets.options_suffix(name, **opts(args))
+        return _frames_dir(name, args)
 
     names = _targets(args.names)
     if args.jobs <= 1:
@@ -279,6 +308,31 @@ def cmd_encode(args):
     style = make_style(args)
     for name in _targets(args.names):
         _encode(name, args, style)
+
+
+def cmd_previews(args):
+    """Make the website's poster and clip of each animation's MP4 again, without
+    rendering (``--out``: where the MP4s are; default ``build/out``), in the current theme:
+    ``--theme both``, the default, runs this once for each.  An animation with no MP4 is
+    named and skipped; exits 1 if one asked for by name has none, except that under
+    ``both`` a dark video may be absent (a light-only render)."""
+    from concurrent.futures import ThreadPoolExecutor
+    out = _out_dir(args)
+    names = _targets(args.names or ["all"])
+    mp4s = {n: os.path.join(out, presets.get(n).media + theme.suffix() + ".mp4")
+            for n in names}
+    absent = [n for n, path in mp4s.items() if not os.path.exists(path)]
+    have = [path for n, path in mp4s.items() if n not in absent]
+    # each ffmpeg here is one thread, so they run side by side
+    with ThreadPoolExecutor(max(1, args.jobs)) as ex:
+        list(ex.map(lambda path: previews.make(path, force=args.force), have))
+    print("%s previews of %d animation(s) in %s" % (theme.name(), len(have), out))
+    if absent:
+        print("no %s MP4 in %s for: %s" % (theme.name(), out, ", ".join(absent)),
+              file=sys.stderr)
+        optional = theme.is_dark() and args.theme == "both"
+        if args.names and args.names != ["all"] and not optional:
+            raise SystemExit(1)
 
 
 def cmd_master(args):
@@ -319,13 +373,17 @@ def parser():
                              "else unit)")
         sp.add_argument("--text", help="prompt for gpt2-attention")
 
-    def common(sp):
+    def common(sp, both=False):
         model_opts(sp)
+        sp.add_argument("--theme", choices=("light", "dark") + (("both",) if both else ()),
+                        help="light or dark mode%s (default: $VOXANIM_THEME, else light)"
+                             % (", or both, one after the other" if both else ""))
         sp.add_argument("--quality", choices=sorted(QUALITY), default="final")
         sp.add_argument("--scale", type=float, default=1.0)
         sp.add_argument("--res", choices=sorted(RESOLUTIONS))
         sp.add_argument("--fps", type=int, default=30)
-        sp.add_argument("--out")
+        sp.add_argument("--out", help="directory to write into (render and encode: the "
+                                      "encoded files and manifest, frames under frames/)")
 
     sp = sub.add_parser("list")
     sp.add_argument("--names", action="store_true", help="names only, without building")
@@ -391,8 +449,17 @@ def parser():
             sp.add_argument("--clean-frames", action="store_true",
                             help="delete each animation's PNG frames once it is encoded "
                                  "(a full render keeps ~26 GB otherwise)")
-        common(sp)
+        common(sp, both=True)
         sp.set_defaults(fn=fn)
+    sp = sub.add_parser("previews", help="the website's poster and small clip, from the MP4s")
+    sp.add_argument("names", nargs="*", help="only these presets (default: all)")
+    sp.add_argument("--out", help="where the MP4s are (default build/out)")
+    sp.add_argument("--force", action="store_true", help="also remake previews that are "
+                                                         "newer than their video")
+    sp.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 1))
+    sp.add_argument("--theme", choices=("light", "dark", "both"), default="both",
+                    help="whose previews: <media>.mp4's, <media>-dark.mp4's, or both")
+    sp.set_defaults(fn=cmd_previews)
     return ap
 
 
@@ -400,11 +467,25 @@ def main(argv=None):
     """Run the command line; expected failures (unknown preset, ffmpeg, fonts)
     become a one-line error and exit status 2."""
     args = parser().parse_args(argv)
+    choice = getattr(args, "theme", None)
+    before = os.environ.get("VOXANIM_THEME")
     try:
-        args.fn(args)
+        # The theme is read from the environment where frames are finished
+        # (voxanim.theme), and render workers are spawned processes that inherit it, so
+        # it is set here, before any of them starts; "both" is two whole passes.
+        for name in ("light", "dark") if choice == "both" else (choice,):
+            if name:
+                os.environ["VOXANIM_THEME"] = name
+            args.fn(args)
     except (presets.UnknownPreset, FFmpegError, FontNotFoundError, PromptLengthError) as e:
         print("voxanim: error: %s" % e, file=sys.stderr)
         raise SystemExit(2) from None
+    finally:
+        if choice:                        # a caller in the same process gets its own back
+            if before is None:
+                os.environ.pop("VOXANIM_THEME", None)
+            else:
+                os.environ["VOXANIM_THEME"] = before
 
 
 if __name__ == "__main__":

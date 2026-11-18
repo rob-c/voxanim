@@ -20,6 +20,7 @@ from typing import NamedTuple
 import numpy as np
 from PIL import Image, ImageDraw
 
+from . import brand, theme
 from . import color as C
 from .cache import DEFAULT_CACHE
 from .camera import REF_H, REF_W, Camera
@@ -345,6 +346,139 @@ def _resize(arr, W, H):
 _WHITE = np.ones(3, np.float32)
 
 
+def _is_data(shader):
+    """Whether a quad's shader draws data, which dark mode leaves as it is: an image
+    texture (:func:`voxanim.diagram.image_shader`: a grey-scale digit, a heat map whose
+    caption says "darker: larger", a "white 1, black 0" matrix), or any shader marked
+    ``keep_theme = True``; ``keep_theme = False`` on an image has it turned with the page.
+
+    Every image is kept, whatever is in it.  Telling pictures from diagrams by their
+    colours (a mask grid of paper and one ink could turn) was tried: in 52 animations an
+    image changed class as its cells were filled in, and flipped from dark to light.  So
+    the animation says so where it draws one (``mask=True`` on
+    :meth:`voxanim.mech.Mechanism.grid`, ``keep_theme=False`` on
+    :func:`voxanim.diagram.draw_image`): the mark is on the call, the same for every frame."""
+    mark = getattr(shader, "keep_theme", None)
+    if mark is not None:
+        return bool(mark)
+    key = getattr(shader, "key", None)
+    return isinstance(key, tuple) and bool(key) and key[0] == "image"
+
+
+def _dark_shader(shader, data=False):
+    """``shader`` (a quad's) in dark mode.  A panel, a box and its border are page
+    furniture and turn over with the page (:func:`theme.to_dark`).  ``data``: only its
+    texels in the backdrop colour do - the cells of a matrix not yet filled in are
+    painted as page."""
+    back = C.BACKGROUND
+
+    def turned(pts):
+        out = shader(pts)
+        rgb = np.asarray(out[0], np.float32)
+        if data:
+            page = (np.abs(rgb - back) < 2e-3).all(-1, keepdims=True)
+            rgb = np.where(page, theme.to_dark(back), rgb) if page.any() else rgb
+        else:
+            rgb = theme.to_dark(rgb)
+        return (rgb,) + tuple(out[1:])
+
+    key = getattr(shader, "key", None)
+    if key is not None:                     # raster_metal caches a keyed quad's pixels;
+        turned.key = ("dark", bool(data), key)      # the same image kept and turned differ
+    return turned
+
+
+def _voxel_cover(cam, vox):
+    """Where the voxels are on screen, coarsely: ``over(points (n, 2), depth (n,))`` says
+    which screen points lie on a voxel that is not in front of them."""
+    seen = vox["opacity"] >= 0.3
+    if not seen.any():
+        return lambda pts, depth: np.zeros(len(pts), bool)
+    c, size = vox["center"][seen], vox["size"][seen]
+    scr, far = cam.project(c), c @ cam.view
+    reach = 0.5 * cam.ppu * size                         # about half a voxel, in pixels
+    cell = max(2.0, 0.5 * float(np.median(reach)))
+    gw, gh = int(cam.width / cell) + 2, int(cam.height / cell) + 2
+    behind = np.full((gh, gw), np.inf)                   # depth of the farthest voxel there
+    for dx in (-1.0, -0.5, 0.0, 0.5, 1.0):
+        for dy in (-1.0, -0.5, 0.0, 0.5, 1.0):
+            gx = np.floor((scr[:, 0] + dx * reach) / cell).astype(int)
+            gy = np.floor((scr[:, 1] + dy * reach) / cell).astype(int)
+            ok = (gx >= 0) & (gx < gw) & (gy >= 0) & (gy < gh)
+            np.minimum.at(behind, (gy[ok], gx[ok]), far[ok] - size[ok])
+
+    def over(pts, depth):
+        gx = np.floor(pts[:, 0] / cell).astype(int)
+        gy = np.floor(pts[:, 1] / cell).astype(int)
+        ok = (gx >= 0) & (gx < gw) & (gy >= 0) & (gy < gh)
+        out = np.zeros(len(pts), bool)
+        out[ok] = depth[ok] >= behind[gy[ok], gx[ok]]
+        return out
+    return over
+
+
+def _on_data(cam, scene, vox):
+    """Which lines and quads dark mode leaves in their light-mode colours: ``(lines,
+    quads)``, a bool for each.
+
+    * The data quads themselves (:func:`_is_data`), and what is drawn on one: an image
+      that keeps its light look is a light surface, and a boundary line, a marker or a
+      selection frame drawn across it was coloured for that surface (turned, a black
+      curve on a pale map came out white on it).
+    * What lights the voxels: the white receptive-field frame on a block and the white
+      multiply/accumulate wave through it are a line and a glass quad, and turned with
+      the page they swept the kernel black where the light copy flashes it white.  A
+      quad lying on voxels is kept, and a line lighter than the page that lies on them.
+    """
+    nq, nl = len(scene.quads), len(scene.lines)
+    lines, quads = np.zeros(nl, bool), np.zeros(nq, bool)
+    over = _voxel_cover(cam, vox) if len(vox["center"]) else None
+    view = cam.view
+    if nl:
+        w0 = np.array([ln.p0 for ln in scene.lines])
+        w9 = np.array([ln.p1 for ln in scene.lines])
+        ends = [w0, 0.5 * (w0 + w9), w9]
+        if over is not None:
+            lit = theme.luminance(np.array([ln.color for ln in scene.lines], np.float32)) \
+                > theme.luminance(np.full(3, theme.PAGE, np.float32))
+            hits = sum(over(cam.project(w), w @ view).astype(int) for w in ends)
+            lines = lit & (hits >= 2)
+    if not nq:
+        return lines, quads
+    p0 = np.array([q.p0 for q in scene.quads])
+    e1 = np.array([q.e1 for q in scene.quads])
+    e2 = np.array([q.e2 for q in scene.quads])
+    if over is not None:
+        hits = np.zeros(nq, int)
+        for u, v in ((0.5, 0.5), (0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)):
+            w = p0 + u * e1 + v * e2
+            hits += over(cam.project(w), w @ view)
+        quads = hits >= 3
+    data = np.array([_is_data(q.shader) for q in scene.quads], bool)
+    quads |= data
+    M = cam.M
+    a, b = e1 @ M.T, e2 @ M.T                            # screen edge vectors (nq, 2)
+    det = a[:, 0] * b[:, 1] - a[:, 1] * b[:, 0]
+    area = np.abs(det)
+    k = np.nonzero(data & (area > 1e-9))[0]
+    if len(k) == 0:
+        return lines, quads
+    s0, ak, bk, dk = cam.project(p0[k]), a[k], b[k], det[k]
+
+    def inside(pts):
+        """(n, 2) screen points -> (n, len(k)): within each data quad."""
+        d = pts[:, None, :] - s0[None]
+        u = (d[..., 0] * bk[:, 1] - d[..., 1] * bk[:, 0]) / dk
+        v = (d[..., 1] * ak[:, 0] - d[..., 0] * ak[:, 1]) / dk
+        return (u >= 0) & (u <= 1) & (v >= 0) & (v <= 1)
+
+    if nl:
+        hits = sum(inside(cam.project(w)).astype(int) for w in ends)
+        lines |= (hits >= 2).any(1)                      # most of it on one image
+    centre = cam.project(p0 + 0.5 * (e1 + e2))
+    on = inside(centre) & (area[:, None] < area[k][None])    # smaller: on it, not under
+    quads |= on.any(1)
+    return lines, quads
 
 
 def framebuffer(width, height, out_width, **kw):
@@ -388,6 +522,19 @@ def _probe_builder(build):
         if "probes_only" in inspect.signature(build).parameters:
             return lambda t: build(t, probes_only=True)
     return build
+
+
+_inks = {}
+
+
+def _dark_ink(color):
+    """:func:`theme.ink` of one text colour, remembered: a scene has a few inks and
+    hundreds of labels."""
+    key = tuple(np.asarray(color, np.float32).tolist())
+    if key not in _inks:
+        _inks[key] = theme.ink(np.asarray(key, np.float32))
+    return _inks[key]
+
 
 GLYPH_CACHE = 2048               # rasterised captions kept (uint8 masks, a few KB each)
 _glyphs = OrderedDict()
@@ -447,6 +594,7 @@ class Renderer:
         self.mview = mcam.view
         self._atlases = {(False, 1.0): self.atlas, (True, 1.0): self.ratlas}
         self._bg = None
+        self._bg_dark = False
         self._floor_dev = None
         self._tints = OrderedDict()
 
@@ -464,26 +612,37 @@ class Renderer:
     # -- background -------------------------------------------------------
     def _background(self, W, H):
         """The vignetted backdrop at ``W x H`` (cached for the last size asked)."""
-        if self._bg is None or self._bg.shape[:2] != (H, W):
+        dark = theme.is_dark()
+        if self._bg is None or self._bg.shape[:2] != (H, W) or self._bg_dark != dark:
             st = self.style
             ys = np.linspace(-1, 1, H, dtype=np.float32)[:, None]
             xs = np.linspace(-1, 1, W, dtype=np.float32)[None, :]
             base = np.asarray(st.background, np.float32)
             r2 = (xs * VIGNETTE_SX) ** 2 + (ys * VIGNETTE_SY + VIGNETTE_DY) ** 2
             shade = 1.0 - st.vignette * np.clip(r2 - VIGNETTE_R2, 0, 1)
+            if dark:        # the vignette still darkens the corners: turned after it,
+                base = theme.to_dark(base)                   # they came out lighter
             self._bg = (base[None, None, :] * shade[..., None]).astype(np.float32)
+            self._bg_dark = dark
         return self._bg
 
     # -- text -------------------------------------------------------------
     def _draw_texts(self, rgb, texts):
-        """Composite ``texts`` onto ``rgb`` in place (and return it)."""
+        """Composite ``texts`` onto ``rgb`` in place (and return it), then the corner mark:
+        this is the one place a finished frame passes through, so videos, GIFs, stills and
+        masters all carry it."""
+        dark = theme.is_dark()
         for t in texts:
-            self._draw_text(rgb, t)
-        return rgb
+            self._draw_text(rgb, t, dark)
+        return brand.stamp(rgb, dark)
 
-    def _draw_text(self, rgb, t):
+    def _draw_text(self, rgb, t, dark=False):
         """Composite one :class:`Text` in place, touching only a box around it:
-        a soft halo in the backdrop colour, then the glyphs."""
+        a soft halo in the backdrop colour, then the glyphs.  ``dark``: the frame is
+        in dark mode.  Text on the dark page is drawn in its turned-over ink
+        (:func:`theme.ink`) with a dark halo; text on a coloured or light surface (a label
+        on an orange box, a number on a white voxel) keeps its ink, which was chosen to
+        read on that surface, and takes its halo from it."""
         H, W = rgb.shape[:2]
         px = t.size * H
         f = font(t.kind, px)
@@ -508,10 +667,20 @@ class Renderer:
                                  (x1 - x0, y1 - y0))
         ha = np.asarray(halo, np.float32)[sl] * np.float32(HALO_STRENGTH * t.opacity / 255.0)
         back = np.asarray(self.style.background, np.float32)
-        reg = reg * (1 - ha[..., None]) + back * ha[..., None]
+        ink = np.asarray(t.color, np.float32)
         a = np.asarray(mask, np.float32)[sl]
+        if dark:
+            under = reg[a > 0].mean(0) if (a > 0).any() else reg.reshape(-1, 3).mean(0)
+            # the page or a neutral dark panel; a tinted box is a surface (theme.ink)
+            on_page = (under.max() - under.min() < 0.05) and under.max() < 0.2
+            if on_page:
+                back, ink = theme.to_dark(back), _dark_ink(t.color)
+            else:
+                back = under.astype(np.float32)
+                ink = theme.ink(ink, back)
+        reg = reg * (1 - ha[..., None]) + back * ha[..., None]
         a = (a * np.float32(t.opacity / 255.0))[..., None]
-        rgb[cy0:cy1, cx0:cx1] = reg * (1 - a) + np.asarray(t.color, np.float32) * a
+        rgb[cy0:cy1, cx0:cx1] = reg * (1 - a) + ink * a
 
     # -- tinted sprites -------------------------------------------------------
     def _tinted(self, atlas, ky, kx, base):
@@ -697,6 +866,11 @@ class Renderer:
         blur = st.reflection_blur * self.fcam.width / REF_W
         cov = gaussian_blur(_host(rfb.cov), blur)
         add = gaussian_blur(_host(rfb.rgb), blur)
+        if theme.is_dark():
+            # the mirror image is drawn pale, to sit on a light floor; on the dark one it
+            # is the same tint turned deep (as it was, every block stood on a grey ghost)
+            c = np.maximum(cov, 1e-4)[..., None]
+            add = theme.to_dark(np.clip(add / c, 0.0, 1.0)) * c
         return plate * (1.0 - k * cov)[..., None] + k * add
 
     # -- frame ------------------------------------------------------------------
@@ -715,6 +889,15 @@ class Renderer:
         V = scene.voxel_arrays()
         vi = np.nonzero(V["visible"])[0]
         vox = {f: V[f][vi] for f in VOXEL_FIELDS}
+        # Dark mode turns the page furniture as it is drawn (lines, quads; the floor and the
+        # text where they are made) and leaves the voxels alone: see voxanim.theme.
+        dark = theme.is_dark()
+        line_color = [ln.color for ln in scene.lines]
+        if dark and (scene.lines or scene.quads):
+            line_kept, quad_kept = _on_data(cam, scene, vox)
+            if line_color:
+                inked = theme.ink(np.asarray(line_color, np.float32))
+                line_color = np.where(line_kept[:, None], np.asarray(line_color), inked)
         scr = cam.project(vox["center"]) if len(vi) else np.zeros((0, 2))
         depth = vox["center"] @ cam.view
         # Opaque voxels first (they write depth), then everything translucent
@@ -757,11 +940,14 @@ class Renderer:
             k += 1
             if kind == 2:
                 ln = scene.lines[n]
-                fb.line(cam, ln.p0, ln.p1, ln.width * ss * st.width / REF_W, ln.color,
+                fb.line(cam, ln.p0, ln.p1, ln.width * ss * st.width / REF_W, line_color[n],
                         ln.opacity, ln.bias)
             else:
                 q = scene.quads[n]
-                fb.quad(cam, q.p0, q.e1, q.e2, q.shader, q.bias)
+                shader = q.shader
+                if dark and not (quad_kept[n] and not _is_data(shader)):
+                    shader = _dark_shader(shader, quad_kept[n])
+                fb.quad(cam, q.p0, q.e1, q.e2, shader, q.bias)
 
         if floor is None:
             floor = self._floor(scene)

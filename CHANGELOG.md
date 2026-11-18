@@ -1,5 +1,53 @@
 # Changelog
 
+## 2.0.0
+
+Every animation is rendered again, in both themes.
+
+- **Logo and corner mark** (`voxanim/brand.py`): a V built of nine voxels, its point lit.
+  Every rendered frame carries it, small and in its own colours, with the name and the site's
+  address in light grey, in its bottom-right corner, so videos, GIFs, stills and posters all say where they came
+  from; `VOXANIM_BRAND=0` leaves it off. `tools/make_logo.py` writes the same mark as the
+  website's `logo.svg`, `logo-dark.svg` and `logo-mark.svg` (the page's icon and header).
+- **Dark mode for the renders** (`voxanim/theme.py`): the page, lines, panels and text are
+  each turned dark as they are drawn, and the data is left alone: voxels and images (heat
+  maps, digits) keep their light-mode colours, vivid colours stay as they are, and pale tints
+  become deep tints of the same hue. Light-mode frames are unchanged. Twenty-one captions
+  that named a shade ("black: the truth") use a word that fits the theme, and the plain mask
+  grids of the attention animations turn dark with the page. `render`, `encode`, `still`, `sheet` and `compare` take `--theme light|dark`
+  (`VOXANIM_THEME=dark` does the same), and `render` and `encode` take `--theme both`: the
+  light pass, then the dark one, in one command. A dark render's files carry `-dark`
+  (`<media>-dark.mp4`, `.gif`, `.json`; frames in `build/<name>-dark/`), so both themes sit
+  together in `build/out`. Manifests record `theme`, and `frames` (the animation's length).
+- **Captions on the nine convolution animations** (`conv2d` to `conv1d-row-sweep`): each now
+  carries a title and one line saying what it shows, so a video saved on its own says what it
+  is; the picture steps back a little to give the words a band of their own.
+- **Previews made at render time** (`voxanim/previews.py`): a render also writes a 640 px
+  poster (`<media>.jpg`, about 20 KB) and a small silent looping clip (`<media>-thumb.mp4`,
+  480 px at 10 frames a second, about 60 KB) of its MP4, in each theme.
+  `python3 -m voxanim previews` makes them again from existing MP4s without rendering. The
+  480 px hover preview is gone.
+- **Release layout** (`tools/release_assets.py`): every video as its own file in both themes
+  (`<media>.mp4`, `<media>-dark.mp4`); the GIFs of each theme in one stored archive
+  (`voxanim-gifs-light.tar`, `voxanim-gifs-dark.tar`); the posters, preview clips and every
+  manifest in `voxanim-site.tar.gz`; the weights archive and `SHA256SUMS` as before. 603 files
+  for 299 animations in two themes, where one theme was 899 of the 1,000 a release is
+  understood to hold; the tool prints the count and refuses a release over the cap. It refuses
+  an animation without both themes unless `--light-only`, and one without previews;
+  `--allow-partial` packs only what is rendered. GIFs and manifests are no longer separate
+  release files.
+- **Website**: the logo, large and in colour, heads the page. The Pages build downloads `voxanim-site.tar.gz` and nothing else, and runs no
+  ffmpeg (the workflow no longer installs it or caches media); no full video is in the Pages
+  build. Cards show the poster and preview of the page's theme and swap when "Dark mode" is
+  pressed, fetching only the theme on show. The player streams the full video from the
+  GitHub release itself, dark when the page is dark, with a Light / Dark switch for the video
+  on show that keeps its position; a stream that fails is asked for once more, then replaced
+  by a message with a download link. Downloads: the MP4 in either theme and the two GIF
+  archives. `build_site.py --media DIR` previews from local files, with no release and no
+  GitHub CLI, and leaves off what `DIR` does not have.
+- `render --out DIR` and `encode --out DIR` now write there (encoded files and manifest in
+  `DIR`, frames in `DIR/frames/`); the option was accepted and ignored before.
+
 ## 1.10.0
 
 - `vae-kl-term`: one digit followed through a VAE, what the KL half of its loss measures, and the

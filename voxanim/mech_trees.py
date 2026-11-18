@@ -23,6 +23,7 @@ import numpy as np
 
 from . import color as C
 from . import study_trees as S
+from . import theme
 from .diagram import draw_image
 from .easing import smoothstep
 from .mech import (
@@ -1011,7 +1012,7 @@ class Instability(Trees):
         m = self.meta
         end = op * smoothstep(0.66, 0.76, u)
         self.lines(sc, 0.47, 0.775, [
-            "dark outline: a wrong answer",
+            "%s outline: a wrong answer" % theme.word("dark", "white"),
             "the four do not all agree on %s of held-out events" % pct(m["split_share"]),
             "(these six were picked from those)"], end, size=SMALL, step=0.042)
         self.tag(sc, MEASURED, op)

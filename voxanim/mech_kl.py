@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import deep_models as dm
-from . import layout
+from . import layout, theme
 from . import study_families as F
 from . import study_kl as S
 from .diagram import draw_image
@@ -364,7 +364,8 @@ class VaeKlTerm(Clouds):
         if peak > top:
             self.text(sc, chart.fx(mu) + 0.014, 0.375, "peak %.1f, cut off" % peak, qa,
                       anchor="lm", ink=dark(VAE, 0.3))
-        self.text(sc, 0.085, 0.845, "black: the prior p(z) = N(0, 1)", op, anchor="lm",
+        self.text(sc, 0.085, 0.845, "%s: the prior p(z) = N(0, 1)"
+                  % theme.word("black", "white"), op, anchor="lm",
                   ink=PRIOR)
         self.text(sc, 0.085, 0.32, "this digit's blob  q(z | x) = N(μ, σ²)", qa, anchor="lm",
                   ink=dark(VAE, 0.3), size=0.035)

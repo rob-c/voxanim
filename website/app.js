@@ -2,14 +2,17 @@
 //
 // * A clip's frame holds its poster <img>.  While the clip is near the screen
 //   a <video> plays on top: the thumbnail (the first half of the animation at
-//   320 px and 12 frames a second, with a 2 s hold before it loops), under
-//   100 KB and cheap to decode.  Off screen, the element goes.
-// * While a clip is hovered or focused it plays its full-rate 480 px preview
-//   instead; clicking opens the player with the full 960×540 file.
+//   480 px and 10 frames a second, with a 2 s hold before it loops), about
+//   40 KB and cheap to decode.  Off screen, the element goes.
+// * Posters and thumbnails come in light and dark; a frame shows the pair of
+//   the page's theme (the light pair where an animation has no dark one) and
+//   swaps when the theme changes.  Only the theme on show is ever fetched.
+// * Clicking a clip opens the player, which streams the full 960×540 video,
+//   light or dark, from the GitHub release: the site holds no full video.
 // * Under prefers-reduced-motion the thumbnails stay still (hover still
 //   plays).  Dark mode follows the system unless the button chooses.
 //
-// The page works without this script: posters, links and downloads.
+// The page works without this script: posters and links.
 "use strict";
 
 const root = document.documentElement;
@@ -36,19 +39,27 @@ function applyTheme(choice) {
   themeButton.setAttribute("aria-pressed", String(isDark()));
 }
 
+// What follows the theme besides the stylesheet (the posters, the thumbnails, the open
+// player): each part of the script below adds itself here.
+const onTheme = [];
+function setTheme(choice) {
+  applyTheme(choice);
+  onTheme.forEach((fn) => fn());
+}
+
 applyTheme(store.get("theme"));
 themeButton.addEventListener("click", () => {
   const choice = isDark() ? "light" : "dark";
   store.set("theme", choice);
-  applyTheme(choice);
+  setTheme(choice);
 });
-systemDark.addEventListener("change", () => applyTheme(root.dataset.theme || null));
+systemDark.addEventListener("change", () => setTheme(root.dataset.theme || null));
 
 // ---------------------------------------------------------------- the clips
-// Each frame plays one source at a time: its thumbnail, or its preview while
-// highlighted.  Frames beyond a screen's distance hold no <video> at all.
+// Each frame plays its thumbnail in the page's theme.  Frames beyond a screen's
+// distance hold no <video> at all.
 
-const frames = [...document.querySelectorAll(".frame[data-thumb], .frame[data-preview]")];
+const frames = [...document.querySelectorAll(".frame[data-thumb]")];
 const near = new Set();                 // frames within reach of the screen
 const highlighted = new Set();          // frames hovered or focused
 
@@ -78,10 +89,29 @@ function drop(frame) {
 
 function wanted(frame) {
   if (player.open || !near.has(frame)) return null;
-  if (highlighted.has(frame)) return frame.dataset.preview || frame.dataset.thumb;
-  if (reduceMotion.matches) return null;
-  return frame.dataset.thumb || frame.dataset.preview;   // the hero has only a preview
+  if (reduceMotion.matches && !highlighted.has(frame)) return null;
+  return (isDark() && frame.dataset.thumbDark) || frame.dataset.thumb;
 }
+
+// A poster is a <picture> whose dark <source> follows the system's colour scheme, which
+// is right until the page's own button has chosen; from then on the choice is written
+// into the <img> and the <source> goes.  A lazy <img> that has not been reached fetches
+// nothing when its src changes, so a theme costs only the posters that are looked at.
+function showPosters() {
+  if (!root.dataset.theme) return;        // following the system: the <picture> does it
+  for (const pic of document.querySelectorAll(".frame picture")) {
+    const img = pic.querySelector("img");
+    const source = pic.querySelector("source");
+    if (source) {
+      pic.dataset.light = img.getAttribute("src");
+      source.remove();
+    }
+    const src = isDark() ? pic.dataset.dark : pic.dataset.light;
+    if (img.getAttribute("src") !== src) img.src = src;
+  }
+}
+showPosters();
+onTheme.push(showPosters, () => updateAll());
 
 function update(frame) {
   const src = wanted(frame);
@@ -205,9 +235,19 @@ const spy = new IntersectionObserver((entries) => {
 sections.forEach((s) => s && spy.observe(s));
 
 // ---------------------------------------------------------------- player
+// The full videos are files of the GitHub release, streamed from there: light as
+// <media>.mp4, dark as <media>-dark.mp4.  The video's <source> states the type because
+// the release serves every file as application/octet-stream.  The release sends no CORS
+// header, so the video can be played and nothing else (no fetch, no canvas).
 
 const big = player.querySelector("video");
+const source = big.querySelector("source");
+const failed = player.querySelector(".player-error");
 const field = (sel) => player.querySelector(sel);
+let clip = null;                        // the animation in the player
+let showing = "light";                  // the theme of the video in the player
+let retried = false;                    // the stream has been asked for a second time
+let reached = 0;                        // the last position that played, in seconds
 
 function length(seconds) {
   const m = Math.floor(seconds / 60), s = seconds % 60;
@@ -215,24 +255,81 @@ function length(seconds) {
   return m ? m + (m === 1 ? " minute " : " minutes ") + sec(s) : sec(s);
 }
 
-function openClip(clip) {
+// Put the video of `theme` in the player (light where the animation has no dark one),
+// starting at `at` seconds.
+function show(theme, at, play) {
+  showing = clip.video[theme] ? theme : "light";
+  reached = at || 0;
+  failed.hidden = true;
+  big.hidden = false;
+  big.poster = clip.poster[showing] || clip.poster.light;
+  source.src = clip.video[showing];
+  big.load();
+  if (at) big.addEventListener("loadedmetadata", () => { big.currentTime = at; }, { once: true });
+  if (play) big.play().catch(() => {});
+  for (const b of player.querySelectorAll("[data-video-theme]")) {
+    b.setAttribute("aria-pressed", String(b.dataset.videoTheme === showing));
+    b.disabled = !clip.video[b.dataset.videoTheme];
+  }
+  field(".player-manifest").href = clip.manifest[showing];
+  field(".player-cmd code").textContent = "python3 -m voxanim render " + clip.name +
+    (showing === "dark" ? " --theme dark" : "");
+  field(".copy").textContent = "Copy";
+}
+
+// The other theme of the same video, at the same moment.
+function switchTo(theme) {
+  if (!clip || !player.open || theme === showing || !clip.video[theme]) return;
+  show(theme, big.currentTime || reached, !big.paused);
+}
+
+// GitHub answers each request for a release file with a redirect to a temporary address,
+// so a stream left paused for long can lose its source.  Ask once more, at the same
+// position; if that fails too, say so and offer the file.
+function streamFailed() {
+  if (!clip || !player.open) return;
+  if (!retried) {
+    retried = true;
+    show(showing, reached, true);
+    return;
+  }
+  big.pause();
+  big.hidden = true;
+  field(".player-error-link").href = clip.video[showing];
+  failed.hidden = false;
+}
+source.addEventListener("error", streamFailed);
+big.addEventListener("error", streamFailed);
+big.addEventListener("timeupdate", () => {
+  if (big.currentTime > 0) { reached = big.currentTime; retried = false; }
+});
+
+function openClip(data) {
+  clip = data;
+  retried = false;
   field("#player-title").textContent = clip.title;
   field(".player-about").textContent = clip.about;
   field(".player-length").textContent = length(clip.seconds) + ", looping";
-  for (const a of player.querySelectorAll("[data-file]")) a.href = clip[a.dataset.file];
-  field(".player-cmd code").textContent = "python3 -m voxanim render " + clip.name;
-  field(".copy").textContent = "Copy";
-  big.poster = clip.poster;
-  big.src = clip.mp4;                   // the full file
+  for (const a of player.querySelectorAll("[data-video]")) {
+    const url = clip.video[a.dataset.video];
+    a.parentElement.hidden = !url;
+    if (url) a.href = url;
+  }
   if (!player.open) player.showModal();
   updateAll();                          // the grid rests while the player is open
-  if (!reduceMotion.matches) big.play().catch(() => {});
+  show(isDark() ? "dark" : "light", 0, !reduceMotion.matches);
   history.replaceState(null, "", "#" + clip.name);
 }
 
+for (const b of player.querySelectorAll("[data-video-theme]")) {
+  b.addEventListener("click", () => switchTo(b.dataset.videoTheme));
+}
+onTheme.push(() => switchTo(isDark() ? "dark" : "light"));
+
 player.addEventListener("close", () => {
+  clip = null;
   big.pause();
-  big.removeAttribute("src");
+  source.removeAttribute("src");
   big.load();
   history.replaceState(null, "", location.pathname + location.search);
   updateAll();

@@ -16,7 +16,7 @@ from functools import lru_cache
 import numpy as np
 
 from . import next_systems as S
-from . import realdata
+from . import realdata, theme
 from . import study_optim as O
 from .cache import cached_npz
 from .diagram import draw_image
@@ -1533,8 +1533,11 @@ class LossSpikes(Optim):
             self._snippet(sc, row, 0.05, 0.40 + row * 0.085, op)
         self.text(sc, 0.05, 0.335, "64 windows like these, the same every update", op,
                   anchor="lm", strong=True, size=0.034)
+        # the target's box is full teal among soft ones: the deepest on paper, the brightest
+        # once the soft ones have turned deep
         self.lines(sc, 0.05, 0.67, ["the model reads 12 characters and", "is scored on the next "
-                                    "one (dark box)", "", "Adam turns each gradient into a step"],
+                                    "one (%s box)" % theme.word("dark", "bright"), "",
+                                    "Adam turns each gradient into a step"],
                    op, step=0.046, size=0.032)
         n = self.q0 + 1
         chart = self.chart(((0.59, 0.94), (0.37, 0.80)), self.steps[:n], self.loss[0, :n])

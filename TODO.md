@@ -585,3 +585,26 @@ initial AE LS distributions out to the final DEC well-separated clusters". Relea
   not right: cluster accuracy only goes from 0.46 to 0.51. A ten-number code is no better. The run
   drawn, fixed in advance, is the least accurate of the three seeds. K-means' own accuracy falls
   while its objective improves on that start.
+
+## Version 2.0.0: logo, dark mode, streaming site, 18 November 2026
+
+Asked for as: a voxanim logo on every artefact "on the bottom right with the project url in light
+grey", later "the full-colour smaller version (alongside text) in the bottom corner"; a second copy
+of every animation in dark mode, keeping "the colours primary and vibrant ... mostly inverting
+text, boarders and the background"; text on "any animations which don't describe what they are";
+GIFs packed into two archives with the videos kept as files; and a site that streams the videos
+from the release and holds only small previews, in both themes.
+
+**Decided along the way**
+- The logo is concept A of three: a V of nine voxels with its point lit.
+- Dark mode turns page furniture and leaves data alone, so images (heat maps, digits) stay light
+  panels on the dark page. Plain mask grids in eleven animations were marked to turn dark; about
+  eleven more plain grids (counting grids, bit strips, idle slots) still stand as light panels.
+- The nine convolution animations are drawn about 15% smaller to make room for their captions.
+- Release files streamed by the page need the type stated in the page: Safari refused a bare
+  address (media error 4) and played the same file with the type given. Tested on the owner's
+  machine against the 1.10.0 release.
+
+**Not verified at release:** dark mode at final quality beyond a 21-animation sample; the 289
+labels re-inked for contrast beyond contact-sheet size; GPU framebuffers in dark; the limit of
+1,000 files per release is as understood, not confirmed.

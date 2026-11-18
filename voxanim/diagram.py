@@ -217,8 +217,13 @@ class Diagram(NetAnimation):
                 opacity, anchor)
 
 
-def image_shader(anim, c, tex, w, h, opacity=1.0, grid=0.0):
-    """A ``(rows, cols, 3)`` texture as a crisp pixel grid in a ``w x h`` px box."""
+def image_shader(anim, c, tex, w, h, opacity=1.0, grid=0.0, keep_theme=None):
+    """A ``(rows, cols, 3)`` texture as a crisp pixel grid in a ``w x h`` px box.
+
+    ``keep_theme``: what dark mode does with it (see :func:`voxanim.scene._is_data`).
+    None, the default: an image is data and looks as it does in light mode.  False: it is
+    a diagram on paper - a two-colour mask of who may read whom - and turns with the
+    page: the paper goes dark, the vivid cells stay."""
     tex = np.asarray(tex, np.float32)
     rows, cols = tex.shape[:2]
     M = anim.Mr
@@ -240,16 +245,20 @@ def image_shader(anim, c, tex, w, h, opacity=1.0, grid=0.0):
     shader.key = ("image", np.asarray(c, np.float64).tobytes(), tex.shape,
                   hashlib.blake2b(np.ascontiguousarray(tex).tobytes(), digest_size=16).digest(),
                   float(w), float(h), float(opacity), float(grid), M.tobytes())
+    if keep_theme is not None:
+        shader.keep_theme = bool(keep_theme)
     return shader
 
 
-def draw_image(anim, sc, c, tex, w, h, opacity=1.0, grid=0.35, lift=0.3):
+def draw_image(anim, sc, c, tex, w, h, opacity=1.0, grid=0.35, lift=0.3, keep_theme=None):
     """Draw texture ``tex`` (rows, cols, 3) as a crisp ``w x h`` px image centred at
-    ``c``; ``grid`` darkens the cell borders when cells are large enough to show."""
+    ``c``; ``grid`` darkens the cell borders when cells are large enough to show;
+    ``keep_theme``: see :func:`image_shader`."""
     if opacity <= 0.01:
         return
     c = np.asarray(c, np.float64) + anim.view * lift
-    anim._billboard(sc, c, w / 2, h / 2, image_shader(anim, c, tex, w, h, opacity, grid))
+    anim._billboard(sc, c, w / 2, h / 2,
+                    image_shader(anim, c, tex, w, h, opacity, grid, keep_theme))
 
 
 def shrink_columns(tex, max_cols):

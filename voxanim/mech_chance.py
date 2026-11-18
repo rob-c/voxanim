@@ -19,6 +19,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import study_chance as S
+from . import theme
 from .diagram import draw_image
 from .easing import smoothstep
 from .mech import (
@@ -939,8 +940,9 @@ class SeedsText(Chance):
         bar = op * smoothstep(0.14, 0.26, u)
         self.text(sc, 0.07, 0.498, "its chance for each next token", bar, anchor="lm",
                   strong=True, size=0.031)
-        self.text(sc, 0.93, 0.498, "likeliest first; pale: thousands of unlikely ones",
-                  bar, anchor="rm", size=0.029)
+        # the tail's block is the bar's empty track: pale on the light page, dark on the dark
+        self.text(sc, 0.93, 0.498, "likeliest first; %s: thousands of unlikely ones"
+                  % theme.word("pale", "dark"), bar, anchor="rm", size=0.029)
         pin_op = [smoothstep(0.3 + 0.08 * b, 0.36 + 0.08 * b, u) for b in range(6)]
         at = self._bar(sc, self.q[3], 0.585, 40, bar, pin_op=pin_op)
         for b in range(6):
@@ -1083,7 +1085,8 @@ class SeedsText(Chance):
         x0, x1 = self.BAR
         p = self.q[3]
         cum = np.cumsum(p)
-        heads = ("temperature 1, untouched: the pale block is the unlikely tail",
+        heads = ("temperature 1, untouched: the %s block is the unlikely tail"
+                 % theme.word("pale", "dark"),
                  "top 40: only the 40 likeliest tokens can be drawn",
                  "top-p 0.9: the likeliest tokens holding 90%% of the chance (%s here)"
                  % f"{self.kept[6]:,}")

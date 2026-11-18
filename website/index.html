@@ -10,7 +10,7 @@
 <meta property="og:title" content="voxanim">
 <meta property="og:description" content="{{count}} animations of convolutions, training, generative models, transformers and GPT-2, rendered from real trained models.">
 <meta property="og:image" content="media/{{hero}}.jpg">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1l6 3.5v7L8 15l-6-3.5v-7z' fill='%2337a8a0'/%3E%3Cpath d='M8 8l6-3.5v7L8 15z' fill='%23267a74'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="logo-mark.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..600&display=swap">
@@ -22,10 +22,10 @@
 </head>
 <body>
 
-<a class="skip" href="#convolutions">Skip to the animations</a>
+<a class="skip" href="#{{first}}">Skip to the animations</a>
 
 <header class="top">
-  <a class="brand" href="./">voxanim</a>
+  <a class="brand" href="./"><img src="logo-mark.svg" alt="" width="26" height="24">voxanim</a>
   <nav aria-label="Project">
     <a href="https://github.com/{{repo}}">Source code</a>
     <a href="https://github.com/{{repo}}/releases/tag/{{tag}}">Release {{tag}}</a>
@@ -38,6 +38,7 @@
 <main>
   <section class="hero" aria-labelledby="hero-h">
     <div class="hero-text">
+      <p class="hero-logo"><img src="logo-mark.svg" alt="" width="84" height="77">voxanim</p>
       <p class="tagline"><em>It’s the AI trying to understand itself…</em></p>
       <h1 id="hero-h">Watch the numbers move through a neural network</h1>
       <p>{{count}} animations, from a first look at probability to GPT-2.
@@ -46,9 +47,8 @@
       the open code.</p>
     </div>
     <a class="hero-video frame" href="#{{hero_name}}" data-clip='{{hero_clip}}'
-       data-preview="media/{{hero}}-480.mp4">
-      <img src="media/{{hero}}.jpg" width="960" height="540" fetchpriority="high"
-           alt="A 3×3 convolution: eight filters sliding over a 7×7×8 input">
+       {{hero_frame}}>
+      {{hero_picture}}
       {{open}}
     </a>
   </section>
@@ -98,23 +98,35 @@ python3 -m voxanim render gradient-descent</code></pre>
 <footer>
   <p>voxanim {{version}}, released under the MIT licence. The conv2d animations
   follow the originals by <a href="https://animatedai.github.io">Animated AI</a>.
-  The grid plays the first half of each animation small; point at a clip for
-  the sharper preview, click it for the full 960×540 file.</p>
+  The grid plays the first half of each animation small; click a clip to watch the
+  full 960×540 video, in light or dark mode, streamed from
+  <a href="https://github.com/{{repo}}/releases/tag/{{tag}}">release {{tag}}</a>.</p>
 </footer>
 
 <dialog id="player" aria-labelledby="player-title">
   <form method="dialog" class="player-bar"><button>Close</button></form>
   <div class="player-media">
-    <video controls loop playsinline preload="metadata"></video>
+    <!-- The type must be stated: a release serves its files as application/octet-stream,
+         and Safari refuses a video it is not told is one. -->
+    <video controls loop playsinline preload="metadata"><source type="video/mp4"></video>
+    <p class="player-error" role="alert" hidden>The video could not be streamed from the
+    release. <a class="player-error-link" download>Download it</a> to watch it.</p>
   </div>
   <div class="player-text">
     <h2 id="player-title"></h2>
     <p class="player-about"></p>
     <p class="player-length"></p>
+    <div class="player-theme" role="group" aria-label="This video in">
+      <span>This video in</span>
+      <button type="button" data-video-theme="light" aria-pressed="true">Light</button>
+      <button type="button" data-video-theme="dark" aria-pressed="false">Dark</button>
+    </div>
     <ul class="player-files">
-      <li><a data-file="mp4" download>Download MP4</a></li>
-      <li><a data-file="gif">Download GIF</a></li>
-      <li><a data-file="manifest">Render manifest</a></li>
+      <li><a data-video="light" download>Download MP4 (light)</a></li>
+      <li><a data-video="dark" download>Download MP4 (dark)</a></li>
+      <li><a class="player-manifest">Render manifest</a></li>
+      <li><a href="{{gifs_light}}">All GIFs, light (one .tar)</a></li>
+      <li{{gifs_dark_hidden}}><a href="{{gifs_dark}}">All GIFs, dark (one .tar)</a></li>
     </ul>
     <p class="player-cmd-label">Render it yourself</p>
     <div class="player-cmd"><code></code><button type="button" class="copy">Copy</button></div>

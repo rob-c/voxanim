@@ -21,9 +21,10 @@ def test_layout_qa_clean():
     assert not bad, bad
 
 
-def test_text_is_not_clipped():
+def test_text_is_not_clipped(monkeypatch):
     """Text composited in its own little box must match Pillow drawing the
     same text on the whole frame (a tight box once cut the tops off 7s)."""
+    monkeypatch.setenv("VOXANIM_BRAND", "0")     # the corner mark is ink too: not this test's
     from PIL import Image as Im
     from PIL import ImageDraw as Dr
 

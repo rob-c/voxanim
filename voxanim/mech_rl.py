@@ -24,6 +24,7 @@ from . import next_systems as S
 from . import next_systems_real as SR
 from . import realdata as R
 from . import study_rl as G
+from . import theme
 from .cache import cached_npz
 from .easing import smoothstep
 from .mech import (
@@ -450,8 +451,10 @@ class MultiArmedBandits(RL):
             f"{min(t + 1, self.pulls):,}", f"{self.pulls:,}",
             self.run_regret[method, min(t + (1 if live else 0), self.pulls)]), op, anchor="rm",
             size=0.034, ink=dark(ink))
-        self.text(sc, 0.5, self.NOTE_Y, "number: pulls of that arm so far    dark line: its true "
-                  "rate, which the player never sees", op, size=0.030)
+        # the line is dark teal: the darkest mark on a light page, on a dark one the dots are
+        self.text(sc, 0.5, self.NOTE_Y, "number: pulls of that arm so far    %s line: its true "
+                  "rate, which the player never sees" % theme.word("dark", "teal"), op,
+                  size=0.030)
 
     def phase_2(self, sc, u, op):
         self._play(sc, u, op, 0)

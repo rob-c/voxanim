@@ -20,6 +20,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import study_phys_adv as S
+from . import theme
 from .easing import smoothstep
 from .losschart import LossChart
 from .mech import (
@@ -487,8 +488,8 @@ class ModeCollapse(PhysAdv):
         self.text(sc, 0.455, 0.705, "on real digits", op * go, size=0.030)
         bars = smoothstep(0.34, 0.58, u)
         self._histogram(sc, shares, self.INK[BAL], op * smoothstep(0.30, 0.36, u), bars)
-        self.text(sc, 0.765, 0.372, "share of samples; dark marks: the real digits", op * bars,
-                  size=0.030)
+        self.text(sc, 0.765, 0.372, "share of samples; %s marks: the real digits"
+                  % theme.word("dark", "light"), op * bars, size=0.030)
         on = op * smoothstep(0.62, 0.72, u)
         self.text(sc, 0.05, 0.875, "entropy H = −Σ p·log₂ p = −(%.2f·log₂ %.2f + %.2f·log₂ "
                   "%.2f + …)  =  %.2f bits" % (shares[0], shares[0], shares[1], shares[1],

@@ -21,7 +21,7 @@ import numpy as np
 
 from . import next_vision as nv
 from . import study_classical as sx
-from . import toy2d
+from . import theme, toy2d
 from .cache import cached_npz
 from .diagram import draw_image
 from .easing import smoothstep
@@ -259,7 +259,8 @@ class BiasVariance(Classical):
                   upto=int(len(self.cloud) * smoothstep(0.48, 0.72, u)))
         mean = smoothstep(0.74, 0.92, u)
         self._truth(sc, pane, op, mean)
-        self.lines(sc, 0.915, 0.385, ["black: the average of", "10,000 unseen images"],
+        self.lines(sc, 0.915, 0.385, ["%s: the average of" % theme.word("black", "white"),
+                                      "10,000 unseen images"],
                    op * mean, anchor="rm", step=0.04, size=0.030)
         for n, (i, c) in enumerate(self.examples):
             fx, fy = 0.14 + 0.21 * (n % 2), 0.445 + 0.275 * (n // 2)
@@ -325,7 +326,8 @@ class BiasVariance(Classical):
             self.hbar(sc, x, y + 0.055, full * min(v / self.SCALE, 1.0), ink, op,
                       value=small(v) + (", off the scale" if over else ""), u=show, thick=26.0,
                       track=full)
-        self.lines(sc, x, 0.72, [("black: the average of unseen images", None),
+        self.lines(sc, x, 0.72, [("%s: the average of unseen images"
+                                  % theme.word("black", "white"), None),
                                  ("thin: %d of the %d fits" % (self.FITS, self.curves.shape[1]),
                                   dark(self.FIT)),
                                  ("thick red: the mean of all %d" % self.curves.shape[1],
@@ -1020,7 +1022,8 @@ class GradientBoosting(Classical):
         self.disk(sc, self.P(*pane.at(slot, now[who])), 6.0, self.SLOW, op, ring=AMBER, lift=1.4)
         self.text(sc, 0.05, 0.31, "tree %d of %d, fitted to the red gaps" % (
             k + 1, len(self.trees)), op, anchor="lm", strong=True, size=0.036)
-        self.lines(sc, 0.57, 0.90, [("black: the truth", None)], op)
+        self.lines(sc, 0.57, 0.90, [("%s: the truth" % theme.word("black", "white"), None)],
+                   op)
         self.text(sc, 0.72, 0.90, "blue: predicted", op, anchor="lm", ink=dark(self.SLOW))
         self.text(sc, 0.86, 0.90, "red: wrong", op, anchor="lm", ink=dark(self.LEFT))
         self.text(sc, 0.05, 0.90, "a split tests one cell of the top half; a leaf is a correction",
@@ -1258,7 +1261,8 @@ class GaussianMixtureEM(Classical):
         self._curves(sc, op, (len(self.rounds), max(state, 1.0)))
         self.text(sc, 0.58, 0.33, "another random start, round %d" % n, op, anchor="lm",
                   ink=dark(self.SECOND), size=0.040)
-        self.lines(sc, 0.58, 0.885, [("thin black: the blobs of the best fit", None),
+        self.lines(sc, 0.58, 0.885, [("thin %s: the blobs of the best fit"
+                                      % theme.word("black", "white"), None),
                                     ("same points, same method, a worse answer", None)],
                    ended, step=0.045)
 
@@ -1753,8 +1757,8 @@ class TsneUmap(Classical):
                       size=0.038)
             self.text(sc, 0.19 + 0.31 * n, 0.88, "%.0f units across" % (2 * np.abs(z).max()),
                       show)
-        self.text(sc, 0.5, 0.928, "amber ring: the same image in each map; black rings: its 12 "
-                  "nearest images", op)
+        self.text(sc, 0.5, 0.928, "amber ring: the same image in each map; %s rings: its 12 "
+                  "nearest images" % theme.word("black", "white"), op)
 
     def phase_4(self, sc, u, op):
         last = len(self.umap_frames) - 1
@@ -1810,8 +1814,8 @@ class TsneUmap(Classical):
             pane = self._fitted(0.165 + 0.275 * n, 0.60, 236.0, z)
             self._map(sc, show, pane, z, r=3.0)
             self.text(sc, 0.165 + 0.275 * n, 0.32, name, show, ink=dark(ink), size=0.036)
-        self.text(sc, 0.30, 0.875, "amber ring: the same image; black rings: its 12 nearest",
-                  op, size=0.030)
+        self.text(sc, 0.30, 0.875, "amber ring: the same image; %s rings: its 12 nearest"
+                  % theme.word("black", "white"), op, size=0.030)
         x, full = 0.60, self.span(0.21)[0]
         rows = (("of the 10 nearest images, kept nearby", 0, "%.0f%%", 100.0),
                 ("map distance against real distance", 1, "%.2f", 1.0))

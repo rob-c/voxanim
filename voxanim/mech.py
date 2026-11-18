@@ -234,11 +234,16 @@ class Mechanism(Diagram):
         return xs
 
     def grid(self, sc, values, fx, fy, w, h, op, reveal=1.0, vmax=None, ring=(), ring_ink=None,
-             frame=True, lines=0.16, hot=RED, cold=BLUE):
+             frame=True, lines=0.16, hot=RED, cold=BLUE, mask=False):
         """A matrix as a ``w x h`` px heatmap centred at ``(fx, fy)``: paper at
         zero, ``hot`` positive, ``cold`` negative. ``reveal`` (0..1) shows
         that fraction of its rows; ``ring``: ``(row, col)`` cells outlined.
-        Returns ``cell(row, col) -> (fx, fy)``."""
+        Returns ``cell(row, col) -> (fx, fy)``.
+
+        ``mask``: the grid is a plain yes/no mask (who may read whom), not a map with a
+        scale. Dark mode keeps a heat map as it is in light mode, since its caption reads
+        "a deeper cell: more"; a mask it turns with the page, the allowed cells vivid on
+        dark paper, where kept it stood as a white panel on the dark page."""
         a = np.atleast_2d(np.asarray(values, float))
         rows, cols = a.shape
         vmax = vmax if vmax is not None else max(float(np.abs(a).max()), 1e-10)
@@ -250,7 +255,8 @@ class Mechanism(Diagram):
             self.rect(sc, c, w + 8, h + 8, PAPER, op, border=AXIS, border_w=1.2, radius=5,
                       lift=0.1)
         draw_image(self, sc, c, rgb.astype(np.float32), w, h, op,
-                   grid=lines if min(w / cols, h / rows) >= 9 else 0)
+                   grid=lines if min(w / cols, h / rows) >= 9 else 0,
+                   keep_theme=False if mask else None)
         dw, dh = self.frac(w, h)
 
         def cell(r, k):

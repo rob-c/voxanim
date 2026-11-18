@@ -18,6 +18,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import study_phys_apps as S
+from . import theme
 from .easing import smoothstep
 from .losschart import LossChart
 from .mech import (
@@ -715,7 +716,8 @@ class ClassifierScore(Phys):
         self.vline(sc, tc, self.f_true, DIGIT_INK, toys, width=2.2)
         m = self.meta["fit"]
         self.text(sc, 0.845, 0.335, "%s samples" % commas(m["toys"]), toys, size=0.031)
-        self.text(sc, 0.845, 0.875, "black: true f", toys, size=0.029)
+        self.text(sc, 0.845, 0.875, "%s: true f" % theme.word("black", "white"), toys,
+                  size=0.029)
         self.tag(sc, TOYS, op)
 
 
@@ -997,7 +999,9 @@ class BoostedRegressionTrees(Phys):
                 if won:
                     self.rect(sc, self.P(x0 + dx * j, y0 + dy * i), 94, 44, AMBER, show,
                               border=AMBER, border_w=2.6, radius=7, lift=0.9, fill_op=0.0)
-        self.text(sc, 0.27, 0.80, "darker: lower error; ringed: the best", op, size=0.029)
+        # the tints deepen with lower error on paper; turned over, they brighten with it
+        self.text(sc, 0.27, 0.80, "%s: lower error; ringed: the best"
+                  % theme.word("darker", "brighter"), op, size=0.029)
         rows = (("always the mean", GREY, self.guess),
                 ("one feature, trees", self.TREE, self.meta["one_feature"]["held_lowest"]),
                 ("49 cells, best trees", self.SUM, best["held"]),

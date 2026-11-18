@@ -101,7 +101,11 @@ button[aria-pressed="true"] { border-color: var(--ink); }
   flex-wrap: wrap;
   max-width: 1280px; margin: 0 auto; padding: 18px var(--gutter) 0;
 }
-.brand { color: var(--ink); text-decoration: none; font-weight: 600; font-size: 1.125rem; }
+.brand {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--ink); text-decoration: none; font-weight: 600; font-size: 1.125rem;
+}
+.brand img { display: block; }
 .top nav { display: flex; gap: 24px; font-size: 0.9375rem; margin-right: auto; }
 .prefs { display: flex; gap: 8px; }
 
@@ -114,6 +118,13 @@ button[aria-pressed="true"] { border-color: var(--ink); }
 .hero h1 { font-size: clamp(2.125rem, 1.4rem + 2.6vw, 3.5rem); letter-spacing: -0.025em; }
 .hero p { margin-top: 20px; color: var(--ink-2); font-size: 1.125rem; }
 /* the line above the headline */
+/* the logo, large, in its own colours: the V and the name */
+.hero .hero-logo {
+  display: flex; align-items: center; gap: 16px; margin: 0 0 22px;
+  font-size: clamp(2.25rem, 1.6rem + 2.4vw, 3.25rem); font-weight: 600; letter-spacing: -0.03em;
+  line-height: 1; color: var(--ink);
+}
+.hero .hero-logo img { display: block; width: auto; height: 1.5em; }
 .hero .tagline { margin: 0 0 14px; font-style: italic; font-size: 1.25rem; color: var(--ink-2); }
 @media (min-width: 960px) {
   .hero { grid-template-columns: minmax(0, 5fr) minmax(0, 9fr); align-items: end; gap: 40px; }
@@ -296,6 +307,18 @@ dialog::backdrop { background: var(--scrim); }
 }
 .player-bar { display: flex; justify-content: flex-end; padding: 10px 12px 2px; }
 .player-media video { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--clip); }
+.player-media video[hidden] { display: none; }
+/* in place of the video when its stream has failed twice */
+.player-error {
+  display: grid; place-content: center; aspect-ratio: 16 / 9; margin: 0; padding: 24px;
+  background: var(--code); text-align: center;
+}
+.player-error[hidden] { display: none; }
+/* which theme of this video plays: two buttons, the pressed one filled */
+.player-theme { display: flex; align-items: center; gap: 8px; font-size: 0.9375rem; color: var(--ink-2); }
+.player-theme button[aria-pressed="true"] { background: var(--ink); color: var(--floor); border-color: var(--ink); }
+.player-theme button:disabled { opacity: 0.45; cursor: default; }
+.player-files li[hidden] { display: none; }
 .player-text {
   display: grid; gap: 14px 40px; padding: 16px 28px 28px;
   grid-template-columns: minmax(0, 1fr);
@@ -318,6 +341,6 @@ dialog::backdrop { background: var(--scrim); }
   .player-text h2, .player-about { grid-column: 1; }
   .player-text h2 { grid-row: 1; }
   .player-about { grid-row: 2 / span 4; }
-  .player-length, .player-files, .player-cmd-label, .player-cmd { grid-column: 2; }
+  .player-length, .player-theme, .player-files, .player-cmd-label, .player-cmd { grid-column: 2; }
   .player-length { grid-row: 1; align-self: end; }
 }

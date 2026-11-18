@@ -1,7 +1,7 @@
 """Build the project website: one static page showing every animation.
 
-    python3 website/build_site.py OUT                     # videos from the latest release
-    python3 website/build_site.py OUT --media build/out   # videos from a local render
+    python3 website/build_site.py OUT                     # media from the latest release
+    python3 website/build_site.py OUT --media build/out   # media from a local render
     python3 -m http.server -d OUT                    # preview
 
 The page is generated from the preset registry (names, output files and
@@ -9,19 +9,24 @@ descriptions) and :data:`SECTIONS` (how the animations are grouped and titled),
 so it cannot drift from the code: a preset missing from :data:`SECTIONS`, or a
 section naming one that does not exist, stops the build.
 
-``OUT`` receives ``index.html``, the stylesheet and script, and for each
-animation ``media/<file>.mp4`` (the full render, for the player and the
-download), ``media/<file>-480.mp4`` (a 480 px preview at full frame rate,
-played while a clip is hovered or focused), ``media/<file>-thumb.mp4`` (what
-the grid plays all the time: the first half of the animation at 320 px and
-12 frames a second, holding its last frame for 2 s before it loops; under
-100 KB) and a poster frame ``media/<file>.jpg``.  The MP4s are not
-committed to git: they come from a GitHub release (``gh release download``)
-or from a local ``build/out``; previews, thumbnails and posters that already
-exist in ``OUT`` are kept, so a cached ``media/`` makes a rebuild cheap.
-Download links point at the same release's assets.  Needs
-``ffmpeg``/``ffprobe``, and the GitHub CLI unless ``--media`` is given.  The
-Pages workflow (``.github/workflows/pages.yml``) runs exactly this.
+``OUT`` receives ``index.html``, the stylesheet and script, and for each animation
+``media/<file>.jpg`` (its poster), ``media/<file>-thumb.mp4`` (what its card plays: the
+first half of the animation, small and silent), the same two in dark mode
+(``media/<file>-dark.jpg``, ``media/<file>-dark-thumb.mp4``; a card shows the pair that
+matches the page's theme) and its render manifests (``media/<file>.json``,
+``media/<file>-dark.json``).  Those are made when the animation is rendered
+(:mod:`voxanim.previews`) and come here in one file of the release,
+``voxanim-site.tar.gz`` (``tools/release_assets.py``): the build downloads that archive
+and nothing else, and runs no ffmpeg.  The full videos are not on the site at all: the
+player streams them from the release, ``<media>.mp4`` or ``<media>-dark.mp4``, and the
+download links point there too.  An animation is offered in dark mode when the archive
+has its dark manifest.
+
+``--media DIR`` builds from a local folder instead, for a preview without a release: a
+render folder (``build/out``) or one filled by ``tools/release_assets.py``.  The player
+then plays DIR's own videos (linked into ``OUT/media``), and animations DIR does not
+have are left off the page.  Needs the GitHub CLI unless ``--media`` is given.  The Pages
+workflow (``.github/workflows/pages.yml``) runs exactly this.
 """
 
 from __future__ import annotations
@@ -34,21 +39,23 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 
 from voxanim import __version__, presets  # noqa: E402
+from voxanim.previews import CLIP_SUFFIX, POSTER_SUFFIX  # noqa: E402
 
 REPO = os.environ.get("GITHUB_REPOSITORY", "rob-c/voxanim")
-STATIC = ("style.css", "app.js")
+STATIC = ("style.css", "app.js", "logo-mark.svg", "logo.svg", "logo-dark.svg")
 HERO = "conv2d"
-POSTER_AT = 0.4          # poster frame, as a fraction of the animation's length
-POSTER_QUALITY = 4       # ffmpeg -q:v for the JPEG posters (2 best .. 31 worst)
-PREVIEW = dict(width=480, crf=28, preset="medium")   # full-rate preview, on hover
-PREVIEW_SUFFIX = "-480"
-THUMB = dict(width=320, fps=12, crf=30, half=True, hold=2.0)  # what the grid plays all the time
-THUMB_SUFFIX = "-thumb"
+SITE_ARCHIVE = "voxanim-site.tar.gz"           # as tools/release_assets.py names them
+GIF_ARCHIVE = "voxanim-gifs-%s.tar"
+DARK = "-dark"                                 # voxanim.theme.suffix() of a dark render
+# What the site archive may put on the site: flat names, these three kinds of file.
+ARCHIVE_MEMBER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.(jpg|mp4|json)")
 
 # (anchor, heading, one-line introduction, [(preset name, title), ...]).
 # Every registered preset appears exactly once; the build checks it.
@@ -339,124 +346,190 @@ def describe(p):
     return prose(first), prose(about)
 
 
-def release_tag(tag=None):
-    """``tag``, or the tag of the repository's latest release (via ``gh``)."""
-    if tag:
-        return tag
+def release_tag():
+    """The tag of the repository's latest release (via ``gh``)."""
     out = subprocess.run(["gh", "release", "view", "-R", REPO, "--json", "tagName",
                           "-q", ".tagName"], check=True, capture_output=True, text=True)
     return out.stdout.strip()
 
 
-def fetch_media(dest, media_dir, tag, files):
-    """Put ``<file>.mp4`` for each of ``files`` into ``dest``: copied from
-    ``media_dir``, or, when it is None, downloaded from release ``tag``.
+def release_url(tag, name):
+    """Where release ``tag`` serves its file ``name``."""
+    return "https://github.com/%s/releases/download/%s/%s" % (REPO, tag, name)
 
-    Returns the files that have no video. From a local ``media_dir`` that is an
-    error. From a release it is not: an animation added since that release has
-    no video there yet, and the site built on a push must not fail (or show
-    it) until the release that carries it is published."""
+
+def unpack_site(archive, dest):
+    """Unpack a ``voxanim-site.tar.gz`` into ``dest``; returns how many files.  Only plain
+    files with flat, ordinary names are taken: what is unpacked is served to the public,
+    and the archive is a download."""
     os.makedirs(dest, exist_ok=True)
-    if media_dir is None:
-        subprocess.run(["gh", "release", "download", tag, "-R", REPO, "--pattern", "*.mp4",
-                        "--dir", dest, "--skip-existing"], check=True)
-    else:
-        for f in files:
-            src = os.path.join(media_dir, f + ".mp4")
-            if os.path.exists(src) and not os.path.exists(os.path.join(dest, f + ".mp4")):
-                shutil.copyfile(src, os.path.join(dest, f + ".mp4"))
-    absent = [f for f in files if not os.path.exists(os.path.join(dest, f + ".mp4"))]
-    if absent and media_dir is not None:
-        raise SiteError("no video for: %s" % ", ".join(absent))
-    return absent
+    count = 0
+    with tarfile.open(archive, "r:gz") as tf:
+        for member in tf:
+            if not member.isfile() or not ARCHIVE_MEMBER.fullmatch(member.name):
+                raise SiteError("%s holds %r, which the site archive should not"
+                                % (os.path.basename(archive), member.name))
+            with tf.extractfile(member) as src, \
+                    open(os.path.join(dest, member.name), "wb") as dst:
+                shutil.copyfileobj(src, dst)
+            count += 1
+    return count
 
 
-def duration(mp4):
-    """Length of a video in seconds (ffprobe)."""
-    out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                          "-of", "csv=p=0", mp4], check=True, capture_output=True, text=True)
-    return float(out.stdout)
+def fetch_site(dest, tag):
+    """Download release ``tag``'s site archive and unpack it into ``dest``."""
+    with tempfile.TemporaryDirectory() as tmp:
+        got = subprocess.run(["gh", "release", "download", tag, "-R", REPO, "--pattern",
+                              SITE_ARCHIVE, "--dir", tmp], capture_output=True, text=True)
+        if got.returncode != 0:
+            # a release made before 1.11 has a video per animation and no archive
+            raise SiteError("release %s has no %s to build from (%s); publish a release "
+                            "gathered by tools/release_assets.py"
+                            % (tag, SITE_ARCHIVE, got.stderr.strip() or "gh failed"))
+        return unpack_site(os.path.join(tmp, SITE_ARCHIVE), dest)
 
 
-def poster(mp4, jpg, seconds):
-    """Write the frame at ``seconds`` of ``mp4`` to ``jpg`` (kept if it exists)."""
-    if os.path.exists(jpg):
-        return
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "%.3f" % seconds, "-i", mp4,
-                    "-frames:v", "1", "-q:v", str(POSTER_QUALITY), jpg], check=True)
+def _link(src, dst):
+    """``dst`` as a link to ``src`` (a copy where links are not allowed): a local preview
+    plays the folder's own videos without a second 1.2 GB of them."""
+    if os.path.lexists(dst):
+        os.remove(dst)
+    try:
+        os.symlink(os.path.abspath(src), dst)
+    except OSError:
+        shutil.copyfile(src, dst)
 
 
-def _encode(mp4, out, filters, crf, before_input=()):
-    """``mp4`` through ffmpeg ``filters`` to H.264 ``out``: silent, yuv420p,
-    moov atom first so it starts at once.  Kept if ``out`` exists."""
-    if os.path.exists(out):
-        return
-    tmp = out + ".part.mp4"
-    subprocess.run(["ffmpeg", "-v", "error", "-y", *before_input, "-i", mp4, "-vf", filters,
-                    "-c:v", "libx264", "-preset", PREVIEW["preset"], "-crf", str(crf),
-                    "-pix_fmt", "yuv420p", "-an", "-movflags", "+faststart", tmp], check=True)
-    os.replace(tmp, out)
+def local_media(dest, media_dir, files):
+    """Fill ``dest`` from the local folder ``media_dir`` for each of ``files`` (media
+    names): the posters, clips and manifests from its site archive if it has one (a folder
+    filled by ``tools/release_assets.py``), else as loose files (``build/out``); and links
+    to its videos, which a local preview plays in place of the release's."""
+    os.makedirs(dest, exist_ok=True)
+    archive = os.path.join(media_dir, SITE_ARCHIVE)
+    if os.path.exists(archive):
+        unpack_site(archive, dest)
+    for f in files:
+        for tail in (POSTER_SUFFIX, CLIP_SUFFIX, ".json", DARK + POSTER_SUFFIX,
+                     DARK + CLIP_SUFFIX, DARK + ".json"):
+            src = os.path.join(media_dir, f + tail)
+            if os.path.exists(src):
+                shutil.copyfile(src, os.path.join(dest, f + tail))
+        for tail in (".mp4", DARK + ".mp4"):
+            src = os.path.join(media_dir, f + tail)
+            if os.path.exists(src):
+                _link(src, os.path.join(dest, f + tail))
 
 
-def preview(mp4, out):
-    """The full-rate preview of ``mp4``: :data:`PREVIEW` pixels wide."""
-    _encode(mp4, out, "scale=%d:-2" % PREVIEW["width"], PREVIEW["crf"])
+def _seconds(manifest):
+    """An animation's length from its render manifest, or ``None`` if the manifest is from
+    before lengths were recorded (1.10 and earlier)."""
+    with open(manifest, encoding="utf-8") as fh:
+        m = json.load(fh)
+    return m["frames"] / m["fps"] if m.get("frames") and m.get("fps") else None
 
 
-def thumb(mp4, out, seconds):
-    """The grid's thumbnail of ``mp4`` (``seconds`` long): its first half at
-    :data:`THUMB` frames a second, the last frame held ``hold`` seconds so the
-    native loop pauses before it starts again."""
-    t = THUMB
-    cut = ("-t", "%.3f" % (seconds / 2)) if t["half"] else ()
-    _encode(mp4, out, "fps=%d,scale=%d:-2,tpad=stop_mode=clone:stop_duration=%.1f"
-            % (t["fps"], t["width"], t["hold"]), t["crf"], before_input=cut)
+def survey(media, local=False, registry=None):
+    """What ``media`` (the site's media folder, filled) can show: ``{preset name:
+    {"seconds": length, "dark": has a dark video, "dark_card": has a dark poster and
+    clip}}`` for every animation with a poster, a clip and a manifest that gives its
+    length.  The rest are left off the page: an
+    animation added since the release has nothing there yet, and the site built on a push
+    must not fail (or show it) until the release that carries it is published.  ``local``:
+    the videos are played from ``media`` too, so they must be there."""
+    registry = presets.REGISTRY if registry is None else registry
+    found = {}
+    for name, p in registry.items():
+        def has(tail, media_name=p.media):
+            return os.path.exists(os.path.join(media, media_name + tail))
+        if not (has(POSTER_SUFFIX) and has(CLIP_SUFFIX) and has(".json")):
+            continue
+        if local and not has(".mp4"):
+            continue
+        seconds = _seconds(os.path.join(media, p.media + ".json"))
+        if seconds is None and local:           # an old local render: ask the video
+            from voxanim.previews import duration
+            seconds = duration(os.path.join(media, p.media + ".mp4"))
+        if seconds is None:
+            continue
+        found[name] = {"seconds": seconds,
+                       "dark": has(DARK + ".json") and (not local or has(DARK + ".mp4")),
+                       "dark_card": has(DARK + POSTER_SUFFIX) and has(DARK + CLIP_SUFFIX)}
+    return found
 
 
 OPEN = ('<span class="open" aria-hidden="true"><svg viewBox="0 0 12 12" width="10" height="10">'
         '<path d="M2 1.5v9l8-4.5z" fill="currentColor"/></svg>Watch in full quality</span>')
 
 
-def clip_data(name, title, p, secs, tag):
-    """Everything the player dialog shows for one animation (its ``data-clip``)."""
+def clip_data(name, title, p, info, tag, local=False):
+    """Everything the card and the player dialog show for one animation (its
+    ``data-clip``).  ``video`` and ``manifest`` map each theme the animation has to its
+    file: the videos on the release (or, for a ``local`` preview, in the site's own media
+    folder), the manifests on the site.  ``poster`` and ``thumb`` map each theme the card
+    has previews in to them; light is always there, and app.js falls back to it."""
     _first, about = describe(p)
+    themes = [("light", "")] + ([("dark", DARK)] if info["dark"] else [])
+    cards = [("light", "")] + ([("dark", DARK)] if info.get("dark_card") else [])
+
+    def video(tail):
+        f = "%s%s.mp4" % (p.media, tail)
+        return "media/" + f if local else release_url(tag, f)
+
     return {
-        "name": name, "title": title, "about": about, "seconds": round(secs),
-        "mp4": "media/%s.mp4" % p.media,
-        "preview": "media/%s%s.mp4" % (p.media, PREVIEW_SUFFIX),
-        "thumb": "media/%s%s.mp4" % (p.media, THUMB_SUFFIX),
-        "poster": "media/%s.jpg" % p.media,
-        "gif": "https://github.com/%s/releases/download/%s/%s.gif" % (REPO, tag, p.media),
-        "manifest": "https://github.com/%s/releases/download/%s/%s.json" % (REPO, tag, p.media),
+        "name": name, "title": title, "about": about, "seconds": round(info["seconds"]),
+        "poster": {theme: "media/%s%s%s" % (p.media, tail, POSTER_SUFFIX)
+                   for theme, tail in cards},
+        "thumb": {theme: "media/%s%s%s" % (p.media, tail, CLIP_SUFFIX)
+                  for theme, tail in cards},
+        "video": {theme: video(tail) for theme, tail in themes},
+        "manifest": {theme: "media/%s%s.json" % (p.media, tail) for theme, tail in themes},
     }
 
 
-def clip_html(name, title, p, secs, tag):
+def clip_html(name, title, p, info, tag, local=False):
     """One animation in the grid: its frame with the "watch in full quality"
     cue, its title and summary.  The poster is a lazy <img>; app.js adds the
-    <video> on top: the thumbnail while the clip is near the screen, the
-    full-rate preview while it is hovered or focused."""
+    small clip as a <video> on top while the card is near the screen."""
     first, _about = describe(p)
-    data = clip_data(name, title, p, secs, tag)
+    data = clip_data(name, title, p, info, tag, local)
     esc = html.escape
     return (
         '<li class="clip" id="%(name)s">\n'
         '  <a href="#%(name)s" data-clip=\'%(data)s\'>\n'
-        '    <span class="frame" data-thumb="%(thumb)s" data-preview="%(preview)s">'
-        '<img src="%(poster)s" width="960" height="540" loading="lazy" decoding="async" alt="">'
-        '%(open)s</span>\n'
+        '    <span class="frame" %(frame)s>%(picture)s%(open)s</span>\n'
         '    <span class="clip-title">%(title)s</span>\n'
         '  </a>\n'
         '  <p>%(first)s</p>\n'
         '</li>' % dict(name=esc(name), data=esc(json.dumps(data, ensure_ascii=False), quote=True),
-                       preview=esc(data["preview"]), thumb=esc(data["thumb"]),
-                       poster=esc(data["poster"]), title=esc(title), first=esc(first), open=OPEN))
+                       frame=frame_attrs(data), title=esc(title), first=esc(first), open=OPEN,
+                       picture=picture_html(data, 'loading="lazy" decoding="async" alt=""')))
 
 
-def released(sections, durations):
-    """``sections`` with only the animations that have a video (a duration),
+def frame_attrs(data):
+    """The attributes app.js reads on a card's frame: the clip of each theme it has."""
+    out = 'data-thumb="%s"' % html.escape(data["thumb"]["light"])
+    if "dark" in data["thumb"]:
+        out += ' data-thumb-dark="%s"' % html.escape(data["thumb"]["dark"])
+    return out
+
+
+def picture_html(data, attrs):
+    """A card's poster.  Where there is a dark one, the browser picks by the system's
+    colour scheme before any script runs, so a dark page never downloads the light poster
+    first; app.js takes over when the page's own "Dark mode" button has chosen."""
+    light, dark = data["poster"]["light"], data["poster"].get("dark")
+    img = '<img src="%s" width="640" height="360" %s>' % (html.escape(light), attrs)
+    if not dark:
+        return img
+    return ('<picture data-dark="%s"><source media="(prefers-color-scheme: dark)" srcset="%s">'
+            '%s</picture>' % (html.escape(dark), html.escape(dark), img))
+
+
+def released(sections, found):
+    """``sections`` with only the animations that have media (are in ``found``),
     and without the sections that are left empty."""
-    kept = [(a, h, i, [(n, t) for n, t in items if n in durations]) for a, h, i, items in sections]
+    kept = [(a, h, i, [(n, t) for n, t in items if n in found]) for a, h, i, items in sections]
     return [section for section in kept if section[3]]
 
 
@@ -542,10 +615,16 @@ SECTIONS = [tuple(_grouped[a]) for *_, anchors in PARTS for a in anchors]
 PART_OF = {a: k for k, (*_, anchors) in enumerate(PARTS) for a in anchors}
 
 
-def page_html(durations, tag, sections=None):
-    """The whole page.  ``durations`` maps preset names to seconds; an
-    animation without one (not in the release yet) is left off the page."""
-    sections = released(SECTIONS if sections is None else sections, durations)
+HERO_ALT = "A 3×3 convolution: eight filters sliding over a 7×7×8 input"
+
+
+def page_html(found, tag, sections=None, local=False):
+    """The whole page.  ``found`` is :func:`survey`'s answer: an animation that is not in
+    it (not in the release yet) is left off the page.  ``local``: the player plays the
+    videos in the site's own media folder, not the release's."""
+    sections = released(SECTIONS if sections is None else sections, found)
+    if not sections:
+        raise SiteError("no animation has a poster, a preview clip and a manifest")
     with open(os.path.join(HERE, "index.html"), encoding="utf-8") as fh:
         template = fh.read()
     index, body, part = [], [], None
@@ -557,22 +636,32 @@ def page_html(durations, tag, sections=None):
                         % (part + 1, part + 1, len(PARTS), html.escape(PARTS[part][0]),
                            html.escape(PARTS[part][1])))
         index.append('<li><a href="#%s">%s</a></li>' % (anchor, html.escape(heading)))
-        clips = "\n".join(clip_html(n, t, presets.REGISTRY[n], durations[n], tag)
+        clips = "\n".join(clip_html(n, t, presets.REGISTRY[n], found[n], tag, local)
                           for n, t in items)
         body.append(
             '<section class="group" id="%s" aria-labelledby="%s-h">\n'
             '<header><h2 id="%s-h">%s</h2><p>%s</p></header>\n'
             '<ol class="clips">\n%s\n</ol>\n</section>'
             % (anchor, anchor, anchor, html.escape(heading), html.escape(intro), clips))
-    hero = presets.REGISTRY[HERO]
-    hero_title = next(t for *_, items in sections for n, t in items if n == HERO)
-    hero_data = clip_data(HERO, hero_title, hero, durations[HERO], tag)
+    titles = {n: t for *_, items in sections for n, t in items}
+    # a local preview of a few animations may not have the usual one to lead with
+    lead = HERO if HERO in titles else next(iter(titles))
+    hero = presets.REGISTRY[lead]
+    hero_data = clip_data(lead, titles[lead], hero, found[lead], tag, local)
     fill = {
-        "count": str(len(durations)), "version": __version__, "tag": html.escape(tag),
+        "count": str(len(found)), "version": __version__, "tag": html.escape(tag),
         "parts": str(len(PARTS)),
-        "repo": REPO, "hero": hero.media, "hero_name": HERO, "index": "\n".join(index),
+        "repo": REPO, "hero": hero.media, "hero_name": lead, "index": "\n".join(index),
         "sections": "\n\n".join(body), "open": OPEN,
+        "hero_frame": frame_attrs(hero_data),
+        "hero_picture": picture_html(hero_data, 'fetchpriority="high" alt="%s"' % html.escape(
+            HERO_ALT if lead == HERO else titles[lead])),
         "hero_clip": html.escape(json.dumps(hero_data, ensure_ascii=False), quote=True),
+        "first": sections[0][0],
+        "gifs_light": release_url(tag, GIF_ARCHIVE % "light"),
+        "gifs_dark": release_url(tag, GIF_ARCHIVE % "dark"),
+        # a light-only release has no dark archive to link to
+        "gifs_dark_hidden": "" if any(i["dark"] for i in found.values()) else " hidden",
     }
     return re.sub(r"\{\{(\w+)\}\}", lambda m: fill[m.group(1)], template)
 
@@ -580,43 +669,45 @@ def page_html(durations, tag, sections=None):
 def build(out, media_dir=None, tag=None):
     """Write the site into ``out`` (see the module docstring)."""
     check_sections()
-    tag = release_tag(tag)
-    files = [p.media for p in presets.REGISTRY.values()]
+    local = media_dir is not None
+    # a local preview asks GitHub nothing: its release links name this version's tag
+    tag = tag or ("v" + __version__ if local else release_tag())
     media = os.path.join(out, "media")
-    absent = set(fetch_media(media, media_dir, tag, files))
+    if local:
+        local_media(media, media_dir, [p.media for p in presets.REGISTRY.values()])
+    else:
+        fetch_site(media, tag)
+    found = survey(media, local)
+    absent = sorted(set(presets.REGISTRY) - set(found))
     if absent:
-        print("website: %d animations have no video in release %s and are left off the page: %s"
-              % (len(absent), tag, ", ".join(sorted(absent))))
-    durations = {}
-    for name, p in presets.REGISTRY.items():
-        if p.media in absent:
-            continue
-        mp4 = os.path.join(media, p.media + ".mp4")
-        durations[name] = duration(mp4)
-        poster(mp4, os.path.join(media, p.media + ".jpg"), POSTER_AT * durations[name])
-        preview(mp4, os.path.join(media, p.media + PREVIEW_SUFFIX + ".mp4"))
-        thumb(mp4, os.path.join(media, p.media + THUMB_SUFFIX + ".mp4"), durations[name])
+        print("website: %d animations have no media in %s and are left off the page: %s"
+              % (len(absent), media_dir if local else "release " + tag, ", ".join(absent)))
+    page = page_html(found, tag, local=local)
     for f in STATIC:
         shutil.copyfile(os.path.join(HERE, f), os.path.join(out, f))
     with open(os.path.join(out, "index.html"), "w", encoding="utf-8") as fh:
-        fh.write(page_html(durations, tag))
+        fh.write(page)
     # GitHub Pages: serve the files as they are, no Jekyll
     open(os.path.join(out, ".nojekyll"), "w").close()
+    return found
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("out", help="output directory (created)")
-    ap.add_argument("--media", help="take the MP4s from this directory (e.g. build/out) "
-                                    "instead of downloading the release's")
-    ap.add_argument("--tag", help="release the download links (and videos) come from "
-                                  "(default: the latest)")
+    ap.add_argument("--media", help="build from this local folder (build/out, or one filled "
+                                    "by tools/release_assets.py) instead of the release, "
+                                    "and play its videos")
+    ap.add_argument("--tag", help="release the media and the download links come from "
+                                  "(default: the latest; with --media, this version's)")
     args = ap.parse_args(argv)
     try:
-        build(args.out, args.media, args.tag)
-    except (SiteError, subprocess.CalledProcessError) as e:
+        found = build(args.out, args.media, args.tag)
+    except (SiteError, subprocess.CalledProcessError, tarfile.TarError) as e:
         sys.exit("website: %s" % e)
-    print("wrote %s" % os.path.join(args.out, "index.html"))
+    print("wrote %s (%d animations, %d with a dark video)"
+          % (os.path.join(args.out, "index.html"), len(found),
+             sum(i["dark"] for i in found.values())))
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ the rest.  ``media`` is the basename the site uses (under ``../media``) and
 
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import os
 from collections.abc import Callable
@@ -23,6 +24,7 @@ import numpy as np
 from . import color as C
 from .camera import REF_H
 from .conv import ConvAnimation, ConvSpec, Layout, Tempo
+from .layout import title_block
 
 
 @dataclass(frozen=True)
@@ -59,6 +61,30 @@ def preset(name, media=None, reference=None, about=None):
     return deco
 
 
+CAPTION_ZOOM, CAPTION_DROP = 0.86, 0.065      # see _captioned
+
+def _captioned(anim, title, subtitle):
+    """``anim`` with a title and one line saying what it shows, on every frame.
+
+    The first nine animations were recreations of silent originals and carried no words at
+    all: on the page their title sat beside them, but a video saved or shared on its own
+    did not say what it was."""
+    scene = anim.scene
+    # the picture filled the frame from top to bottom: it steps back and down a little to
+    # leave the words a band of their own
+    cam = anim.cam
+    anim.cam = dataclasses.replace(cam, zoom=cam.zoom * CAPTION_ZOOM,
+                                   anchor=(cam.anchor[0], cam.anchor[1] + CAPTION_DROP))
+
+    def captioned(t):
+        sc = scene(t)
+        title_block(sc, title, subtitle)
+        return sc
+
+    anim.scene = captioned
+    return anim
+
+
 # ------------------------------------------------------------- conv2d family
 
 
@@ -66,7 +92,10 @@ def preset(name, media=None, reference=None, about=None):
         "convolution-animation-3x3-kernel.gif")
 def conv2d():
     """7x7x8 input, eight 3x3x8 filters, stride 1, no padding -> 5x5x8."""
-    return ConvAnimation(ConvSpec())
+    return _captioned(ConvAnimation(ConvSpec()),
+                      'A 3×3 convolution',
+                      'eight 3×3 filters slide over a 7×7×8 input one step at a time; each stop '
+                      'gives one value: 5×5×8 out')
 
 
 @preset("conv2d-same-padding", "convolution-animation-3x3-kernel-same-padding",
@@ -74,16 +103,22 @@ def conv2d():
 def conv2d_same():
     """[1,1,1,1] ('same') zero padding keeps the output at 7x7."""
     L = Layout(input=(0.232, 0.255), output=(0.722, 0.700))
-    return ConvAnimation(ConvSpec(name="conv2d-same", padding=(1, 1, 1, 1), layout=L,
-                                  tempo=Tempo(fast=0.15)))
+    return _captioned(ConvAnimation(ConvSpec(name="conv2d-same", padding=(1, 1, 1, 1), layout=L,
+                                  tempo=Tempo(fast=0.15))),
+                      'Same padding',
+                      'a border of zeros around the input keeps the output the size of the '
+                      'input: 7×7 in, 7×7 out')
 
 
 @preset("conv2d-stride-2", "convolution-animation-3x3-kernel-stride-2",
         "convolution-animation-3x3-kernel-stride-2.gif")
 def conv2d_stride2():
     """Stride 2 skips every other window: 7x7 -> 3x3."""
-    return ConvAnimation(ConvSpec(name="conv2d-stride-2", stride=(2, 2),
-                                  tempo=Tempo(slow=1.1, fast=0.38, ramp_in=5)))
+    return _captioned(ConvAnimation(ConvSpec(name="conv2d-stride-2", stride=(2, 2),
+                                  tempo=Tempo(slow=1.1, fast=0.38, ramp_in=5))),
+                      'Stride 2',
+                      'the filter moves two cells at a time and skips every other window: 7×7 '
+                      'in, 3×3 out')
 
 
 @preset("conv2d-stride-2-same-padding",
@@ -92,9 +127,11 @@ def conv2d_stride2():
 def conv2d_stride2_same():
     """Stride 2 with 'same' padding: 9x9 padded -> 4x4."""
     L = Layout(input=(0.232, 0.255))
-    return ConvAnimation(ConvSpec(name="conv2d-stride-2-same", stride=(2, 2),
+    return _captioned(ConvAnimation(ConvSpec(name="conv2d-stride-2-same", stride=(2, 2),
                                   padding=(1, 1, 1, 1), layout=L,
-                                  tempo=Tempo(slow=1.1, fast=0.32, ramp_in=6)))
+                                  tempo=Tempo(slow=1.1, fast=0.32, ramp_in=6))),
+                      'Stride 2 with same padding',
+                      'zero padding, then steps of two: a 7×7 input padded to 9×9 gives 4×4')
 
 
 GROUP_INPUT = [C.rgb("#2f7c7a"), C.rgb("#5fb0ae")]
@@ -108,9 +145,11 @@ def conv2d_groups():
     """Two groups: each half of the filters only sees half of the channels."""
     L = Layout(input=(0.17, 0.20), output=(0.86, 0.80), active=(0.47, 0.45),
                queue=(0.66, 0.37), done=(0.13, 0.84))
-    return ConvAnimation(ConvSpec(name="conv2d-2-groups", groups=2,
+    return _captioned(ConvAnimation(ConvSpec(name="conv2d-2-groups", groups=2,
                                   input_colors=GROUP_INPUT, filter_colors=GROUP_FILTERS,
-                                  layout=L))
+                                  layout=L)),
+                      'Grouped convolution',
+                      "two groups: each half of the filters sees only half of the input's channels")
 
 
 @preset("depthwise", "depthwise-convolution-animation-3x3-kernel",
@@ -119,9 +158,11 @@ def depthwise():
     """Eight groups: one 3x3x1 filter per channel."""
     L = Layout(input=(0.20, 0.22), output=(0.86, 0.80), active=(0.47, 0.44),
                queue=(0.62, 0.30), done=(0.17, 0.66), spacing=0.8)
-    return ConvAnimation(ConvSpec(name="depthwise", groups=8,
+    return _captioned(ConvAnimation(ConvSpec(name="depthwise", groups=8,
                                   filter_colors=C.shades("#d44a48", 8, -0.24, 0.16),
-                                  layout=L, tempo=Tempo(fast=0.16), track_groups=False))
+                                  layout=L, tempo=Tempo(fast=0.16), track_groups=False)),
+                      'Depthwise convolution',
+                      'one 3×3 filter for each channel: every channel is filtered on its own')
 
 
 @preset("depthwise-separable", "depthwise-separable-convolution-animation-3x3-kernel",
@@ -137,7 +178,10 @@ def depthwise_separable():
                   tempo=Tempo(slow=0.9, fast=0.07, ramp_in=8, ramp_out=1.5))
     pw = ConvSpec(name="pointwise", in_hw=(7, 7), kernel=(1, 1), layout=L2,
                   tempo=Tempo(slow=0.8, fast=0.06, ramp_in=6))
-    return ConvAnimation([dw, pw])
+    return _captioned(ConvAnimation([dw, pw]),
+                      'Depthwise separable convolution',
+                      'a depthwise layer, one filter per channel, then a 1×1 layer that mixes '
+                      'the channels')
 
 
 # ------------------------------------------------------------- conv1d
@@ -169,7 +213,10 @@ def conv1d_scroll():
     spec = ConvSpec(name="conv1d", in_hw=(12, 1), in_ch=8, filters=4, kernel=(3, 1),
                     data=data, weights=w, layout=L,
                     tempo=Tempo(slow=1.0, fast=0.24, ramp_in=6, ramp_out=2))
-    return ConvAnimation(spec)
+    return _captioned(ConvAnimation(spec),
+                      'Conv1D over a sequence',
+                      'four filters, three steps long, slide down a 12-step sequence of 8 '
+                      'channels: 10 steps × 4 channels out')
 
 
 def _sweep_data(seed=11):
@@ -196,7 +243,10 @@ def conv1d_sweep():
                     order="serpentine", data=data, weights=w,
                     filter_colors=[C.FILTERS[0]], layout=L,
                     tempo=Tempo(slow=0.9, fast=0.13, ramp_in=6, ramp_out=2))
-    return ConvAnimation(spec)
+    return _captioned(ConvAnimation(spec),
+                      'Conv1D, row by row',
+                      'a kernel three cells wide reads each row of an 8×8 sheet in turn, left to '
+                      'right, then right to left')
 
 
 # The teaching set and the network catalogue register themselves into

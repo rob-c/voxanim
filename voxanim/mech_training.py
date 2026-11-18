@@ -183,7 +183,7 @@ class TeacherForcing(Mechanism):
             self.x[turn], int(self.mask[turn].sum()), n, self.y[turn]), op, anchor="lm",
             strong=True, size=0.034)
         cell = self.grid(sc, self.mask, 0.81, 0.60, 236, 236, op, reveal=(turn + 1) / n,
-                         ring=[(turn, turn)], hot=BLUE)
+                         ring=[(turn, turn)], hot=BLUE, mask=True)
         self.text(sc, 0.81, 0.31, "who may read whom", op, strong=True, size=0.034)
         self.text(sc, cell(turn, 0)[0] - 0.035, cell(turn, 0)[1], self.x[turn], op,
                   ink=dark(BLUE), size=0.034)
@@ -496,7 +496,7 @@ class PackingAndPadding(Mechanism):
         w, h = 690.0, 204.0
         cx, cy = 0.50, 0.565
         self.grid(sc, v, cx, cy, w, h, op, reveal=(turn + 1) / rows, vmax=1.0, hot=self.A_INK,
-                  cold=self.PAD)
+                  cold=self.PAD, mask=True)
         dw, dh = self.frac(w, h)
         left, _top = cx - dw / 2, cy - dh / 2
         line = self.source[turn]
@@ -575,7 +575,7 @@ class PackingAndPadding(Mechanism):
         values = mask.astype(float) - (2.0 * leak if leak is not None else 0.0)
         side = 196.0
         cell = self.grid(sc, values, 0.81, 0.735, side, side, op, vmax=1.0, ring=[(q, q)],
-                         hot=self.MAY, cold=self.LEAK, lines=0.10)
+                         hot=self.MAY, cold=self.LEAK, lines=0.10, mask=True)
         own = int(mask[q, half:].sum())
         other = int(mask[q, :half].sum())
         self.lines(sc, 0.05, 0.60, [
@@ -605,7 +605,7 @@ class PackingAndPadding(Mechanism):
             y = 0.44 + 0.17 * i
             a = ramp(u, 0.05 + 0.2 * i, 0.15 + 0.2 * i)
             self.grid(sc, thumb, 0.10, y, 70, 70, op * a, vmax=1.0, hot=self.MAY, cold=self.LEAK,
-                      lines=0.0)
+                      lines=0.0, mask=True)
             self.text(sc, 0.155, y, name, op * a, anchor="lm", ink=dark(ink), size=0.034)
             more = value - self.losses[0]
             self.hbar(sc, 0.40, y, full * value / 3.8, ink, op * a, "",
@@ -895,7 +895,7 @@ class Grokking(Mechanism):
             rows = ok.shape[1] // cols
             v = np.where(ok[k], 1.0, 0.0).reshape(rows, cols)
             w, h = cols * px, rows * px
-            self.grid(sc, v, x, y, w, h, op, vmax=1.0, hot=ink, lines=0.0)
+            self.grid(sc, v, x, y, w, h, op, vmax=1.0, hot=ink, lines=0.0, mask=True)
             dh = self.frac(0, h)[1]
             count = "%s of %s" % (f"{int(ok[k].sum()):,}", f"{ok.shape[1]:,}")
             self.text(sc, x, y - dh / 2 - 0.04, count if short else "%s %s right" % (count, name),

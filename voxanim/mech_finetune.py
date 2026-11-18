@@ -15,7 +15,7 @@ from functools import lru_cache
 
 import numpy as np
 
-from . import gpt2, realdata
+from . import gpt2, realdata, theme
 from . import study_finetune as F
 from .cache import cached_npz
 from .easing import smoothstep
@@ -322,7 +322,7 @@ class InstructionTuning(Kit):
         o = op * smoothstep(0.58, 0.66, u)
         w = self.span(xs[n] - xs[1])[0] * n / (n - 1)
         self.grid(sc, self.mask, (xs[1] + xs[n]) / 2, 0.76, w, 118.0, o,
-                  reveal=smoothstep(0.62, 0.9, u), hot=self.ONLY)
+                  reveal=smoothstep(0.62, 0.9, u), hot=self.ONLY, mask=True)
         self.lines(sc, 0.05, 0.72, ["the answer-only", "mask, six examples:", "green = graded"], o,
                    size=0.032, step=0.045)
 
@@ -732,7 +732,8 @@ class RlhfPpo(Kit):
     def phase_2(self, sc, u, op):
         n = self._at(u)
         words = [self.words[i] for i in self.rows]
-        self.text(sc, 0.05, 0.325, "the policy after 'the'  (dark mark: the reference)", op,
+        self.text(sc, 0.05, 0.325, "the policy after 'the'  (%s mark: the reference)"
+                  % theme.word("dark", "white"), op,
                   anchor="lm", size=0.032, strong=True)
         self.wordbars(sc, 0.15, 0.39, words, self.dists[0][n][self.rows], 230.0, self.INKS[0], op,
                       ref=self.ref[self.rows], step=0.066)
@@ -898,7 +899,8 @@ class Dpo(Kit):
     def phase_3(self, sc, u, op):
         n = int(round(self.updates * min(u / 0.85, 1.0) ** 1.6))
         words = [self.words[i] for i in self.rows]
-        self.text(sc, 0.05, 0.325, "the policy after 'the'  (dark mark: the reference)", op,
+        self.text(sc, 0.05, 0.325, "the policy after 'the'  (%s mark: the reference)"
+                  % theme.word("dark", "white"), op,
                   anchor="lm", size=0.032, strong=True)
         self.wordbars(sc, 0.15, 0.39, words, self.p[n][self.rows], 230.0, self.DPO, op,
                       ref=self.ref[self.rows], step=0.066)
@@ -1354,7 +1356,8 @@ class PromptAndPrefixTuning(Kit):
                 self.text(sc, 0.95, y, "%.0f%% of the way" % (100 * closed),
                           o * smoothstep(0.5, 0.65, u), anchor="rm", size=0.034, strong=True)
         self.text(sc, 0.05, 0.895, "'of the way': from the untouched base to full tuning; "
-                  "dark marks: lowest and highest of %d seeds" % self.seeds,
+                  "%s marks: lowest and highest of %d seeds"
+                  % (theme.word("dark", "white"), self.seeds),
                   op * smoothstep(0.6, 0.75, u), anchor="lm", size=0.03)
 
 
