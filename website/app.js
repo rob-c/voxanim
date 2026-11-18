@@ -235,7 +235,7 @@ const spy = new IntersectionObserver((entries) => {
 sections.forEach((s) => s && spy.observe(s));
 
 // ---------------------------------------------------------------- player
-// The full videos are files of the GitHub release, streamed from there: light as
+// The full videos are files of GitHub releases (a repository per theme), streamed from there: light as
 // <media>.mp4, dark as <media>-dark.mp4.  The video's <source> states the type because
 // the release serves every file as application/octet-stream.  The release sends no CORS
 // header, so the video can be played and nothing else (no fetch, no canvas).

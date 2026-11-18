@@ -62,32 +62,39 @@ def _members(path, mode="r:"):
 
 def test_a_release_of_both_themes(made, capsys, tmp_path):
     _run(made)
-    assert sorted(os.listdir(made.dest)) == sorted([
-        "first.mp4", "first-dark.mp4", "second.mp4", "second-dark.mp4",
-        "voxanim-gifs-light.tar", "voxanim-gifs-dark.tar", "voxanim-site.tar.gz",
-        "voxanim-weights.tar.gz", "SHA256SUMS"])
+    main, light, dark = (made.dest / d for d in ("voxanim", "voxanim-light", "voxanim-dark"))
+    assert sorted(os.listdir(made.dest)) == ["voxanim", "voxanim-dark", "voxanim-light"]
+    assert sorted(os.listdir(main)) == ["SHA256SUMS", "voxanim-site.tar.gz",
+                                        "voxanim-weights.tar.gz"]
+    assert sorted(os.listdir(light)) == ["SHA256SUMS", "first.mp4", "second.mp4",
+                                         "voxanim-gifs-light.tar"]
+    assert sorted(os.listdir(dark)) == ["SHA256SUMS", "first-dark.mp4", "second-dark.mp4",
+                                        "voxanim-gifs-dark.tar"]
     # the GIFs are stored, not compressed: "r:" refuses a compressed tar
-    assert _members(made.dest / "voxanim-gifs-light.tar") == ["first.gif", "second.gif"]
-    assert _members(made.dest / "voxanim-gifs-dark.tar") == ["first-dark.gif", "second-dark.gif"]
-    assert _members(made.dest / "voxanim-site.tar.gz", "r:gz") == sorted(
+    assert _members(light / "voxanim-gifs-light.tar") == ["first.gif", "second.gif"]
+    assert _members(dark / "voxanim-gifs-dark.tar") == ["first-dark.gif", "second-dark.gif"]
+    assert _members(main / "voxanim-site.tar.gz", "r:gz") == sorted(
         m + tail for m in ("first", "second")
         for tail in (".jpg", "-thumb.mp4", ".json", "-dark.jpg", "-dark-thumb.mp4", "-dark.json"))
-    assert _members(made.dest / "voxanim-weights.tar.gz", "r:gz") == ["mlp-0123456789ab.npz"]
-    with tarfile.open(made.dest / "voxanim-gifs-dark.tar") as tf:
+    assert _members(main / "voxanim-weights.tar.gz", "r:gz") == ["mlp-0123456789ab.npz"]
+    with tarfile.open(dark / "voxanim-gifs-dark.tar") as tf:
         assert tf.extractfile("first-dark.gif").read() == (made.out / "first-dark.gif").read_bytes()
-    # SHA256SUMS covers every other file of the release, correctly
-    sums = dict(reversed(line.split("  ")) for line in
-                (made.dest / "SHA256SUMS").read_text().splitlines())
-    assert sorted(sums) == sorted(f for f in os.listdir(made.dest) if f != "SHA256SUMS")
-    for name, digest in sums.items():
-        assert release.sha256(made.dest / name) == digest
+    # each folder's SHA256SUMS covers every other file of that release, correctly
+    for folder in (main, light, dark):
+        sums = dict(reversed(line.split("  ")) for line in
+                    (folder / "SHA256SUMS").read_text().splitlines())
+        assert sorted(sums) == sorted(f for f in os.listdir(folder) if f != "SHA256SUMS")
+        for name, digest in sums.items():
+            assert release.sha256(folder / name) == digest
     said = capsys.readouterr().out
     assert "2 animations (2 with a dark render)" in said
-    assert "9 files of the 1000 a release may hold" in said
+    assert "voxanim-light: 4 files of the 1000 a release may hold" in said
+    assert "voxanim: 3 files of the 1000 a release may hold" in said
     # the same renders give the same archives, byte for byte
     _run(made, dest=tmp_path / "again")
-    again = tmp_path / "again" / "SHA256SUMS"
-    assert (made.dest / "SHA256SUMS").read_bytes() == again.read_bytes()
+    for folder in (main, light, dark):
+        again = tmp_path / "again" / folder.name / "SHA256SUMS"
+        assert (folder / "SHA256SUMS").read_bytes() == again.read_bytes()
 
 
 def test_a_missing_dark_render_stops_the_release_unless_light_only(made, capsys):
@@ -97,10 +104,12 @@ def test_a_missing_dark_render_stops_the_release_unless_light_only(made, capsys)
         _run(made)
     assert not made.dest.exists()                            # nothing half made
     _run(made, "--light-only")
-    files = os.listdir(made.dest)
-    assert "second.mp4" in files and "second-dark.mp4" not in files and "first-dark.mp4" in files
-    assert _members(made.dest / "voxanim-gifs-dark.tar") == ["first-dark.gif"]
-    assert "second-dark.json" not in _members(made.dest / "voxanim-site.tar.gz", "r:gz")
+    assert "second.mp4" in os.listdir(made.dest / "voxanim-light")
+    files = os.listdir(made.dest / "voxanim-dark")
+    assert "second-dark.mp4" not in files and "first-dark.mp4" in files
+    assert _members(made.dest / "voxanim-dark" / "voxanim-gifs-dark.tar") == ["first-dark.gif"]
+    assert "second-dark.json" not in _members(
+        made.dest / "voxanim" / "voxanim-site.tar.gz", "r:gz")
     assert "2 animations (1 with a dark render)" in capsys.readouterr().out
 
 
@@ -109,9 +118,9 @@ def test_light_only_with_no_dark_render_at_all_has_no_dark_archive(made):
         if "-dark" in f:
             os.remove(made.out / f)
     _run(made, "--light-only")
-    assert sorted(os.listdir(made.dest)) == sorted([
-        "first.mp4", "second.mp4", "voxanim-gifs-light.tar", "voxanim-site.tar.gz",
-        "voxanim-weights.tar.gz", "SHA256SUMS"])
+    assert sorted(os.listdir(made.dest)) == ["voxanim", "voxanim-light"]
+    assert sorted(os.listdir(made.dest / "voxanim-light")) == [
+        "SHA256SUMS", "first.mp4", "second.mp4", "voxanim-gifs-light.tar"]
 
 
 def test_an_animation_with_no_render_stops_the_release_unless_partial(made, capsys):
@@ -121,7 +130,8 @@ def test_an_animation_with_no_render_stops_the_release_unless_partial(made, caps
     with pytest.raises(SystemExit, match="two: no light render"):
         _run(made)
     _run(made, "--allow-partial")
-    assert "first.mp4" in os.listdir(made.dest) and "second.mp4" not in os.listdir(made.dest)
+    files = os.listdir(made.dest / "voxanim-light")
+    assert "first.mp4" in files and "second.mp4" not in files
     assert "1 animations (1 with a dark render, 1 left out)" in capsys.readouterr().out
 
 
@@ -168,8 +178,9 @@ def test_the_file_cap_and_a_used_directory(made, monkeypatch):
     with pytest.raises(SystemExit, match="is not empty"):
         _run(made)
     os.remove(made.dest / "old")
-    monkeypatch.setattr(release, "FILE_CAP", 8)              # this release is 9 files
-    with pytest.raises(SystemExit, match="9 files, and a release holds at most 8"):
+    monkeypatch.setattr(release, "FILE_CAP", 3)              # a theme's release is 4 files
+    with pytest.raises(SystemExit,
+                       match="4 files for voxanim-light, and a release holds at most 3"):
         _run(made)
     assert os.listdir(made.dest) == []
 

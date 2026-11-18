@@ -18,9 +18,10 @@ matches the page's theme) and its render manifests (``media/<file>.json``,
 (:mod:`voxanim.previews`) and come here in one file of the release,
 ``voxanim-site.tar.gz`` (``tools/release_assets.py``): the build downloads that archive
 and nothing else, and runs no ffmpeg.  The full videos are not on the site at all: the
-player streams them from the release, ``<media>.mp4`` or ``<media>-dark.mp4``, and the
-download links point there too.  An animation is offered in dark mode when the archive
-has its dark manifest.
+player streams them from the same version's release of the theme's own repository
+(``MEDIA_REPOS``: ``<repo>-light`` has ``<media>.mp4``, ``<repo>-dark`` has
+``<media>-dark.mp4``), and the download links point there too.  An animation is offered
+in dark mode when the archive has its dark manifest.
 
 ``--media DIR`` builds from a local folder instead, for a preview without a release: a
 render folder (``build/out``) or one filled by ``tools/release_assets.py``.  The player
@@ -53,6 +54,10 @@ STATIC = ("style.css", "app.js", "logo-mark.svg", "logo.svg", "logo-dark.svg")
 HERO = "conv2d"
 SITE_ARCHIVE = "voxanim-site.tar.gz"           # as tools/release_assets.py names them
 GIF_ARCHIVE = "voxanim-gifs-%s.tar"
+# The full videos and the GIF archives are not in this repository's release: each theme
+# has a repository of its own, which holds nothing but a release per version (2.0.0: 598
+# videos and 2.2 GB of GIFs would have sat beside the source's own release).
+MEDIA_REPOS = {"light": REPO + "-light", "dark": REPO + "-dark"}
 DARK = "-dark"                                 # voxanim.theme.suffix() of a dark render
 # What the site archive may put on the site: flat names, these three kinds of file.
 ARCHIVE_MEMBER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.(jpg|mp4|json)")
@@ -353,9 +358,11 @@ def release_tag():
     return out.stdout.strip()
 
 
-def release_url(tag, name):
-    """Where release ``tag`` serves its file ``name``."""
-    return "https://github.com/%s/releases/download/%s/%s" % (REPO, tag, name)
+def release_url(tag, name, theme=None):
+    """Where release ``tag`` serves its file ``name``: this repository's release, or with
+    ``theme`` the same tag's release of that theme's media repository."""
+    return "https://github.com/%s/releases/download/%s/%s" % (
+        MEDIA_REPOS[theme] if theme else REPO, tag, name)
 
 
 def unpack_site(archive, dest):
@@ -406,19 +413,25 @@ def local_media(dest, media_dir, files):
     filled by ``tools/release_assets.py``), else as loose files (``build/out``); and links
     to its videos, which a local preview plays in place of the release's."""
     os.makedirs(dest, exist_ok=True)
-    archive = os.path.join(media_dir, SITE_ARCHIVE)
-    if os.path.exists(archive):
-        unpack_site(archive, dest)
+    # release_assets.py fills a folder per repository; a render folder has no such folders
+    dirs = [media_dir] + [d for d in (os.path.join(media_dir, os.path.basename(r))
+                                      for r in (REPO, *MEDIA_REPOS.values()))
+                          if os.path.isdir(d)]
+    for d in dirs:
+        archive = os.path.join(d, SITE_ARCHIVE)
+        if os.path.exists(archive):
+            unpack_site(archive, dest)
     for f in files:
-        for tail in (POSTER_SUFFIX, CLIP_SUFFIX, ".json", DARK + POSTER_SUFFIX,
-                     DARK + CLIP_SUFFIX, DARK + ".json"):
-            src = os.path.join(media_dir, f + tail)
-            if os.path.exists(src):
-                shutil.copyfile(src, os.path.join(dest, f + tail))
-        for tail in (".mp4", DARK + ".mp4"):
-            src = os.path.join(media_dir, f + tail)
-            if os.path.exists(src):
-                _link(src, os.path.join(dest, f + tail))
+        for d in dirs:
+            for tail in (POSTER_SUFFIX, CLIP_SUFFIX, ".json", DARK + POSTER_SUFFIX,
+                         DARK + CLIP_SUFFIX, DARK + ".json"):
+                src = os.path.join(d, f + tail)
+                if os.path.exists(src):
+                    shutil.copyfile(src, os.path.join(dest, f + tail))
+            for tail in (".mp4", DARK + ".mp4"):
+                src = os.path.join(d, f + tail)
+                if os.path.exists(src):
+                    _link(src, os.path.join(dest, f + tail))
 
 
 def _seconds(manifest):
@@ -472,9 +485,9 @@ def clip_data(name, title, p, info, tag, local=False):
     themes = [("light", "")] + ([("dark", DARK)] if info["dark"] else [])
     cards = [("light", "")] + ([("dark", DARK)] if info.get("dark_card") else [])
 
-    def video(tail):
+    def video(theme, tail):
         f = "%s%s.mp4" % (p.media, tail)
-        return "media/" + f if local else release_url(tag, f)
+        return "media/" + f if local else release_url(tag, f, theme)
 
     return {
         "name": name, "title": title, "about": about, "seconds": round(info["seconds"]),
@@ -482,7 +495,7 @@ def clip_data(name, title, p, info, tag, local=False):
                    for theme, tail in cards},
         "thumb": {theme: "media/%s%s%s" % (p.media, tail, CLIP_SUFFIX)
                   for theme, tail in cards},
-        "video": {theme: video(tail) for theme, tail in themes},
+        "video": {theme: video(theme, tail) for theme, tail in themes},
         "manifest": {theme: "media/%s%s.json" % (p.media, tail) for theme, tail in themes},
     }
 
@@ -658,8 +671,8 @@ def page_html(found, tag, sections=None, local=False):
             HERO_ALT if lead == HERO else titles[lead])),
         "hero_clip": html.escape(json.dumps(hero_data, ensure_ascii=False), quote=True),
         "first": sections[0][0],
-        "gifs_light": release_url(tag, GIF_ARCHIVE % "light"),
-        "gifs_dark": release_url(tag, GIF_ARCHIVE % "dark"),
+        "gifs_light": release_url(tag, GIF_ARCHIVE % "light", "light"),
+        "gifs_dark": release_url(tag, GIF_ARCHIVE % "dark", "dark"),
         # a light-only release has no dark archive to link to
         "gifs_dark_hidden": "" if any(i["dark"] for i in found.values()) else " hidden",
     }

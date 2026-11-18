@@ -27,12 +27,15 @@ Every animation is rendered again, in both themes.
   480 px at 10 frames a second, about 60 KB) of its MP4, in each theme.
   `python3 -m voxanim previews` makes them again from existing MP4s without rendering. The
   480 px hover preview is gone.
-- **Release layout** (`tools/release_assets.py`): every video as its own file in both themes
-  (`<media>.mp4`, `<media>-dark.mp4`); the GIFs of each theme in one stored archive
-  (`voxanim-gifs-light.tar`, `voxanim-gifs-dark.tar`); the posters, preview clips and every
-  manifest in `voxanim-site.tar.gz`; the weights archive and `SHA256SUMS` as before. 603 files
-  for 299 animations in two themes, where one theme was 899 of the 1,000 a release is
-  understood to hold; the tool prints the count and refuses a release over the cap. It refuses
+- **Release layout** (`tools/release_assets.py`): the videos and GIFs are released from two
+  repositories of their own, `voxanim-light` and `voxanim-dark`, which hold nothing else:
+  every video as its own file (`<media>.mp4`, `<media>-dark.mp4`) and the theme's GIFs in
+  one stored archive (`voxanim-gifs-light.tar`, `voxanim-gifs-dark.tar`). This repository's
+  release keeps the posters, preview clips and every manifest in `voxanim-site.tar.gz`, and
+  the weights archive. Each of the three has its own `SHA256SUMS`, and the tool fills a
+  folder for each. 301 files per theme for 299 animations, where one theme was 899 of the
+  1,000 a release is understood to hold; the tool prints the counts and refuses a release
+  over the cap. It refuses
   an animation without both themes unless `--light-only`, and one without previews;
   `--allow-partial` packs only what is rendered. GIFs and manifests are no longer separate
   release files.
@@ -40,7 +43,7 @@ Every animation is rendered again, in both themes.
   ffmpeg (the workflow no longer installs it or caches media); no full video is in the Pages
   build. Cards show the poster and preview of the page's theme and swap when "Dark mode" is
   pressed, fetching only the theme on show. The player streams the full video from the
-  GitHub release itself, dark when the page is dark, with a Light / Dark switch for the video
+  release of the theme's repository, dark when the page is dark, with a Light / Dark switch for the video
   on show that keeps its position; a stream that fails is asked for once more, then replaced
   by a message with a download link. Downloads: the MP4 in either theme and the two GIF
   archives. `build_site.py --media DIR` previews from local files, with no release and no

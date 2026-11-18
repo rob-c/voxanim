@@ -2,14 +2,18 @@
 
     python3 tools/release_assets.py OUT
 
-``OUT`` receives:
+``OUT`` receives a folder per repository the release goes to, each with its own
+``SHA256SUMS`` (``shasum -a 256 -c SHA256SUMS``).  ``OUT/voxanim-light`` and
+``OUT/voxanim-dark``, for the two media repositories, which hold nothing but releases:
 
-* every video as a file of its own, in both themes: ``<media>.mp4`` and
-  ``<media>-dark.mp4``, so the website's player can stream any of them straight from the
-  release;
-* ``voxanim-gifs-light.tar`` and ``voxanim-gifs-dark.tar``: every GIF of each theme.  They
+* every video of the theme as a file of its own, ``<media>.mp4`` or ``<media>-dark.mp4``,
+  so the website's player can stream any of them straight from the release;
+* ``voxanim-gifs-light.tar`` or ``voxanim-gifs-dark.tar``: every GIF of the theme.  They
   are stored, not compressed: gzip -9 took 1.8% off twenty of the 1.10.0 GIFs (69.3 MB to
-  68.0 MB) and xz 3.7%, which is not worth unpacking 575 MB twice;
+  68.0 MB) and xz 3.7%, which is not worth unpacking 575 MB twice.
+
+And ``OUT/voxanim``, for the release of the source repository itself:
+
 * ``voxanim-site.tar.gz``: all the website build needs besides the page itself: each
   animation's poster (``<media>.jpg``) and small preview clip (``<media>-thumb.mp4``) in
   both themes (``<media>-dark.jpg``, ``<media>-dark-thumb.mp4``), as a render or
@@ -17,13 +21,12 @@
   (``<media>.json``, ``<media>-dark.json``);
 * ``voxanim-weights.tar.gz``: every trained model and recorded run in the
   cache (the ``<name>-<12 hex digits>.npz`` files of ``build/.cache`` or
-  ``$VOXANIM_CACHE``);
-* ``SHA256SUMS`` over all of the above (``shasum -a 256 -c SHA256SUMS``).
+  ``$VOXANIM_CACHE``).
 
 The archives are packed deterministically (sorted, no timestamps), so the same files give
 the same archive.  GitHub is understood to cap a release at 1,000 files, and 1.10.0 was at
-899 with a video, a GIF and a manifest per animation in one theme: hence the archives.  The
-count is printed against the cap, and a release over it is refused.
+899 with a video, a GIF and a manifest per animation in one theme: hence the archives.
+Each folder's count is printed against the cap, and a release over it is refused.
 
 The build refuses to run when a registered animation has no render in either theme, a
 manifest's recorded hash does not match its file, or a poster or preview is missing or
@@ -35,7 +38,12 @@ packaging on two or three).  Render first:
 
 Then, for example:
 
-    gh release create v1.1.0 --title "voxanim 1.1.0" --notes-file NOTES.md OUT/*
+    gh release create v1.1.0 -R OWNER/voxanim-light --title "1.1.0, light" OUT/voxanim-light/*
+    gh release create v1.1.0 -R OWNER/voxanim-dark --title "1.1.0, dark" OUT/voxanim-dark/*
+    gh release create v1.1.0 --title "voxanim 1.1.0" --notes-file NOTES.md OUT/voxanim/*
+
+in that order: the website is rebuilt when the last one is published, and plays the videos
+of the other two.
 """
 
 from __future__ import annotations
@@ -64,6 +72,8 @@ GIFS = "voxanim-gifs-%s.tar"
 SITE = "voxanim-site.tar.gz"
 WEIGHTS_FILE = "voxanim-weights.tar.gz"
 SUMS = "SHA256SUMS"
+MAIN = "voxanim"                               # the folder for the source repository's release
+MEDIA = "voxanim-%s"                           # and for a theme's media repository
 
 
 def sha256(path):
@@ -172,19 +182,22 @@ def pack_weights(cache_dir, path):
 
 
 def plan(renders):
-    """What a release of ``renders`` holds: ``(videos, archives)`` with ``videos`` the MP4
-    paths to copy and ``archives`` a ``{file name: [paths]}`` of what each tar packs."""
-    videos, site = [], []
+    """What a release of ``renders`` holds: ``{folder: (videos, archives)}`` with ``videos``
+    the MP4 paths to copy there and ``archives`` a ``{file name: [paths]}`` of what each
+    tar there packs.  A theme with no render has no folder."""
+    site = []
+    videos = {theme: [] for theme in THEMES}
     gifs = {theme: [] for theme in THEMES}
     for r in renders:
         for theme in THEMES:
             if r[theme]:
-                videos.append(r[theme]["mp4"])
+                videos[theme].append(r[theme]["mp4"])
                 gifs[theme].append(r[theme]["gif"])
                 site += [r[theme]["poster"], r[theme]["clip"], r[theme]["json"]]
-    archives = {GIFS % theme: files for theme, files in gifs.items() if files}
-    archives[SITE] = site
-    return videos, archives
+    folders = {MEDIA % theme: (videos[theme], {GIFS % theme: gifs[theme]})
+               for theme in THEMES if videos[theme]}
+    folders[MAIN] = ([], {SITE: site})
+    return folders
 
 
 def main(argv=None):
@@ -204,31 +217,42 @@ def main(argv=None):
                             allow_partial=args.allow_partial)
     if not renders:
         sys.exit("release: no renders in %s" % args.renders)
-    videos, archives = plan(renders)
-    total = len(videos) + len(archives) + 2          # and the weights and SHA256SUMS
-    if total > FILE_CAP:
-        sys.exit("release: %d files, and a release holds at most %d" % (total, FILE_CAP))
-    os.makedirs(args.out, exist_ok=True)
-    made = []
-    for f in videos:
-        shutil.copyfile(f, os.path.join(args.out, os.path.basename(f)))
-        made.append(os.path.basename(f))
-    for name, files in archives.items():
-        pack(os.path.join(args.out, name), files, compress=name.endswith(".gz"))
-        made.append(name)
-    weights = pack_weights(args.cache, os.path.join(args.out, WEIGHTS_FILE))
-    made.append(WEIGHTS_FILE)
-    with open(os.path.join(args.out, SUMS), "w", encoding="utf-8") as fh:
-        for n in sorted(made):
-            fh.write("%s  %s\n" % (sha256(os.path.join(args.out, n)), n))
+    folders = plan(renders)
+    for folder, (videos, archives) in folders.items():
+        total = len(videos) + len(archives) + 1 + (folder == MAIN)   # SHA256SUMS; weights
+        if total > FILE_CAP:
+            sys.exit("release: %d files for %s, and a release holds at most %d"
+                     % (total, folder, FILE_CAP))
+    counts, sizes, weights = {}, {}, []
+    for folder, (videos, archives) in folders.items():
+        dest = os.path.join(args.out, folder)
+        os.makedirs(dest)
+        made = []
+        for f in videos:
+            shutil.copyfile(f, os.path.join(dest, os.path.basename(f)))
+            made.append(os.path.basename(f))
+        for name, files in archives.items():
+            pack(os.path.join(dest, name), files, compress=name.endswith(".gz"))
+            made.append(name)
+        if folder == MAIN:
+            weights = pack_weights(args.cache, os.path.join(dest, WEIGHTS_FILE))
+            made.append(WEIGHTS_FILE)
+        with open(os.path.join(dest, SUMS), "w", encoding="utf-8") as fh:
+            for n in sorted(made):
+                fh.write("%s  %s\n" % (sha256(os.path.join(dest, n)), n))
+        counts[folder] = len(made) + 1
+        for n in made:
+            if not n.endswith(".mp4"):
+                sizes[os.path.join(folder, n)] = os.path.getsize(os.path.join(dest, n))
     dark = sum(1 for r in renders if r["dark"])
     left_out = len(presets.REGISTRY) - len(renders)
     print("%d animations (%d with a dark render%s), %d models packed -> %s"
           % (len(renders), dark, ", %d left out" % left_out if left_out else "",
              len(weights), args.out))
-    for name in (*archives, WEIGHTS_FILE):
-        print("  %8.1f MB  %s" % (os.path.getsize(os.path.join(args.out, name)) / 1e6, name))
-    print("%d files of the %d a release may hold" % (len(made) + 1, FILE_CAP))
+    for name, size in sizes.items():
+        print("  %8.1f MB  %s" % (size / 1e6, name))
+    for folder, count in counts.items():
+        print("%s: %d files of the %d a release may hold" % (folder, count, FILE_CAP))
 
 
 if __name__ == "__main__":

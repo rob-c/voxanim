@@ -4,7 +4,8 @@ name: Website
 # are not in git: the build downloads one archive of posters, small preview clips
 # and manifests (voxanim-site.tar.gz) from the latest release, so the site is
 # rebuilt whenever a release is published as well as on every push.  The full
-# videos stay on the release and the page streams them from there, so the build
+# videos are on the releases of the two media repositories (<repo>-light and
+# <repo>-dark) and the page streams them from there, so the build
 # needs no ffmpeg and nothing worth caching: it used to download every MP4 and
 # encode three files from each.
 #

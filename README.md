@@ -1611,10 +1611,11 @@ animations. No media is in git, and no full video is on the site:
   is downloaded. An animation with no dark preview keeps its light one. Under
   reduced motion the previews stay still. Dark mode follows the system or the
   button (remembered per browser).
-- Opening a card plays the full video, streamed from the GitHub release
-  itself (`https://github.com/<repo>/releases/download/<tag>/<media>.mp4`, or
-  `<media>-dark.mp4` when the page is dark): the same repository's release,
-  not a copy in the Pages build. The player has a Light / Dark switch for
+- Opening a card plays the full video, streamed from a GitHub release
+  (`https://github.com/<repo>-light/releases/download/<tag>/<media>.mp4`, or
+  `<repo>-dark/.../<media>-dark.mp4` when the page is dark): each theme's
+  videos are released from a repository of their own, which holds nothing
+  else, and not copied into the Pages build. The player has a Light / Dark switch for
   the video on show, keeps its position when the theme changes, and offers
   both MP4s and the two GIF archives as downloads. A release serves its files
   as `application/octet-stream`, so the page states the type
@@ -1642,26 +1643,29 @@ tag, publish.
 
 ```bash
 python3 -m voxanim render all --theme both --jobs 8 --clean-frames   # hours; build/out/
-python3 tools/release_assets.py /tmp/release           # what a release holds, checked
+python3 tools/release_assets.py OUT                    # a folder per repository, checked
 git tag -a v1.1.0 -m "voxanim 1.1.0" && git push origin v1.1.0
-gh release create v1.1.0 --title "voxanim 1.1.0" --notes-file NOTES.md /tmp/release/*
+gh release create v1.1.0 -R <repo>-light --title "voxanim 1.1.0, light" OUT/voxanim-light/*
+gh release create v1.1.0 -R <repo>-dark --title "voxanim 1.1.0, dark" OUT/voxanim-dark/*
+gh release create v1.1.0 --title "voxanim 1.1.0" --notes-file NOTES.md OUT/voxanim/*
 ```
 
-A release holds:
+The source's own release goes last: publishing it rebuilds the website,
+which plays the videos of the other two. A release is three, one per
+repository, each with a `SHA256SUMS` over its files:
 
-- every video as its own file, in both themes: `<media>.mp4` and
-  `<media>-dark.mp4` (what the site's player streams);
-- `voxanim-gifs-light.tar` and `voxanim-gifs-dark.tar`: every GIF of each
-  theme. They are stored, not compressed: gzip took 1.8% off a sample of
+- `<repo>-light` and `<repo>-dark`: every video of the theme as its own file,
+  `<media>.mp4` or `<media>-dark.mp4` (what the site's player streams), and
+  `voxanim-gifs-light.tar` or `voxanim-gifs-dark.tar`, every GIF of the
+  theme. Those are stored, not compressed: gzip took 1.8% off a sample of
   twenty;
-- `voxanim-site.tar.gz`: the posters and preview clips of both themes and
-  every manifest (`<media>.json`, `<media>-dark.json`);
-- `voxanim-weights.tar.gz`: the trained models;
-- `SHA256SUMS` over all of them.
+- this repository: `voxanim-site.tar.gz`, the posters and preview clips of
+  both themes and every manifest (`<media>.json`, `<media>-dark.json`), and
+  `voxanim-weights.tar.gz`, the trained models.
 
-That is 603 files for 299 animations; GitHub is understood to allow 1,000 in
-a release, and one file per video, GIF and manifest in two themes would be
-1,794. `release_assets.py` prints the count against the cap. It refuses to
+That is 301 files per theme for 299 animations; GitHub is understood to
+allow 1,000 in a release, and one file per video, GIF and manifest in two
+themes would be 1,794. `release_assets.py` prints the count against the cap. It refuses to
 run while any animation lacks a render in either theme (`--light-only`
 allows a release without dark renders; `--allow-partial` leaves out
 animations that are not rendered at all, to try the packaging on a few), a

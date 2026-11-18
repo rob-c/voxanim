@@ -58,7 +58,7 @@ class _Collect(HTMLParser):
 
 BOTH = {"seconds": 30.0, "dark": True, "dark_card": True}
 LIGHT = {"seconds": 30.0, "dark": False, "dark_card": False}
-RELEASE = "https://github.com/%s/releases/download/v9.9.9/" % site.REPO
+RELEASE = "https://github.com/%s-%%s/releases/download/v9.9.9/" % site.REPO   # % theme
 
 
 def _page(found, **kw):
@@ -78,8 +78,8 @@ def test_page():
     for c, frame, poster in zip(p.clips, p.frames, p.posters, strict=True):
         media = presets.REGISTRY[c["name"]].media
         # the full videos are the release's files, one per theme, and nothing on the site
-        assert c["video"] == {"light": RELEASE + media + ".mp4",
-                              "dark": RELEASE + media + "-dark.mp4"}
+        assert c["video"] == {"light": RELEASE % "light" + media + ".mp4",
+                              "dark": RELEASE % "dark" + media + "-dark.mp4"}
         # a card carries the poster and the small clip of both themes, from the site
         assert c["poster"] == {"light": "media/%s.jpg" % media,
                                "dark": "media/%s-dark.jpg" % media}
@@ -121,8 +121,8 @@ def test_the_player_streams_from_the_release():
         ["light", "dark"]
     assert [a["data-video"] for _t, a in q.tags if "data-video" in a] == ["light", "dark"]
     links = [a.get("href") for tag, a in q.tags if tag == "a"]
-    assert RELEASE + "voxanim-gifs-light.tar" in links
-    assert RELEASE + "voxanim-gifs-dark.tar" in links
+    assert RELEASE % "light" + "voxanim-gifs-light.tar" in links
+    assert RELEASE % "dark" + "voxanim-gifs-dark.tar" in links
     assert 'class="player-error"' in player and " hidden>" in player
     # the script retries a failed stream once, then shows the message
     with open(os.path.join(os.path.dirname(site.__file__), "app.js"), encoding="utf-8") as fh:
@@ -153,7 +153,7 @@ def test_a_card_without_dark_media_keeps_the_light():
     assert "data-thumb-dark" in page.split('<li class="clip" id="%s">' % names[5])[1].split(
         "</li>")[0]
     # with no dark render anywhere, the dark GIF archive is not offered
-    assert '<li hidden><a href="%svoxanim-gifs-dark.tar"' % RELEASE in \
+    assert '<li hidden><a href="%svoxanim-gifs-dark.tar"' % (RELEASE % "dark") in \
         site.page_html(dict.fromkeys(names, LIGHT), "v9.9.9")
     assert "<li hidden>" not in page
 
@@ -290,10 +290,9 @@ def test_the_build_takes_everything_from_the_site_archive(tmp_path, monkeypatch,
     p.feed((out / "index.html").read_text(encoding="utf-8"))
     clips = {c["name"]: c for c in p.clips}
     assert set(clips) == set(SHOWN)
-    release = "https://github.com/%s/releases/download/v9.9.9/" % site.REPO
-    assert clips["conv2d"]["video"] == {"light": release + conv + ".mp4",
-                                        "dark": release + conv + "-dark.mp4"}
-    assert clips["bump-hunt"]["video"] == {"light": release + "bump-hunt.mp4"}
+    assert clips["conv2d"]["video"] == {"light": RELEASE % "light" + conv + ".mp4",
+                                        "dark": RELEASE % "dark" + conv + "-dark.mp4"}
+    assert clips["bump-hunt"]["video"] == {"light": RELEASE % "light" + "bump-hunt.mp4"}
     assert clips["bump-hunt"]["seconds"] == 2                # 45 frames at 30 a second
     for c in clips.values():                                 # what a card names is there
         for f in (*c["poster"].values(), *c["thumb"].values(), *c["manifest"].values()):
@@ -329,10 +328,16 @@ def test_a_local_preview_plays_local_files(tmp_path, monkeypatch, packed):
     monkeypatch.setattr(site.subprocess, "run", nothing)
     folder = _renders(tmp_path / "renders")
     if packed:                                               # as tools/release_assets.py leaves it
-        _archive(folder / site.SITE_ARCHIVE, folder)
+        _archive(tmp_path / site.SITE_ARCHIVE, folder)
+        for d in ("voxanim", "voxanim-light", "voxanim-dark"):
+            (folder / d).mkdir()
+        os.rename(tmp_path / site.SITE_ARCHIVE, folder / "voxanim" / site.SITE_ARCHIVE)
         for f in os.listdir(folder):
             if f.endswith((".jpg", ".json", "-thumb.mp4")):
                 os.remove(folder / f)
+            elif f.endswith(".mp4"):
+                os.rename(folder / f, folder / ("voxanim-dark" if "-dark" in f
+                                                else "voxanim-light") / f)
     out = tmp_path / "site"
     found = site.build(str(out), media_dir=str(folder))
     assert set(found) == set(SHOWN) and found["conv2d"]["dark"] and not found["bump-hunt"]["dark"]

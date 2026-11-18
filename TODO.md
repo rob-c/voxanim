@@ -608,3 +608,9 @@ from the release and holds only small previews, in both themes.
 **Not verified at release:** dark mode at final quality beyond a 21-animation sample; the 289
 labels re-inked for contrast beyond contact-sheet size; GPU framebuffers in dark; the limit of
 1,000 files per release is as understood, not confirmed.
+
+**Changed before publishing (2026-11-18), at the user's request:** the videos and GIF
+archives are released from two repositories of their own, `voxanim-light` and
+`voxanim-dark`; this repository's release keeps the site archive and the weights. The
+renders are the same files: only where they are published changed, so their manifests name
+the commit before this one.
