@@ -303,10 +303,16 @@ NEXT_SECTIONS = {
     # the alphabet is used up: later groups take lower-case letters
     "a": ("trees", "Decision trees, forests and boosting",
           "From one split to bagging, forests, boosting and the workings of XGBoost."),
+    "b": ("information", "Entropy, impurity and loss",
+          "One measure of uncertainty, in bits or nats: in a tree's leaves, in a classifier's "
+          "loss, and between two distributions."),
 }
+# Group c, the bridges between topics, is not a section: each bridge opens the section it
+# leads into (see _regroup).
+BRIDGES = {item["preset"]: True for item in NEXT_ITEMS if item["section"].startswith("c. ")}
 # Where each group sits on the page: the catalogue's order, except that the two groups added
 # after the hundred follow the generative models they build on, not the end of the page.
-NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMNa"
+NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMNab"
 assert sorted(NEXT_ORDER) == sorted(NEXT_SECTIONS)
 for _letter in NEXT_ORDER:
     _anchor, _heading, _intro = NEXT_SECTIONS[_letter]
@@ -548,17 +554,21 @@ def released(sections, found):
 
 # ------------------------------------------------------------------ the order of the page
 # The page reads as one course, from a first look at probability to large language models:
-# statistics, trees and classical methods, networks from first principles, convolutions, models
-# in use, autoencoders and generative models, Gaussian processes, then sequences, attention,
+# statistics, trees and classical methods, Gaussian processes, networks from first principles,
+# convolutions, models in use, autoencoders and generative models, then sequences, attention,
 # language models and what comes after the transformer. The sections above are written down in
 # the order they were built; this is the order they are read in.
 
 def _regroup(sections):
     """A few animations change section so each part can be read without the next: the decision
     tree joins the classical methods it belongs with, the recurrent networks get a section of
-    their own ahead of attention, and the attention training step joins the transformers."""
+    their own ahead of attention, and the attention training step joins the transformers.
+    Nothing is shown before what it rests on: the CNNs wait for convolutions, the position
+    encodings for attention, and the bridges (catalogue group c) each open the section they
+    lead into."""
     by = {anchor: [anchor, heading, intro, list(items)]
           for anchor, heading, intro, items in sections}
+    titles = {item["preset"]: item["title"] for item in NEXT_ITEMS}
 
     def take(anchor, names):
         moved = [pair for pair in by[anchor][3] if pair[0] in names]
@@ -566,16 +576,71 @@ def _regroup(sections):
         by[anchor][3] = [pair for pair in by[anchor][3] if pair[0] not in names]
         return moved
 
+    def pull(*names):
+        """``names`` taken out of whichever section holds them, in the order given; a bridge
+        is in none yet and comes from the catalogue."""
+        moved = []
+        for name in names:
+            held = [a for a, *_, items in by.values() if any(n == name for n, _ in items)]
+            if held:
+                moved += take(held[0], {name})
+            else:
+                assert BRIDGES.get(name), name
+                moved.append((name, titles[name]))
+        return moved
+
+    def put(anchor, at, *names):
+        """``names`` into section ``anchor`` at index ``at`` (None: at the end)."""
+        moved = pull(*names)
+        items = by[anchor][3]
+        at = len(items) if at is None else at
+        items[at:at] = moved
+
     by["classical-ml"][3][:0] = take("classifiers", {"decision-tree"})
     by["classical-ml"][1] = "Decision trees and classical machine learning"
-    by["classical-ml"][2] = ("A model you can read, then the classical ideas every later model "
-                             "is judged by.")
+    by["classical-ml"][2] = ("From an analysis cut to a model you can read, then the classical "
+                             "ideas every later model is judged by.")
+    put("classical-ml", 0, "from-a-cut-to-a-tree")
+    put("classical-ml", 2, "every-loss-is-a-likelihood")
     by["recurrent"] = ["recurrent", "Recurrent networks",
                        "Networks that read a sequence one step at a time and carry a memory along.",
                        take("training", {"rnn-training-step", "lstm-training-step",
                                          "rnn-batch-training", "gated-memory"})]
+    put("recurrent", 0, "markov-chain-to-rnn")
     by["training"][2] = "Forward pass, loss, gradients and update, one step at a time."
     by["transformers"][3][1:1] = take("training", {"attention-training-step"})
+
+    # the arithmetic of impurity ahead of the first split that uses it; the weights' entropy
+    # with the other measures of what a layer holds
+    put("trees", 0, "entropy-and-gini-by-hand")
+    put("capacity", 3, "weight-entropy")
+    # the CNNs once convolutions are known
+    put("vision", 0, "cnn-training-step", "strided-cnn-classifier")
+    by["vision"][2] = "Training a CNN, then what image models see, attend to and get wrong."
+    put("convolutions", 0, "dense-layer-learns-local")
+    by["convolutions"][2] = ("Why a dense layer gives way to a filter, then the filter sliding "
+                             "over a block of channels: the conv2d set, then conv1d.")
+    # text becomes tokens, then rows; where each token sits waits for attention
+    put("embeddings", 0, "gpt2-tokenizer")
+    by["embeddings"][2] = ("Text cut into tokens, and tokens, words, sentences and image "
+                           "patches as vectors.")
+    by["positions"] = ["positions", "Where each token sits",
+                       "Attention cannot see order: the ways a transformer is told where each "
+                       "token sits, and how far that stretches.", []]
+    put("positions", None, "gpt2-position-blindness", "sinusoidal-positions",
+        "gpt2-rotary-embeddings", "relative-position-bias", "alibi", "rope-context-extension",
+        "length-extrapolation")
+    put("modern", 0, "context-cost")
+    by["modern"][2] = "The cost of context, then state spaces, selection and experts."
+    # one ladder for hardware: number formats, one device, its limits, then many devices
+    put("efficiency", 0, "bits-in-a-weight")
+    put("systems", 0, "cpu-and-gpu-training", "roofline")
+    by["systems"][2] = ("One device and what limits it, then a model spread over many.")
+    # learning from reward starts from the classifier it replaces
+    put("rl", 0, "labels-against-rewards")
+    by["rl"][2] = "From labels to rewards, then an agent learning from reward alone."
+    put("latent", 0, "pca-and-kmeans")
+    put("memory-and-dynamics", None, "hopfield-network")
     return by
 
 
@@ -586,7 +651,10 @@ PARTS = (
       "discovery")),
     ("Trees and classical machine learning",
      "The first models: ones you can read, and the ideas used to judge every model after them.",
-     ("classical-ml", "trees")),
+     ("classical-ml", "trees", "information")),
+    ("Gaussian processes",
+     "A different kind of model: a distribution over functions, with its uncertainty built in.",
+     ("gp",)),
     ("Neural networks from first principles",
      "One small network taken apart: the sums, the gradients, and what makes training work.",
      ("maths", "mlp", "training", "classifiers", "activation", "optimisation", "deep",
@@ -604,15 +672,12 @@ PARTS = (
      "From squeezing a picture into a few numbers to drawing new ones: AE, VAE, GAN and DEC.",
      ("latent", "generative-families", "label-embeddings", "generative-models",
       "anomaly-and-background")),
-    ("Gaussian processes",
-     "A different kind of model: a distribution over functions, with its uncertainty built in.",
-     ("gp",)),
     ("Sequences and recurrent networks",
      "Data that comes in order: networks with a memory, and words turned into vectors.",
      ("recurrent", "embeddings")),
     ("Attention and transformers",
      "Every position looking at every other, and the block that GPT-2 stacks twelve times.",
-     ("transformers", "attention-wiring", "transformer-block")),
+     ("transformers", "positions", "attention-wiring", "transformer-block")),
     ("Large language models",
      "Training them, getting text out of them, steering them, and looking inside, with GPT-2.",
      ("training-language-models", "decoding", "behaviour", "fine-tuning", "interpretability",

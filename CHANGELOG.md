@@ -1,5 +1,72 @@
 # Changelog
 
+## 2.1.0
+
+Eleven new animations (310 in all), and a page that reads as one course without
+forward references. Only the new animations and `cpu-and-gpu-training` are rendered
+again; the rest are 2.0.0's renders.
+
+- **Four animations on entropy, impurity and loss** (`study_info.py`, `mech_info*.py`), a
+  new group of the catalogue and a section of the site:
+  - `entropy-and-gini-by-hand`: a tree's nodes on all ten digits, entropy and the Gini
+    index worked out term by term, and what they count: drawn pairs that differ (Gini),
+    the questions of a Huffman code (entropy).
+  - `entropy-down-a-tree`: a tree grown by information gain spends the root's 3.32 bits
+    question by question; in nats the entropy left in its leaves is exactly its training
+    loss, and its held-out loss is best at depth 10.
+  - `weight-entropy`: all 52,650 free parameters of an MNIST classifier before and after
+    training. Their histogram entropy goes up (4.57 to 5.23 bits each: they spread out);
+    the structure is in their arrangement: neighbouring pixels' weights share 0.19 bits
+    (from 0.003), and the first layer's spectral entropy falls from 5.94 to 5.48 bits.
+  - `logits-loss-and-nats`: logits as log-odds, one digit's loss in nats and bits, the
+    mean of 10,000 as an estimate with its standard error, the baselines (ln 10), the
+    likelihood and its coding cost, and temperature.
+- **Seven bridges between topics** (`study_bridge_*.py`, `mech_bridge_*.py`), each measured
+  on MNIST or Tiny Shakespeare. Each opens the section it leads into and names what it
+  comes from:
+  - `kl-divergence` closes the entropy section. Cross-entropy = entropy + KL, adding up
+    exactly over the test digits for one-hot, smoothed and teacher targets. Training
+    moves only the KL part. Forward and reverse KL fit two humps of digits differently.
+  - `every-loss-is-a-likelihood`: chi-square and the Gaussian likelihood peak at the
+    same slope, and the curvature gives the error (±0.026, against a scatter of 0.028
+    over 120 samples). A softmax regression's held-out cross-entropy (0.275 nats) is
+    −ln L per digit. A logistic regression of 4s against 9s gives the binary loss.
+  - `from-a-cut-to-a-tree` opens classical ML. The best s/√(s+b) cut and the Gini root
+    are 0.02 px apart. Deeper trees approach the likelihood ratio (held-out AUC 0.958 at
+    depth 5 against 0.962), then fit noise (0.857 at depth 27).
+  - `dense-layer-learns-local` opens Convolutions. After training, neighbouring weights
+    of a dense layer correlate at 0.48 (0.00 before). A 3×3 convolution needs 576
+    weights against 50,176, and loses fewer held-out digits when they are shifted.
+  - `markov-chain-to-rnn` opens Recurrent networks. Counted tables are best held out at
+    order 4 (2.85 bits per character), then get worse. A numpy GRU reaches 2.68, its
+    gain coming from contexts the table rarely or never saw.
+  - `labels-against-rewards` opens reinforcement learning. REINFORCE's gradient is, on
+    average, p(y) times the label's. Its rewards carry about 8× fewer bits, and it needs
+    3.5–9.5× the updates to reach 90%.
+  - `bits-in-a-weight` opens Quantization. The entropy of the trained weights in each
+    format: FP8 carries 6.28 of its 8 bits with accuracy kept. Plain FP4 rounds 98% of
+    the weights to 0. One scale per 32 weights rescues it (96.2%).
+- **The site reads in order: nothing before what it rests on.**
+  - The Gaussian processes follow the classical methods (kernels, fits and priors) instead
+    of sitting between generative models and recurrent networks.
+  - `entropy-and-gini-by-hand` opens the trees, ahead of the first split that uses it.
+    `weight-entropy` joins Capacity, beside the rank of a layer.
+  - The CNN training step and the strided CNN classifier wait for convolutions.
+  - The position encodings, with `gpt2-rotary-embeddings`, form a section of their own
+    after attention. Byte-pair encoding opens Embeddings.
+  - Hardware reads as one ladder: number formats, then one device, its limits, and many
+    devices.
+  - `context-cost` opens the modern sequence models. `pca-and-kmeans` opens the
+    autoencoders. The Hopfield memory leads into them.
+- `cpu-and-gpu-training` gains a phase on precision (now eleven phases, about 200 s): the
+  bits a number gets in FP64, FP32, BF16, FP16, FP8 and FP4, with 0.1 as each stores it
+  and how far off it is (exact); a CPU built for 64-bit, doing 64-bit sums at full speed,
+  against a graphics card built for 32-bit, doing 16-, 8- and 4-bit sums 4 to 16 times
+  faster and 64-bit at 1/64 of that rate, below the CPU's (representative figures, labelled
+  as such); and the trained classifier with its weights stored in each format (measured):
+  97.3% held-out accuracy down to 8 bits, 23.2% in plain 4-bit, where 99% of its weights
+  round to zero, and 97.2% with one shared scale per 32 weights.
+
 ## 2.0.0
 
 Every animation is rendered again, in both themes.

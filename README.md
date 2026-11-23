@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 299 animations, from a 3×3
+numpy. 310 animations, from a 3×3
 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
@@ -26,7 +26,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 299 animations
+python3 -m voxanim list --names                   # the 310 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim render gradient-descent --theme dark   # the dark-mode copy
@@ -908,12 +908,13 @@ outcome does not depend on it (40 seeds of 40 end on a shortest path with
 these settings). `tests/test_gridworld.py` replays every recorded step with
 the rule and checks the convergence and the numbers above.
 
-### The next 171: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
+### The next 182: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
 
-A further 171 animations, in twenty-seven groups: 109 added in 1.6.0, in 1.7.0 eight on
-randomness and 41 for a physics course on data analysis and machine learning, and in 1.8.0
-one on training with and without a GPU, and in 1.9.0 ten on decision trees, forests and
-boosting. The GPU one, `cpu-and-gpu-training`, is the catalogue's
+A further 182 animations, in twenty-nine groups: 109 added in 1.6.0, in 1.7.0 eight on
+randomness and 41 for a physics course on data analysis and machine learning, in 1.8.0
+one on training with and without a GPU, in 1.9.0 ten on decision trees, forests and
+boosting, and since then five on entropy, impurity and loss and six bridges between
+topics, each opening the section it leads into. The GPU one, `cpu-and-gpu-training`, is the catalogue's
 single explicit exception to the rule that results on screen are computed or measured: its
 speeds are representative round figures, labelled as such in every phase. They are listed in
 `next_catalog.json` and
@@ -1088,7 +1089,7 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `zero-sharding` | **ZeRO: sharding the training state.** Training state cut into slices so that each device holds only its share. |
 | `activation-checkpointing` | **Activation checkpointing.** Storing only some activations on the way forward and recomputing the rest on the way back. |
 | `roofline` | **The roofline performance model.** An operation is limited by arithmetic or by memory traffic: counting both and placing it under the roof. |
-| `cpu-and-gpu-training` | **Training on a CPU and on a GPU.** Where a model's weights and a batch of digits sit in a computer, where the arithmetic happens with and without a GPU, and how long a small and a larger model really take to train on each. |
+| `cpu-and-gpu-training` | **Training on a CPU and on a GPU.** Where a model's weights and a batch of digits sit in a computer, where the arithmetic happens with and without a GPU, how many bits each number gets (a CPU's 64 against a graphics card's 32, 16, 8 and 4, and what 4 bits do to a trained model), and how long a small and a larger model really take to train on each. |
 
 **Reinforcement learning methods.** Learning from reward alone: bandits, policy gradients, values and search.
 
@@ -1121,6 +1122,17 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `generative-interpolation` | **Walking between two digits.** A straight walk between two digits in each family's code space, the images on the way, and how recognisable and how digit-like the middle is compared with simply fading one image into the other. |
 | `vae-kl-term` | **The KL term of a VAE.** One digit followed through a VAE, what the KL half of its loss measures, and the cloud of codes settling into the bell's rings as training goes on. |
 | `dec-centroids-training` | **DEC: the centroids move.** K-means places ten centres in an autoencoder's code space, then DEC pulls the codes and the centres into tight, separate clusters, which are not the same thing as the right ones. |
+| `entropy-and-gini-by-hand` | **Entropy and Gini by hand.** How impure a tree's node is, worked out from its counts: entropy in bits and the Gini index, term by term, and what each one counts. |
+| `entropy-down-a-tree` | **Entropy down a tree.** A tree grown by information gain spends the root's 3.32 bits question by question; read as a probability model, what is left is its loss in nats. |
+| `weight-entropy` | **The entropy of a network's weights.** Every free parameter of an MNIST classifier, before and after training: as a pile of numbers its entropy goes up; the structure is in how the numbers are arranged. |
+| `logits-loss-and-nats` | **Logits, loss and nats.** A classifier's loss in statistical terms: logits as log-odds, the loss of one digit in nats and bits, the mean as an estimate with an error, and the likelihood it is the negative log of. |
+| `kl-divergence` | **Cross-entropy is entropy plus KL.** A classifier's loss is a cross-entropy: the target's own entropy, which no model can beat, plus the KL divergence, the only part training moves; KL measured on three targets, both ways round, and as a fit to two humps of digits. |
+| `every-loss-is-a-likelihood` | **Every loss is a likelihood.** Chi-square, squared error and cross-entropy are each minus the log of a likelihood: a line fitted to measured MNIST ink, a softmax regression of ten digits and a logistic regression of two, measured on held-out digits. |
+| `from-a-cut-to-a-tree` | **From a cut to a tree.** An analysis cut is a tree of depth one; asking again in each half gives a tree whose boxes approach the likelihood ratio, until it grows deep enough to fit noise. |
+| `dense-layer-learns-local` | **A dense layer learns to be local.** Training gives a dense layer's near pixels similar weights; a 3×3 convolution keeps only those near weights and shares them, using 576 weights instead of 50,176, and loses fewer held-out digits when they move. |
+| `markov-chain-to-rnn` | **From a Markov chain to an RNN.** A table of counted contexts must have seen the exact context, so on held-out text it gets worse past a few characters; a small recurrent network carries a state and shares its parameters across contexts, and beats the best table. |
+| `labels-against-rewards` | **Labels against rewards.** The same classifier trained from labels and from a right-or-wrong reward: the same direction on average, at most a bit per digit, and several times the updates. |
+| `bits-in-a-weight` | **How many bits a weight carries.** A trained weight stored in 32 bits carries far fewer: rounded to each number format, the entropy of its values against the accuracy kept, and why plain 4-bit needs a shared scale. |
 
 **Label embeddings.** A class label as a learned vector: in a classifier, in an autoencoder, and at generation.
 

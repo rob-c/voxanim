@@ -163,32 +163,33 @@ def test_the_next_catalogue_is_listed_under_its_own_titles():
     listed = {n: t for *_, items in site.SECTIONS for n, t in items}
     anchors = [anchor for anchor, *_ in site.SECTIONS]
     assert len(anchors) == len(set(anchors))
-    assert len(site.NEXT_SECTIONS) == 27
+    assert len(site.NEXT_SECTIONS) == 28
     new = len(site.NEXT_SECTIONS)
     for item in ITEMS:
         assert listed[item["preset"]] == item["title"] == drawing(item["name"]).TITLE
         first, about = site.describe(presets.REGISTRY[item["preset"]])
         assert first == site.prose(item["summary"])           # the card shows the plain summary
         assert item["description"].split()[0] in about         # the dialog adds what was measured
-    assert new == 27
+    assert new == 28
     for _anchor, heading, intro, items in site.SECTIONS:
         assert heading and intro.endswith(".") and items
         assert "review" not in intro.lower()
 
 
 def test_the_page_is_ordered_as_one_course():
-    """Statistics first, then trees, basic networks, autoencoders and generative models,
-    Gaussian processes, recurrent networks, attention, language models, and what follows."""
+    """Statistics first, then trees, Gaussian processes, basic networks, autoencoders and
+    generative models, recurrent networks, attention, language models, and what follows."""
     anchors = [anchor for anchor, *_ in site.SECTIONS]
     assert anchors == [a for *_, part in site.PARTS for a in part]
     assert len(site.PARTS) == 12 and all(intro.endswith(".") for _t, intro, _a in site.PARTS)
     where = {n: k for k, (*_, items) in enumerate(site.SECTIONS) for n, _ in items}
     route = ["bayes-theorem-areas", "chi-square-fit", "bump-hunt", "decision-tree",
-             "mlp-1-forward-layer1", "conv2d", "cpu-and-gpu-training", "autoencoder-dense-2d",
-             "vae-dense-2d", "generative-objectives", "gp-prior", "rnn-training-step",
-             "lstm-training-step", "embedding-lookup", "attention-training-step",
-             "gpt2-attention", "causal-vs-bidirectional", "gpt2-beam-search",
-             "gpt2-hallucination", "mamba-selective-scan"]
+             "gp-prior", "mlp-1-forward-layer1", "conv2d", "cpu-and-gpu-training",
+             "autoencoder-dense-2d", "vae-dense-2d", "generative-objectives",
+             "rnn-training-step", "lstm-training-step", "embedding-lookup",
+             "attention-training-step", "gpt2-attention", "sinusoidal-positions",
+             "causal-vs-bidirectional", "gpt2-beam-search", "gpt2-hallucination",
+             "mamba-selective-scan"]
     order = [where[n] for n in route]
     assert order == sorted(order)
     assert anchors[0] == "probability" and anchors[-1] == "modern"
@@ -197,6 +198,22 @@ def test_the_page_is_ordered_as_one_course():
     assert section["decision-tree"] == "classical-ml"
     assert section["lstm-training-step"] == section["gated-memory"] == "recurrent"
     assert section["attention-training-step"] == "transformers"
+    # nothing before what it rests on
+    assert section["cnn-training-step"] == section["strided-cnn-classifier"] == "vision"
+    assert section["gpt2-rotary-embeddings"] == section["alibi"] == "positions"
+    assert section["weight-entropy"] == "capacity"
+    first = {a: items[0][0] for a, _h, _i, items in site.SECTIONS}
+    assert first["trees"] == "entropy-and-gini-by-hand"
+    assert first["modern"] == "context-cost" and first["latent"] == "pca-and-kmeans"
+    assert first["systems"] == "cpu-and-gpu-training"
+    # each bridge opens the section it leads into
+    assert first["classical-ml"] == "from-a-cut-to-a-tree"
+    assert first["convolutions"] == "dense-layer-learns-local"
+    assert first["recurrent"] == "markov-chain-to-rnn"
+    assert first["rl"] == "labels-against-rewards"
+    assert first["efficiency"] == "bits-in-a-weight"
+    assert section["every-loss-is-a-likelihood"] == "classical-ml"
+    assert section["kl-divergence"] == "information"
     # each part is announced once on the page, ahead of its first section
     names = list(presets.REGISTRY)
     page = site.page_html(dict.fromkeys(names, BOTH), "v9.9.9")

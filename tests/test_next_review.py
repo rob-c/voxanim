@@ -64,7 +64,7 @@ def test_catalogue_has_measured_finite_panels(item):
     assert isinstance(anim, Mechanism)
     assert len(anim.PHASES) >= 4
     # one is deliberately long: a training run followed on a real clock, to set expectations
-    longest = 180.0 if item["name"] == "cpu-and-gpu-training" else 66.0
+    longest = 205.0 if item["name"] == "cpu-and-gpu-training" else 66.0
     assert 45.0 <= anim.duration <= longest
     for k, (start, end) in enumerate(anim.spans):
         assert anim.subtitle_for(k).strip()

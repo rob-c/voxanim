@@ -8,11 +8,15 @@ violet grid, drawn on a compressed scale and labelled with how many numbers it h
 batches of real MNIST digits (tiles), and an amber light on the cores doing arithmetic.
 Beside the map a panel carries a stopwatch, a count of steps, and the figures.
 
-It is deliberately long (about three minutes, ten phases): its subject is waiting.
+It is deliberately long (about three minutes and a quarter, eleven phases): its subject
+is waiting. Phase 5 is about precision: how many bits a number gets (a CPU's 64 against
+the 32, 16, 8 and 4 a graphics card is built for), what each width costs in speed, and
+what storing the trained classifier's weights in fewer bits does to it.
 
 The speeds are representative round figures, not measurements: one table,
-:data:`voxanim.study_hardware.REPRESENTATIVE`, and arithmetic from it. Every curve is
-numpy training on MNIST. Each phase says, bottom right, which of these it shows.
+:data:`voxanim.study_hardware.REPRESENTATIVE`, and arithmetic from it. Every curve, and
+the accuracy of the classifier stored in fewer bits, is numpy on MNIST; the formats are
+exact arithmetic. Each phase says, bottom right, which of these it shows.
 Nothing is computed here but layout.
 """
 
@@ -24,6 +28,7 @@ from . import layout
 from . import study_hardware as S
 from .diagram import draw_image
 from .easing import ease_in_out, remap, smoothstep
+from .losschart import pow10
 from .mech import (
     AMBER,
     AXIS,
@@ -122,13 +127,15 @@ class CpuAndGpuTraining(Mechanism):
     times on one scale; a race on a scaled clock; and what the times multiply up to."""
 
     TITLE = "Training on a CPU and on a GPU"
-    PHASES = (("parts", 14.0), ("CPU", 22.0), ("GPU", 22.0), ("cores", 18.0), ("small", 16.0),
-              ("large", 16.0), ("bars", 14.0), ("race", 22.0), ("scale", 16.0), ("plan", 12.0))
+    PHASES = (("parts", 14.0), ("CPU", 22.0), ("GPU", 22.0), ("cores", 18.0),
+              ("precision", 24.0), ("small", 16.0), ("large", 16.0), ("bars", 14.0),
+              ("race", 22.0), ("scale", 16.0), ("plan", 12.0))
     RACE = (0.06, 0.90)                       # the part of phase 8 in which the clock runs
     PICTURE = "a picture of the parts: no figures yet"
     FIGURES = "representative figures, not measured"
     ARITHMETIC = "arithmetic from representative figures"
     RACED = "clock: representative figures, not measured; curves: measured on MNIST"
+    BITS = "speeds: representative figures, not measured; accuracy: measured on MNIST"
 
     # ------------------------------------------------------------------ data
     def setup(self):
@@ -156,10 +163,16 @@ class CpuAndGpuTraining(Mechanism):
         self.ae = np.asarray(s.panels[3].data["ys"], float)
         self.total_steps = int(self.acc_steps[-1])
         self.race_s = {k: m["epochs"] * self.epoch[k] for k in S.FOUR}
-        window = (self.RACE[1] - self.RACE[0]) * self.PHASES[7][1]
+        window = (self.RACE[1] - self.RACE[0]) * self.seconds("race")
         self.race_scale = float(max(1, int(np.ceil(max(self.race_s.values()) / window))))
         self.race_span = window * self.race_scale
         self.projections = [(p["what"], p["seconds"]) for p in m["projections"]]
+        # precision: the formats (exact), the speeds at each width (representative), the
+        # classifier with its weights in each format (measured)
+        self.formats = [(f[0], f[1], f[2], f[3], m["formats"][f[0]]) for f in S.FORMATS]
+        self.madds = {k: float(v) for k, v in R["madds_per_s"].items()}
+        self.fewer = m["weights_in_fewer_bits"]
+        self.example = m["example"]
         # pictures
         self.digits = np.asarray(c["batch_digits"], float)
         self.train_digits = np.asarray(c["train_digits"], float)
@@ -200,6 +213,10 @@ class CpuAndGpuTraining(Mechanism):
             "a layer is thousands of independent sums: a few fast cores take them in "
             "turn, a GPU's many small cores all at once. But picking the batch, the trip "
             "and starting the work get no faster",
+            "a CPU is built for 64-bit numbers: its 64-bit sums run at full speed. A graphics "
+            "card is built for 32-bit, and runs 16-, 8- and 4-bit sums %s faster, 64-bit "
+            "%s slower"
+            % (self.bits_range(), times(self.madds["gpu", "FP32"] / self.madds["gpu", "FP64"])),
             "the small classifier: about %s a step on the CPU, %s on the GPU, only %s. "
             "The sums are few, so fixed costs are %d%% of its GPU step; %s"
             % (ms(st[c, "cpu"]), ms(st[c, "gpu"]), versus(c), round(100 * gpu_fixed),
@@ -230,6 +247,16 @@ class CpuAndGpuTraining(Mechanism):
             "the long run go unattended. That is what batch jobs and shared GPU clusters "
             "are for",
         ][k]
+
+    def seconds(self, name):
+        """The length of the phase called ``name``."""
+        return dict(self.PHASES)[name]
+
+    def bits_range(self):
+        """How much faster than 32-bit a graphics card's narrow sums are: ``4-16×``."""
+        lo = self.madds["gpu", "FP16"] / self.madds["gpu", "FP32"]
+        hi = self.madds["gpu", "FP4"] / self.madds["gpu", "FP32"]
+        return "%s-%s" % (("%g" % lo), times(hi))
 
     @staticmethod
     def versus(r):
@@ -641,7 +668,124 @@ class CpuAndGpuTraining(Mechanism):
             self.chip(sc, x, 0.905, ink, b_op, word)
         self.tag(sc, self.FIGURES, op)
 
-    # ------------------------------------------------------------------ 5, 6: the two models
+    # ------------------------------------------------------------------ 5: precision
+    SIGN, EXPO, FRAC = (0.82, 0.30, 0.26), OCHRE, TEAL     # the parts of a number's bits
+    WIDTHS = (("cpu", "FP64", "CPU, 64-bit"), ("cpu", "FP32", "CPU, 32-bit"),
+              ("gpu", "FP64", "GPU, 64-bit"), ("gpu", "FP32", "GPU, 32-bit"),
+              ("gpu", "FP16", "GPU, 16-bit"), ("gpu", "FP8", "GPU, 8-bit"),
+              ("gpu", "FP4", "GPU, 4-bit"))
+
+    def phase_5(self, sc, u, op):
+        """Bits a number gets; how fast each width is; what fewer bits do to the model."""
+        a_op = op * (1 - smoothstep(0.33, 0.37, u))
+        b_op = op * smoothstep(0.37, 0.41, u) * (1 - smoothstep(0.64, 0.68, u))
+        c_op = op * smoothstep(0.68, 0.72, u)
+        self.memory(sc, op)
+        self.block(sc, "classifier", W_RAM, op)
+        self.block(sc, "classifier", W_GPU, op)
+        # the map says what each is built for
+        self.text(sc, CPU[0] + 0.062, 0.745, "64-bit", op, anchor="lm", ink=dark(BLUE, 0.4),
+                  strong=True)
+        self.text(sc, (GPU[0] + GPU[1]) / 2, 0.645, "32-bit; also 16, 8, 4", op,
+                  ink=dark(GREEN, 0.45), strong=True)
+        lit = 0.5 + 0.5 * np.sin(2 * np.pi * u * 6) ** 2
+        if u < 0.37 or u > 0.68:
+            self.cpu_cores(sc, np.full(6, 0.35 * lit), op)
+        else:
+            self.cpu_cores(sc, np.full(6, lit), op * float(u < 0.52))
+            self.gpu_cores(sc, lit, op * float(u >= 0.52))
+        self.precision_bits(sc, seg(u, 0.03, 0.30), a_op)
+        self.precision_speed(sc, seg(u, 0.41, 0.60), b_op)
+        self.precision_model(sc, seg(u, 0.72, 0.92), c_op)
+        self.tag(sc, self.BITS, op)
+
+    def precision_bits(self, sc, u, op):
+        """Each format's bits as a bar, sign, exponent and fraction, and the example
+        number as each stores it."""
+        if op <= 0.01:
+            return
+        self.text(sc, PX0, 0.33, "how many bits a number gets", op, anchor="lm", strong=True,
+                  size=BIG)
+        self.text(sc, PX0, 0.376, "the bits; %g as each stores it; how far off" % self.example,
+                  op, anchor="lm")
+        full = self.span(0.16)[0] / 64.0                  # px per bit
+        for n, (name, sg, ex, fr, f) in enumerate(self.formats):
+            y = 0.43 + 0.062 * n
+            seen = op * smoothstep(0.02 + 0.13 * n, 0.10 + 0.13 * n, u)
+            self.text(sc, PX0, y, name, seen, anchor="lm", strong=True)
+            self.stacked(sc, PX0 + 0.055, y, [(sg, self.SIGN), (ex, self.EXPO),
+                                               (fr, self.FRAC)], full, seen, thick=15.0)
+            v = f["stored_example"]
+            shown = "0" if v == 0 else "%.10g" % v
+            self.text(sc, PX0 + 0.235, y, shown, seen, anchor="lm",
+                      ink=dark(RED, 0.2) if v == 0 else None, strong=v == 0)
+            self.text(sc, PX1, y, pow10(f["example_error"]), seen, anchor="rm",
+                      ink=dark(RED, 0.2) if v == 0 else layout.NOTE_INK)
+        y = 0.43 + 0.062 * len(self.formats) + 0.01
+        for x, ink, word in ((PX0, self.SIGN, "sign"), (PX0 + 0.08, self.EXPO, "exponent: range"),
+                             (PX0 + 0.25, self.FRAC, "fraction: precision")):
+            self.chip(sc, x, y, ink, op * smoothstep(0.75, 0.85, u), word)
+        grid = S.small_grid("FP4")
+        self.text(sc, PX0, y + 0.052, "FP4 holds only %d sizes: %s" % (
+            len(grid), ", ".join("%g" % v for v in grid)), op * smoothstep(0.85, 0.95, u),
+            anchor="lm")
+
+    def precision_speed(self, sc, u, op):
+        """The representative speed of each width, on a log scale."""
+        if op <= 0.01:
+            return
+        self.text(sc, PX0, 0.33, "how fast each width is", op, anchor="lm", strong=True,
+                  size=BIG)
+        self.text(sc, PX0, 0.376, "trillion multiply-adds a second; log scale", op,
+                  anchor="lm")
+        lo, hi = -1.0, np.log10(max(self.madds.values())) + 0.35
+        wide = self.span(0.21)[0]
+        for n, (dev, fmt, label) in enumerate(self.WIDTHS):
+            y = 0.43 + 0.058 * n
+            v = self.madds[dev, fmt]
+            grow = seg(u, 0.05 + 0.10 * n, 0.15 + 0.10 * n)
+            self.text(sc, PX0 + 0.115, y, label, op, anchor="rm", ink=dark(INK[dev], 0.4),
+                      strong=True)
+            self.hbar(sc, PX0 + 0.125, y, wide * (np.log10(v) - lo) / (hi - lo), INK[dev], op,
+                      value="%.3g" % v, u=grow, thick=14.0)
+        say = op * smoothstep(0.75, 0.85, u)
+        cpu64, gpu64 = self.madds["cpu", "FP64"], self.madds["gpu", "FP64"]
+        self.text(sc, PX0, 0.855, "CPU: 64-bit at full speed, 32-bit %s" % times(
+            self.madds["cpu", "FP32"] / cpu64), say, anchor="lm")
+        self.text(sc, PX0, 0.897, "GPU: 64-bit at 1/%d of its 32-bit: %s the CPU's" % (
+            round(self.madds["gpu", "FP32"] / gpu64),
+            "below" if gpu64 < cpu64 else "about"), say, anchor="lm")
+
+    def precision_model(self, sc, u, op):
+        """The trained classifier with its weights stored in each format (measured)."""
+        if op <= 0.01:
+            return
+        self.text(sc, PX0, 0.33, "the classifier's weights in fewer bits", op, anchor="lm",
+                  strong=True, size=BIG)
+        self.text(sc, PX0, 0.376, "held-out accuracy; below 64-bit, sums in 32-bit", op,
+                  anchor="lm")
+        wide = self.span(0.15)[0]
+        rows = list(S.VARIANTS)
+        for n, v in enumerate(rows):
+            y = 0.425 + 0.05 * n
+            r = self.fewer[v]
+            bad = r["accuracy"] < 0.5
+            label = v.replace(" scaled", ", a scale per %d" % S.BLOCK)
+            grow = seg(u, 0.04 + 0.08 * n, 0.14 + 0.08 * n)
+            self.text(sc, PX0 + 0.175, y, label, op, anchor="rm", strong=True)
+            self.hbar(sc, PX0 + 0.185, y, wide * r["accuracy"], RED if bad else VIOLET, op,
+                      value="%.1f%%" % (100 * r["accuracy"]), u=grow, thick=13.0)
+        z = self.fewer["FP4"]["zero_weights"]
+        say = op * smoothstep(0.85, 0.95, u)
+        self.text(sc, PX0, 0.83, "plain FP4 rounds %d%% of the weights to 0;" % round(100 * z),
+                  say, anchor="lm", ink=dark(RED, 0.2))
+        self.text(sc, PX0, 0.87, "a shared scale per %d weights brings them back" % S.BLOCK,
+                  say, anchor="lm")
+        mb = {f[0]: f[4]["autoencoder_mb"] for f in self.formats}
+        self.text(sc, PX0, 0.915, "autoencoder weights: %.2g MB in 64-bit, %.2g in 4-bit"
+                  % (mb["FP64"], mb["FP4"]), say, anchor="lm")
+
+    # ------------------------------------------------------------------ 6, 7: the two models
     def model(self, sc, u, op, name):
         cpu, gpu = (name, "cpu"), (name, "gpu")
         self.memory(sc, op, name)
@@ -702,14 +846,14 @@ class CpuAndGpuTraining(Mechanism):
                          go=seg(u, 0.40, 0.72), xticks=xt, mark=self.batch)
         self.tag(sc, self.FIGURES, op)
 
-    def phase_5(self, sc, u, op):
+    def phase_6(self, sc, u, op):
         self.model(sc, u, op, "classifier")
 
-    def phase_6(self, sc, u, op):
+    def phase_7(self, sc, u, op):
         self.model(sc, u, op, "autoencoder")
 
-    # ------------------------------------------------------------------ 7: four bars
-    def phase_7(self, sc, u, op):
+    # ------------------------------------------------------------------ 8: four bars
+    def phase_8(self, sc, u, op):
         self.memory(sc, op)
         self.block(sc, "classifier", W_RAM, op)
         self.block(sc, "autoencoder", W_GPU, op)
@@ -745,8 +889,8 @@ class CpuAndGpuTraining(Mechanism):
                 f"{top:,}", self.versus(wide)), say, anchor="lm")
         self.tag(sc, self.FIGURES, op)
 
-    # ------------------------------------------------------------------ 8: the race
-    def phase_8(self, sc, u, op):
+    # ------------------------------------------------------------------ 9: the race
+    def phase_9(self, sc, u, op):
         now = seg(u, *self.RACE) * self.race_span          # seconds on the race's clock
         a = "autoencoder"
         self.memory(sc, op, a)
@@ -754,7 +898,7 @@ class CpuAndGpuTraining(Mechanism):
         self.block(sc, a, W_RAM, op)
         cpu_on = any(0 < now < self.race_s[n, "cpu"] for n in S.NAMES)
         gpu_on = any(0 < now < self.race_s[n, "gpu"] for n in S.NAMES)
-        k, beat = divmod(u * self.PHASES[7][1] * 1.6, 1.0)
+        k, beat = divmod(u * self.seconds("race") * 1.6, 1.0)
         if cpu_on:
             self.trip(sc, self.batch_imgs(int(k))[:3], self.picks[:3], VIA_RAM_CPU,
                       self.cpu_slots[:3], seg(beat, 0, 0.7), op * (1 - seg(beat, 0.6, 0.7)),
@@ -812,8 +956,8 @@ class CpuAndGpuTraining(Mechanism):
         self.chip(sc, 0.84, 0.729, GREEN, op, "GPU")
         self.tag(sc, self.RACED, op)
 
-    # ------------------------------------------------------------------ 9: scaling up
-    def phase_9(self, sc, u, op):
+    # ------------------------------------------------------------------ 10: scaling up
+    def phase_10(self, sc, u, op):
         self.memory(sc, op, "autoencoder")
         self.block(sc, "autoencoder", W_GPU, op)
         self.block(sc, "autoencoder", W_RAM, op, tint=0.35)
@@ -852,8 +996,8 @@ class CpuAndGpuTraining(Mechanism):
                       seen * grow, anchor="lm")
         self.tag(sc, self.ARITHMETIC, op)
 
-    # ------------------------------------------------------------------ 10: what to do
-    def phase_10(self, sc, u, op):
+    # ------------------------------------------------------------------ 11: what to do
+    def phase_11(self, sc, u, op):
         a = "autoencoder"
         self.memory(sc, op, a)
         self.block(sc, a, W_GPU, op)

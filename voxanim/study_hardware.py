@@ -15,6 +15,12 @@ Two kinds of number are shown, and kept apart:
   arithmetic from that one table: a step is a fixed cost plus a cost per digit.
 * **Learning curves are measured**: trained here, in plain numpy in float32, from
   three seeds, on the 10,000 official test digits that no training step sees.
+
+The precision phase adds two more, kept apart the same way: how fast a CPU and a
+graphics card do sums at each width (64, 32, 16, 8 and 4 bits) is again representative
+round figures (:data:`REPRESENTATIVE`'s ``madds_per_s``), while what storing the trained
+classifier's weights in fewer bits does to it is measured (:func:`precision`), and the
+formats themselves are exact arithmetic (:func:`to_format`).
 """
 
 from __future__ import annotations
@@ -23,6 +29,7 @@ import functools
 import hashlib
 import inspect
 import itertools
+from fractions import Fraction
 
 import numpy as np
 
@@ -174,6 +181,14 @@ REPRESENTATIVE = {
     "move_ms": 0.1,               # moving that batch across the bus to the GPU
     "copy_ms": {"classifier": 0.5, "autoencoder": 5.0},   # all the weights, to the GPU
     "megabytes": {"classifier": 0.4, "autoencoder": 21.5},
+    # peak multiply-adds a second, in trillions, at each width: a CPU's cores and vector
+    # units work natively in 64-bit, and do 32-bit twice as fast in the same registers;
+    # a graphics card is built around 32-bit, does 64-bit at 1/64 of that rate, and does
+    # 16-, 8- and 4-bit products in its matrix units at 4, 8 and 16 times it. (The 20x
+    # between the two at 32-bit is the 20x of the autoencoder's step above.)
+    "madds_per_s": {("cpu", "FP64"): 0.25, ("cpu", "FP32"): 0.5,
+                    ("gpu", "FP64"): 10.0 / 64, ("gpu", "FP32"): 10.0,
+                    ("gpu", "FP16"): 40.0, ("gpu", "FP8"): 80.0, ("gpu", "FP4"): 160.0},
 }
 DEVICES = ("cpu", "gpu")
 FOUR = tuple((name, dev) for name in NAMES for dev in DEVICES)
@@ -309,6 +324,129 @@ def curves():
                                                     _build).items()}
 
 
+# ---------------------------------------------------------------------- precision
+# The number formats: (name, sign bits, exponent bits, fraction bits). FP8 is E4M3 and
+# FP4 is E2M1, the 8- and 4-bit formats of current matrix units (no infinities; values
+# beyond the largest saturate to it).
+FORMATS = (("FP64", 1, 11, 52), ("FP32", 1, 8, 23), ("BF16", 1, 8, 7), ("FP16", 1, 5, 10),
+           ("FP8", 1, 4, 3), ("FP4", 1, 2, 1))
+FORMAT_NAMES = tuple(f[0] for f in FORMATS)
+BITS = {f[0]: f[1] + f[2] + f[3] for f in FORMATS}
+SMALL = {"FP8": (4, 3, 7, 448.0), "FP4": (2, 1, 1, 6.0)}   # exponent, fraction, bias, largest
+BLOCK = 32                        # weights sharing one scale, in the scaled variants
+EXAMPLE = 0.1                     # the number shown stored in every format
+# the variants of the trained classifier that are measured: its weights stored in the
+# format (biases left in float32), the sums done in float32 as matrix units accumulate
+# them; FP64 is the whole model in 64-bit
+VARIANTS = FORMAT_NAMES + ("FP8 scaled", "FP4 scaled")
+
+
+def small_grid(name):
+    """Every non-negative value of the 8- or 4-bit format ``name``, ascending."""
+    e_bits, f_bits, bias, top = SMALL[name]
+    vals = {0.0}
+    for e in range(2 ** e_bits):
+        for f in range(2 ** f_bits):
+            frac = f / 2 ** f_bits
+            v = frac * 2.0 ** (1 - bias) if e == 0 else (1 + frac) * 2.0 ** (e - bias)
+            if v <= top:
+                vals.add(v)
+    return np.array(sorted(vals))
+
+
+def _nearest(x, grid):
+    """``x`` rounded to the nearest of ``grid`` (non-negative, ascending), ties to the even
+    neighbour (the one with an even last fraction bit: in the sorted grid, the even
+    index), and saturating at the largest."""
+    x = np.asarray(x, np.float64)
+    a = np.minimum(np.abs(x), grid[-1])
+    i = np.clip(np.searchsorted(grid, a), 1, len(grid) - 1)
+    lo, hi = grid[i - 1], grid[i]
+    up = (hi - a < a - lo) | ((hi - a == a - lo) & (i % 2 == 0))
+    return np.sign(x) * np.where(up, hi, lo)
+
+
+def to_format(name, x):
+    """``x`` (array) rounded to the nearest value of format ``name``, as float64. BF16
+    keeps the top 16 bits of the float32 value, rounded to nearest even."""
+    x = np.asarray(x, np.float64)
+    if name == "FP64":
+        return x.copy()
+    if name == "FP32":
+        return x.astype(np.float32).astype(np.float64)
+    if name == "FP16":
+        return x.astype(np.float16).astype(np.float64)
+    if name == "BF16":
+        u = x.astype(np.float32).view(np.uint32).astype(np.uint64)
+        u = (u + 0x7FFF + ((u >> 16) & 1)) & 0xFFFF0000
+        return u.astype(np.uint32).view(np.float32).astype(np.float64)
+    return _nearest(x, small_grid(name))
+
+
+def to_format_scaled(name, W, block=BLOCK):
+    """The weight matrix ``W`` (inputs x outputs) in the 8- or 4-bit format ``name`` with
+    one power-of-two scale per ``block`` consecutive weights of each output's column:
+    the scale puts the block's largest weight in the format's top binade, so small
+    weights are not all rounded to zero."""
+    W = np.asarray(W, np.float64)
+    top = SMALL[name][3]
+    emax = int(np.floor(np.log2(top)))
+    out = np.zeros_like(W)
+    for s in range(0, W.shape[0], block):
+        part = W[s:s + block]
+        amax = np.abs(part).max(0)
+        scale = np.where(amax > 0, 2.0 ** (np.floor(np.log2(np.where(amax > 0, amax, 1.0)))
+                                            - emax), 1.0)
+        out[s:s + block] = to_format(name, part / scale) * scale
+    return out
+
+
+def stored(name, x=EXAMPLE):
+    """``(value, error)``: ``x`` stored in format ``name``, and how far it is from the
+    exact decimal ``x`` (computed exactly, so FP64's own error is shown too)."""
+    v = float(to_format(name, np.array([float(x)]))[0])
+    return v, float(abs(Fraction(v) - Fraction(str(x))))
+
+
+def _precision_build():
+    _, _, xt, yt = mnist_data()
+    P = train_run("classifier", SEEDS[0])[4]
+    out = {}
+    for v in VARIANTS:
+        if v == "FP64":
+            Q, xs = {k: w.astype(np.float64) for k, w in P.items()}, xt.astype(np.float64)
+        else:
+            fmt, scaled = v.split()[0], v.endswith("scaled")
+            Q = {k: (((to_format_scaled(fmt, w) if scaled else to_format(fmt, w))
+                      .astype(FLOAT)) if k.startswith("W") else w) for k, w in P.items()}
+            xs = xt
+        loss, acc = held_out("classifier", Q, xs, yt)
+        weights = [Q[k] for k in Q if k.startswith("W")]
+        out[v] = np.array([acc, loss, float(np.mean(np.concatenate(
+            [(w == 0).ravel() for w in weights])))])
+    return out
+
+
+@functools.lru_cache(maxsize=1)
+def precision():
+    """The trained classifier (seed 0, :data:`EPOCHS` epochs) measured on the 10,000
+    held-out digits with its weights stored in each of :data:`VARIANTS`: ``{variant:
+    (accuracy, loss, share of weights that are exactly zero)}`` (cached)."""
+    h = hashlib.sha256()
+    for fn in (init_weights, batch_order, forward, loss_and_grads, held_out, train_run,
+               small_grid, _nearest, to_format, to_format_scaled, _precision_build):
+        h.update(inspect.getsource(fn).encode())
+    settings = dict(version=VERSION, source=h.hexdigest()[:16], formats=FORMATS, block=BLOCK,
+                    variants=VARIANTS, seed=SEEDS[0], epochs=EPOCHS, rate=RATE, batch=BATCH)
+    got = cached_npz("study-hardware-precision", settings, _precision_build)
+    return {v: tuple(float(a) for a in got[v]) for v in VARIANTS}
+
+
+def megabytes(name, fmt):
+    """The model's weights and biases stored in format ``fmt``, in megabytes."""
+    return parameters(name) * BITS[fmt] / 8 / 1e6
+
+
 # ---------------------------------------------------------------------- the study
 PROJECT_EPOCHS = 20
 PROJECT = (("this autoencoder", 1, 1), ("a model 100× larger", 100, 1),
@@ -333,6 +471,7 @@ def cpu_and_gpu_training():
     by_batch = np.array([[step_ms(name, dev, b) for b in BATCHES] for name, dev in FOUR])
     acc = c["classifier_accuracy"]
     ae = c["autoencoder_loss"]
+    prec = precision()
     said = "representative figures, not measured"
     panels = (
         Panel("Time per training step", "milliseconds for one step on a batch of %d digits: "
@@ -389,6 +528,19 @@ def cpu_and_gpu_training():
                           for name in NAMES},
             final_accuracy=[float(v) for v in acc[:, -1]],
             final_autoencoder_loss=[float(v) for v in ae[:, -1]],
+            formats={name: dict(sign=sg, exponent=ex, fraction=fr, bits=sg + ex + fr,
+                                stored_example=stored(name)[0],
+                                example_error=stored(name)[1],
+                                classifier_mb=megabytes("classifier", name),
+                                autoencoder_mb=megabytes("autoencoder", name))
+                     for name, sg, ex, fr in FORMATS},
+            example=EXAMPLE,
+            # measured: the trained classifier (seed 0) on the 10,000 held-out digits with
+            # its weights stored in each format, sums in float32; "scaled": one shared
+            # power-of-two scale per BLOCK weights
+            weights_in_fewer_bits={v: dict(accuracy=a, loss=lo, zero_weights=z)
+                                   for v, (a, lo, z) in prec.items()},
+            scale_block=BLOCK,
             projection_epochs=PROJECT_EPOCHS,
             projections=[dict(what=w, model=a, data=b, seconds=s)
                          for w, a, b, s in projections()],
@@ -403,6 +555,11 @@ def cpu_and_gpu_training():
                 "arithmetic; larger models can do better or worse than that, and a very "
                 "large model needs more memory than one graphics card has",
                 "only the learning curves are measurements: numpy on MNIST, three seeds",
+                "the speeds at each width (64, 32, 16, 8 and 4 bits) are representative too, "
+                "and were not measured; 8- and 4-bit sums need recent matrix units",
+                "the formats are simulated exactly in numpy (each value rounded to the "
+                "nearest the format holds); the classifier's sums are then done in float32, "
+                "as matrix units accumulate them, so only storage is reduced",
             ],
             designs_tried=[
                 "a first version timed both models with PyTorch on one machine's CPU and "

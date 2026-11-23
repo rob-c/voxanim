@@ -614,3 +614,15 @@ archives are released from two repositories of their own, `voxanim-light` and
 `voxanim-dark`; this repository's release keeps the site archive and the weights. The
 renders are the same files: only where they are published changed, so their manifests name
 the commit before this one.
+
+## Entropy, and bridges between topics, 23 November 2026 (2.1.0)
+
+- Four animations on entropy, impurity and loss (172-175, `study_info.py`), then KL
+  divergence (176) closing that group.
+- Six bridges (177-182, `study_bridge_*.py`): each opens the section it leads into, says
+  what it comes from and what follows. They sit where the page jumped between topics:
+  statistics to classical ML (a cut becomes a tree; every loss is a likelihood), networks
+  to convolutions, models in use to reinforcement learning, generative models to recurrent
+  networks (via Markov chains), and the weights' entropy to quantization.
+- The site no longer shows anything before what it rests on (see `_regroup` in
+  `website/build_site.py`); `cpu-and-gpu-training` gains a phase on number formats.

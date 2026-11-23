@@ -87,8 +87,10 @@ MNIST |= {"seeds-and-training-outcomes"}
 MNIST |= {"network-regression", "classifier-score-as-variable", "boosted-regression-trees",
           "overtraining-check", "autoencoder-anomaly-detection", "gan-mode-collapse",
           "anomaly-loss-and-latent", "anomaly-two-score-flow", "cpu-and-gpu-training"}
-# trees and boosting, then the KL term and DEC's centroids
-MNIST |= {item["name"] for item in ITEMS if 160 <= item["number"] <= 171}
+# trees and boosting, then the KL term and DEC's centroids, then entropy, impurity and loss
+MNIST |= {item["name"] for item in ITEMS if 160 <= item["number"] <= 175}
+# the bridges between topics: all on MNIST but the chain-to-RNN one, which reads real text
+MNIST |= {item["name"] for item in ITEMS if 176 <= item["number"] <= 182} - {"markov-chain-to-rnn"}
 TEXT = {
     item["name"]
     for item in ITEMS
@@ -98,6 +100,7 @@ TEXT = {
 TEXT |= {"loss-spikes", "retrieval-augmented-generation"}
 # the randomness group: real text for the chain and for measuring entropy
 TEXT |= {"markov-chains", "measuring-entropy", "seeds-and-sampled-text"}
+TEXT |= {"markov-chain-to-rnn"}
 NO_DATA = {item["preset"] for item in ITEMS if item["name"] not in GPT2 | MNIST | TEXT}
 
 
@@ -162,6 +165,14 @@ DRAWN_BY = (
     ("mech_trees", 160, 164),
     ("mech_boost", 165, 169),
     ("mech_kl", 170, 171),
+    ("mech_info", 172, 175),
+    ("mech_bridge_kl", 176, 176),
+    ("mech_bridge_loss", 177, 177),
+    ("mech_bridge_cut", 178, 178),
+    ("mech_bridge_local", 179, 179),
+    ("mech_bridge_text", 180, 180),
+    ("mech_bridge_reward", 181, 181),
+    ("mech_bridge_bits", 182, 182),
 )
 NUMBER = {item["name"]: item["number"] for item in ITEMS}
 

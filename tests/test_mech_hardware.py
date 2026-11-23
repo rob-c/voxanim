@@ -1,10 +1,13 @@
 """Animation 159 (voxanim.mech_hardware) and its experiment (voxanim.study_hardware):
-the layout is clean over all ten phases, the loop closes, every phase says what kind of
+the layout is clean over all eleven phases, the loop closes, every phase says what kind of
 evidence it shows, the speeds on screen come from the one table of representative
 figures (and are labelled as not measured, with no machine named), the arithmetic from
-them is the stated arithmetic, and the numpy models learn on held-out digits."""
+them is the stated arithmetic, the number formats are exact, and the numpy models learn
+on held-out digits (and keep their accuracy in fewer bits, but for unscaled FP4)."""
 
 from __future__ import annotations
+
+from fractions import Fraction
 
 import numpy as np
 import pytest
@@ -151,8 +154,8 @@ def test_layout_is_clean():
 @needs_mnist
 def test_drawn_by_this_module_long_and_loop_closes(anim):
     assert type(anim) is M.ANIMATIONS[NAME]
-    assert 8 <= len(anim.PHASES) <= 10
-    assert 150.0 <= anim.t_done <= 180.0 and anim.duration <= 180.0   # long: about waiting
+    assert 8 <= len(anim.PHASES) <= 11
+    assert 150.0 <= anim.t_done <= 200.0 and anim.duration <= 205.0   # long: about waiting
 
     def summary(t):
         sc = anim.scene(t)
@@ -181,7 +184,7 @@ def test_weights_blocks_are_readable_and_say_how_many(anim):
     assert anim.cells == {C: 6, A: 16}                # a compressed scale: both are grids
     assert anim.side[C] >= 20 and anim.side[A] > 2 * anim.side[C]
     assert "101,770 weights" in texts(anim, at(anim, 1, 0.5))
-    assert "5.4M weights" in texts(anim, at(anim, 5, 0.5))
+    assert "5.4M weights" in texts(anim, at(anim, 6, 0.5))
     assert "the weights: 101,770 numbers" in texts(anim, at(anim, 2, 0.5))
 
 
@@ -194,7 +197,8 @@ def test_subtitles_fit_two_lines_and_evidence_is_labelled(anim):
     assert anim.FIGURES == "representative figures, not measured"
     assert anim.ARITHMETIC == "arithmetic from representative figures"
     assert anim.FIGURES in anim.RACED and "measured on MNIST" in anim.RACED
-    kinds = (anim.PICTURE, anim.FIGURES, anim.RACED, anim.ARITHMETIC)
+    assert anim.FIGURES in anim.BITS and "measured on MNIST" in anim.BITS
+    kinds = (anim.PICTURE, anim.FIGURES, anim.RACED, anim.ARITHMETIC, anim.BITS)
     shown = []
     for k in range(len(anim.PHASES)):                 # every phase says what kind of evidence
         for u in (0.1, 0.5, 0.9):
@@ -202,7 +206,8 @@ def test_subtitles_fit_two_lines_and_evidence_is_labelled(anim):
             assert len(got) == 1, (k, u)
         shown.append(got[0])
     # every phase that shows a speed says the speeds are not measured
-    assert shown == [anim.PICTURE] + [anim.FIGURES] * 6 + [anim.RACED] + [anim.ARITHMETIC] * 2
+    assert shown == ([anim.PICTURE] + [anim.FIGURES] * 3 + [anim.BITS] + [anim.FIGURES] * 3
+                     + [anim.RACED] + [anim.ARITHMETIC] * 2)
     subs = " ".join(anim.subtitle_for(k) for k in range(len(anim.PHASES)))
     assert "typical round figures" in anim.subtitle_for(1)       # said once, early
     assert "real machines differ" in anim.subtitle_for(1)
@@ -238,19 +243,19 @@ def test_numbers_on_screen_come_from_the_table(anim, study):
     assert all(np.isclose(step[k], R["step_ms"][k]) for k in S.FOUR)
     assert anim.step == step
     # the four bars, with their epochs, and the ratios
-    seen = texts(anim, at(anim, 6, 0.9))
+    seen = texts(anim, at(anim, 7, 0.9))
     for k in S.FOUR:
         assert "%s; an epoch %s" % (M.ms(R["step_ms"][k]), S.duration(S.epoch_s(*k))) in seen
     assert "1 ms; an epoch 468 ms" in seen and "40 ms; an epoch 19 s" in seen
     assert "autoencoder: the GPU is 20× faster" in seen
     assert "classifier: the GPU is 2× faster" in seen
-    sub = anim.subtitle_for(6)
+    sub = anim.subtitle_for(7)
     assert "40× the classifier's time on the CPU and 4× on the GPU" in sub
     assert "still 20× faster" in sub and "only 2× faster" in sub
     assert "about 1 ms a step on the CPU, 0.5 ms on the GPU, only 2× faster" in \
-        anim.subtitle_for(4)
-    assert "About 40 ms a step on the CPU and 2 ms on the GPU" in anim.subtitle_for(5)
-    assert "the GPU is 20× faster" in anim.subtitle_for(5)
+        anim.subtitle_for(5)
+    assert "About 40 ms a step on the CPU and 2 ms on the GPU" in anim.subtitle_for(6)
+    assert "the GPU is 20× faster" in anim.subtitle_for(6)
     # the parts of a GPU step, and the copy of the weights
     seen = texts(anim, at(anim, 2, 0.5))
     for label in (M.ms(R["copy_ms"][C]), M.ms(R["pick_ms"]), M.ms(R["move_ms"]),
@@ -259,7 +264,7 @@ def test_numbers_on_screen_come_from_the_table(anim, study):
     assert "arithmetic 0.05 ms (10%); the rest is fixed" in texts(anim, at(anim, 3, 0.9))
     assert "arithmetic 1.4 ms (70%); the rest is fixed" in texts(anim, at(anim, 3, 0.9))
     # the models' sizes
-    seen = texts(anim, at(anim, 5, 0.6))
+    seen = texts(anim, at(anim, 6, 0.6))
     assert "784 → 2048 → 512 → 64 → 512 → 2048 → 784" in seen
     assert any(t.startswith("5.4 million weights (53×)") for t in seen)
     assert "40 ms a step" in seen and "2 ms a step" in seen
@@ -281,16 +286,16 @@ def test_the_race_runs_on_a_scaled_clock_that_says_so(anim, study):
     assert anim.race_span >= max(anim.race_s.values())     # the slowest finishes on screen
     assert anim.race_scale == int(anim.race_scale) > 1     # 94 s does not fit at 1:1
     lo, hi = anim.RACE
-    done = texts(anim, at(anim, 7, hi + 0.05))
+    done = texts(anim, at(anim, 8, hi + 0.05))
     assert "clock runs %d× fast" % anim.race_scale in done
-    assert "running %d× fast" % anim.race_scale in anim.subtitle_for(7)
+    assert "running %d× fast" % anim.race_scale in anim.subtitle_for(8)
     for k in S.FOUR:
         assert any(t.endswith("in " + S.duration(anim.race_s[k])) for t in done)
-    part = texts(anim, at(anim, 7, lo + (hi - lo) * 0.5 * min(anim.race_s.values())
+    part = texts(anim, at(anim, 8, lo + (hi - lo) * 0.5 * min(anim.race_s.values())
                           / anim.race_span))
     assert not any(" in " in t and ("loss" in t or "right" in t) for t in part)   # none done
     # the contrast: when the autoencoder's GPU lane is done its CPU lane has hardly begun
-    mid = texts(anim, at(anim, 7, lo + (hi - lo) * 1.2 * anim.race_s[A, "gpu"]
+    mid = texts(anim, at(anim, 8, lo + (hi - lo) * 1.2 * anim.race_s[A, "gpu"]
                          / anim.race_span))
     assert sum(" in " in t and ("loss" in t or "right" in t) for t in mid) == 3
     assert anim.race_s[A, "gpu"] < 0.06 * anim.race_s[A, "cpu"]
@@ -310,8 +315,8 @@ def test_projections_are_the_stated_arithmetic(anim, study):
     first, last = m["projections"][0]["seconds"], m["projections"][-1]["seconds"]
     assert S.duration(first["cpu"]) == "6.2 min" and S.duration(first["gpu"]) == "19 s"
     assert S.duration(last["cpu"]) == "433 days" and S.duration(last["gpu"]) == "22 days"
-    assert "22 days on the GPU, 433 days on the CPU" in anim.subtitle_for(8)
-    seen = texts(anim, at(anim, 8, 0.95))
+    assert "22 days on the GPU, 433 days on the CPU" in anim.subtitle_for(9)
+    seen = texts(anim, at(anim, 9, 0.95))
     assert "GPU 22 days, CPU 433 days" in seen
     assert "a video app on a phone opens:" in seen
 
@@ -361,3 +366,83 @@ def test_pictures_are_the_real_digits_and_the_real_first_batch():
     assert c["autoencoder_shown"].shape == (S.SHOWN, 784)
     assert ((c["autoencoder_shown"] - xt[:S.SHOWN]) ** 2).mean() < 0.02
     assert (c["classifier_shown"].argmax(1) == yt[:S.SHOWN]).mean() >= 0.75
+
+
+# ---------------------------------------------------------------------- precision
+def test_formats_are_exact():
+    assert [S.BITS[n] for n in S.FORMAT_NAMES] == [64, 32, 16, 16, 8, 4]
+    assert S.stored("FP64") == (0.1, float(abs(Fraction(0.1) - Fraction(1, 10))))
+    assert S.stored("FP32")[0] == float(np.float32(0.1))
+    assert S.stored("FP16")[0] == float(np.float16(0.1)) == 0.0999755859375
+    assert S.stored("BF16")[0] == 0.10009765625                 # the top 16 bits of float32
+    assert S.stored("FP8")[0] == 0.1015625 and S.stored("FP4") == (0.0, 0.1)
+    assert list(S.small_grid("FP4")) == [0, 0.5, 1, 1.5, 2, 3, 4, 6]
+    g = S.small_grid("FP8")
+    assert g[-1] == 448 and g[1] == 2.0 ** -9 and len(g) == 127
+    # every value of a grid is kept exactly; beyond the largest saturates; ties go even
+    assert np.array_equal(S.to_format("FP8", g), g) and S.to_format("FP4", [7.0, -9.0]).tolist() \
+        == [6.0, -6.0]
+    assert S.to_format("FP4", [1.25, 1.75, 2.5]).tolist() == [1.0, 2.0, 2.0]
+    errs = [S.stored(n)[1] for n in ("FP64", "FP32", "FP16", "FP8", "FP4")]
+    assert errs == sorted(errs)                       # fewer fraction bits, a larger error
+
+
+def test_block_scale_keeps_small_weights():
+    rng = np.random.default_rng(0)
+    W = rng.normal(0, 0.05, (64, 3))
+    plain, scaled = S.to_format("FP4", W), S.to_format_scaled("FP4", W)
+    assert (plain == 0).mean() > 0.9 and (scaled == 0).mean() < 0.2
+    assert np.abs(scaled - W).mean() < 0.2 * np.abs(W).mean()
+    for s in (0, 32):                                 # one power-of-two scale per block
+        block = scaled[s:s + 32, 0]
+        nz = block[block != 0]
+        ratios = np.abs(nz) / np.abs(nz).min()
+        assert np.allclose(ratios * 2, np.round(ratios * 2))
+
+
+def test_representative_speeds_at_each_width():
+    m = S.REPRESENTATIVE["madds_per_s"]
+    assert m["cpu", "FP32"] == 2 * m["cpu", "FP64"]              # the CPU: 64-bit natively
+    assert m["gpu", "FP32"] / m["gpu", "FP64"] == 64              # the GPU: built for 32-bit
+    assert m["gpu", "FP64"] < m["cpu", "FP64"]                    # ... and slower than the CPU
+    assert [m["gpu", f] / m["gpu", "FP32"] for f in ("FP16", "FP8", "FP4")] == [4, 8, 16]
+    # the 20x between the two at 32-bit is the autoencoder step's 20x
+    assert m["gpu", "FP32"] / m["cpu", "FP32"] == S.step_ms(A, "cpu") / S.step_ms(A, "gpu")
+
+
+@needs_mnist
+def test_fewer_bits_keep_the_accuracy_but_for_unscaled_fp4(study):
+    got = study.metadata["weights_in_fewer_bits"]
+    assert set(got) == set(S.VARIANTS)
+    full = got["FP32"]["accuracy"]
+    assert full > 0.96 and abs(got["FP64"]["accuracy"] - full) < 0.002
+    for v in ("BF16", "FP16", "FP8", "FP8 scaled", "FP4 scaled"):
+        assert abs(got[v]["accuracy"] - full) < 0.01, v
+    assert got["FP4"]["accuracy"] < 0.5 and got["FP4"]["zero_weights"] > 0.9
+    assert got["FP4 scaled"]["zero_weights"] < 0.2
+    f = study.metadata["formats"]
+    assert np.isclose(f["FP32"]["autoencoder_mb"], S.REPRESENTATIVE["megabytes"][A], rtol=0.01)
+    assert np.isclose(f["FP64"]["autoencoder_mb"], 16 * f["FP4"]["autoencoder_mb"])
+
+
+@needs_mnist
+def test_precision_phase_shows_the_numbers(anim, study):
+    k = [name for name, _ in anim.PHASES].index("precision")
+    assert k == 4 and anim.PHASES[k - 1][0] == "cores"
+    sub = anim.subtitle_for(k)
+    assert "64-bit" in sub and "4-16× faster" in sub and "64× slower" in sub
+    seen = set()
+    for u in np.linspace(0.05, 0.98, 24):
+        seen |= set(texts(anim, at(anim, k, u)))
+    assert {"64-bit", "32-bit; also 16, 8, 4", anim.BITS} <= seen
+    for name in S.FORMAT_NAMES:
+        assert name in seen
+    assert {"0.1000000015", "0.1000976562", "0.09997558594", "0.1015625"} <= seen
+    assert "FP4 holds only 8 sizes: 0, 0.5, 1, 1.5, 2, 3, 4, 6" in seen
+    assert {"0.25", "0.5", "0.156", "10", "40", "80", "160"} <= seen
+    assert "GPU: 64-bit at 1/64 of its 32-bit: below the CPU's" in seen
+    got = study.metadata["weights_in_fewer_bits"]
+    assert "%.1f%%" % (100 * got["FP4"]["accuracy"]) in seen
+    assert "%.1f%%" % (100 * got["FP4 scaled"]["accuracy"]) in seen
+    assert "plain FP4 rounds %d%% of the weights to 0;" % round(100 * got["FP4"]["zero_weights"]) \
+        in seen

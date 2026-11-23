@@ -1424,7 +1424,7 @@
  {
   "number": 159,
   "name": "cpu-and-gpu-training",
-  "description": "A classifier of about 100,000 weights and an autoencoder of 5.4 million, 71 times the arithmetic per step, trained on MNIST. The speeds shown are representative round figures for an ordinary desktop CPU and a separate mid-range graphics card, not measurements, and every phase that shows one says so: per training step on 128 digits, 1 ms on the CPU and 0.5 ms on the GPU for the classifier, 40 ms and 2 ms for the autoencoder. So the autoencoder is 40 times slower than the classifier on the CPU and 4 times slower on the GPU, yet on the GPU it is still 20 times faster than on the CPU, while the small classifier gains only 2 times because fixed costs are most of its GPU step. Time against batch size follows a simple stated cost model. By arithmetic from those figures, twenty passes over the data take the autoencoder 6.2 minutes on the CPU and 19 seconds on the GPU, and a model 100 times larger on 1,000 times the data 433 days and 22 days. Only the learning curves are measured, on held-out MNIST digits over three seeds.",
+  "description": "A classifier of about 100,000 weights and an autoencoder of 5.4 million, 71 times the arithmetic per step, trained on MNIST. The speeds shown are representative round figures for an ordinary desktop CPU and a separate mid-range graphics card, not measurements, and every phase that shows one says so: per training step on 128 digits, 1 ms on the CPU and 0.5 ms on the GPU for the classifier, 40 ms and 2 ms for the autoencoder. So the autoencoder is 40 times slower than the classifier on the CPU and 4 times slower on the GPU, yet on the GPU it is still 20 times faster than on the CPU, while the small classifier gains only 2 times because fixed costs are most of its GPU step. Time against batch size follows a simple stated cost model. By arithmetic from those figures, twenty passes over the data take the autoencoder 6.2 minutes on the CPU and 19 seconds on the GPU, and a model 100 times larger on 1,000 times the data 433 days and 22 days. A phase on precision shows how many bits a number gets, from 64 down to 4, exactly, and representative speeds at each width: a CPU is built for 64-bit and does 64-bit sums at full speed, while a graphics card is built for 32-bit, does 16-, 8- and 4-bit sums 4 to 16 times faster and 64-bit at 1/64 of its 32-bit rate, below the CPU's. Stored in 16 or 8 bits, the trained classifier keeps its 97.3% held-out accuracy; in plain 4-bit 99% of its weights round to zero and it falls to 23.2%, and with one shared scale per 32 weights it is back at 97.2%. Only the learning curves and those accuracies are measured, on held-out MNIST digits.",
   "section": "L. Systems and scale (6)",
   "module": "study_hardware",
   "title": "Training on a CPU and on a GPU",
@@ -1537,5 +1537,104 @@
   "module": "study_kl",
   "title": "DEC: the centroids move",
   "summary": "K-means places ten centres in an autoencoder's code space, then DEC pulls the codes and the centres into tight, separate clusters, which are not the same thing as the right ones."
+ },
+ {
+  "number": 172,
+  "name": "entropy-and-gini-by-hand",
+  "description": "A tree's nodes on all ten MNIST digits, from 10,000 training digits. At the root the ten shares give an entropy of 3.320 bits, all but the 3.322 of an even mix, and a Gini index of 0.900, its 0.9 maximum; each is worked out term by term, -p log2 p and p(1 - p). Gini is the chance that two digits drawn from the node differ: of 200,000 drawn pairs, 0.8998 ± 0.0007 differ. Entropy is the fewest yes/no questions needed on average to name the digit: a Huffman code for the root's counts asks 3.380, within one bit of it, and for a node of 574 digits, 539 of them 7s, it asks 1.125 against an entropy of 0.455, since no code asks less than one question. The first question leaves 2.760 bits on one side and 3.091 on the other, 2.963 weighted, a gain of 0.356; following the yes side five questions down, both measures fall, to 0.455 bits and a Gini of 0.117. For two kinds the measures have one shape; in nats entropy is never below Gini.",
+  "section": "b. Entropy, impurity and loss (5)",
+  "module": "study_info",
+  "title": "Entropy and Gini by hand",
+  "summary": "How impure a tree's node is, worked out from its counts: entropy in bits and the Gini index, term by term, and what each one counts."
+ },
+ {
+  "number": 173,
+  "name": "entropy-down-a-tree",
+  "description": "A tree grown by information gain on the 49 cells of 10,000 training digits, all ten classes, to depth 14: 2,033 nodes, 1,017 leaves. The training digits' entropy falls from 3.320 bits at the root to 0.020 at depth 14, and the gains of each depth's splits, each weighted by its node's share, add up to the 3.300 bits removed. Read as a model, a leaf's shares are its predicted probabilities: in nats, the entropy left is exactly the training loss of those shares, at every depth. On 10,000 held-out digits the unsmoothed shares give 1,616 digits probability zero at depth 14, an infinite loss (a held-out 4 lands in a leaf of 439 training 6s), so leaves are smoothed with one imaginary digit of each kind. Then held-out loss falls from 2.302 nats, about ln 10, to 0.691 at depth 10 (82% right) and rises again to 0.712 at depth 14 while training entropy keeps falling; accuracy barely moves after depth 10 (83% at 14). A tree grown by Gini does about as well (best 0.723 nats).",
+  "section": "b. Entropy, impurity and loss (5)",
+  "module": "study_info",
+  "title": "Entropy down a tree",
+  "summary": "A tree grown by information gain spends the root's 3.32 bits question by question; read as a probability model, what is left is its loss in nats."
+ },
+ {
+  "number": 174,
+  "name": "weight-entropy",
+  "description": "A 784-64-32-10 classifier with 52,650 free parameters, trained for five epochs of Adam from three seeds (10–16% of test digits right before, 96.5–97.0% after). Counted in bins of 0.01, the entropy of all its parameters rises from 4.57 to 5.23 bits each. They spread out 1.50 times, which alone adds 0.59 of the 0.66 bits; rescaled to one spread the two piles differ by 0.07 bits, so as a pile the trained numbers look as random as before. The structure is in where they sit. First-layer weights of neighbouring pixels go from correlation 0.00 to 0.50 and from 0.003 to 0.19 bits of mutual information. The first layer's spectral entropy falls from 5.94 to 5.48 bits (61 to 45 effective directions of 64), the second's from 4.63 to 4.50, while the last layer's stays about the same (3.09 to 3.13). The 67 pixels never lit in training keep their random weights exactly.",
+  "section": "b. Entropy, impurity and loss (5)",
+  "module": "study_info",
+  "title": "The entropy of a network's weights",
+  "summary": "Every free parameter of an MNIST classifier, before and after training: as a pile of numbers its entropy goes up; the structure is in how the numbers are arranged."
+ },
+ {
+  "number": 175,
+  "name": "logits-loss-and-nats",
+  "description": "The same trained classifier on the 10,000 test digits. Test digit 0, a 7: its logits, 9.51 for 7 and 5.85 for 3, differ by 3.66, the log of the ratio of their probabilities, 0.9745 and 0.0251. Adding a constant to all ten changes nothing. Its loss is −ln 0.9745 = 0.026 nats (0.037 bits). Over all 10,000 the mean loss is 0.113 ± 0.006 nats (0.163 bits), while the median digit's is 0.002. The worst 100 digits carry 42% of the total and the 345 misnamed ones 74%; the worst is a 1 called a 2 with probability 0.00005, 9.86 nats. A uniform guess scores ln 10 = 2.303 nats and the class shares 2.301; the model's perplexity is 1.12. The mean loss is minus the log-likelihood of all 10,000 labels over 10,000: they cost 1,627 bits to send with the model against 33,219 without. Temperature chosen on half the digits is best at 1: it moves the loss and never the accuracy.",
+  "section": "b. Entropy, impurity and loss (5)",
+  "module": "study_info",
+  "title": "Logits, loss and nats",
+  "summary": "A classifier's loss in statistical terms: logits as log-odds, the loss of one digit in nats and bits, the mean as an estimate with an error, and the likelihood it is the negative log of."
+ },
+ {
+  "number": 176,
+  "name": "kl-divergence",
+  "description": "The classifier of \"Logits, loss and nats\" (784-64-32-10, seed 0, 96.5% right) as the model q. Its loss on test digit 0, −ln 0.9745 = 0.026 nats, is a cross-entropy CE(p, q) = H(p) + KL(p‖q). For a one-hot label H = 0 and the loss is all KL. For a label-smoothed target (ε = 0.1: 0.91 on the 7, 0.01 on each other digit) the split is 0.500 + 0.623 = 1.123 nats, worked out class by class. 98% of it is the 1% on wrong digits that the model all but ruled out (q(6) = 1.0×10⁻¹⁰ alone costs 0.230), and the KL terms of the 7 and the 3 are negative where q > p. Over the 10,000 test digits the parts add up exactly for three targets: one-hot labels 0 + 0.113 = 0.113, smoothed targets 0.500 + 0.721 = 1.222, and a teacher's soft targets (the same network from seed 1, logits ÷ 2) 0.484 + 0.338 = 0.822. The untrained network has the same H with KL 2.28, 1.78 and 1.79, so training changed only the KL part. KL is not symmetric: KL(q‖p) is 0.222 for smoothed targets and 0.115 for the teacher, and infinite for one-hot labels. One Gaussian fitted to 12,665 training 1s and 0s, placed along the difference of their average pictures (two humps), by forward KL takes p's mean and spread, 2.37 and 3.98, centred where p is 2% of its peak. By reverse KL it sits on the 1s alone (centre −1.22, width 0.46, none of its mass on the 0s). Each fit loses badly on the other measure: 12.5 against 0.70, and 65.5 against 0.78 nats.",
+  "section": "b. Entropy, impurity and loss (5)",
+  "module": "study_bridge_kl",
+  "title": "Cross-entropy is entropy plus KL",
+  "summary": "A classifier's loss is a cross-entropy: the target's own entropy, which no model can beat, plus the KL divergence, the only part training moves; KL measured on three targets, both ways round, and as a fit to two humps of digits."
+ },
+ {
+  "number": 177,
+  "name": "every-loss-is-a-likelihood",
+  "description": "A measurement with errors from 500 seeded MNIST training digits: the ink of a digit's right half against its left half's, binned into 9 bins of the left half's ink (495 digits), each bin's mean with its standard error. A straight line fitted by the lowest chi-square has slope 0.832 ± 0.026 (chi-square 14.9 for 7 degrees of freedom). For Gaussian errors −2 ln L is exactly chi-square plus Σ ln 2πσᵢ², here −83.11 at every slope, so the lowest chi-square and the highest likelihood fall at the same slope. The curvature of −ln L, 1,524, gives the slope's error, ±0.026; the slopes of 120 disjoint samples of 500 digits scatter by 0.028 ± 0.002, and their curvature errors average 0.027. With one σ for every digit, chi-square is N/σ² times the mean squared error: least squares on the 500 digits gives a slope of 0.844 and an MSE of 0.000608 (0.000680 on 10,000 held-out digits), and with σ = √MSE chi-square is 500. A softmax regression (784→10, five epochs of plain gradient descent) has a held-out cross-entropy of 0.275 nats (92.3% right): minus the log of the product of the probabilities it gave the 10,000 right digits, about 10⁻¹¹⁹³, over 10,000. A logistic regression of 4 against 9 has a binary cross-entropy of 0.107 nats on 1,991 held-out digits (96.1% right), minus the log of a Bernoulli likelihood; the ten-class model read on its 4 and 9 logits alone gives 0.112. Each loss is the negative log-likelihood of the distribution it assumes.",
+  "section": "c. Bridges between topics (6)",
+  "module": "study_bridge_loss",
+  "title": "Every loss is a likelihood",
+  "summary": "Chi-square, squared error and cross-entropy are each minus the log of a likelihood: a line fitted to measured MNIST ink, a softmax regression of ten digits and a logistic regression of two, measured on held-out digits."
+ },
+ {
+  "number": 178,
+  "name": "from-a-cut-to-a-tree",
+  "description": "MNIST 4s stand for signal and 9s for background, with the two measured features of \"Choosing a split\"; 8,000 training events, and every efficiency measured on 5,782 held-out ones. Cut on one feature, the ink's vertical spread, s/√(s+b) of the training events is best at 4.90 pixels (3,537 4s and 707 9s kept, 54.3); a tree's root, scoring the same thresholds by Gini gain, picks 4.88, so close that on held-out events they keep 87% and 86% of 4s and 18.0% and 16.1% of 9s. With the 4s made rare, 50 for every 1,000 9s, both move to 4.64. That cut is a tree of depth one; asking again in each half, with either feature, splits the plane into 4, 8, then 32 boxes. Where the cut keeps 86% of held-out 4s it keeps 16.1% of 9s; the depth-5 tree keeps 6.9%, and the likelihood ratio estimated from two 10 × 10 histograms of the training events, the Neyman–Pearson best test, keeps 6.4%. The area under the held-out ROC curve rises from 0.850 for the stump to 0.958 at depth 5, against 0.962 for the ratio, then falls to 0.857 when the tree is grown to the end at depth 27, while on its training events it reaches 1.000.",
+  "section": "c. Bridges between topics (6)",
+  "module": "study_bridge_cut",
+  "title": "From a cut to a tree",
+  "summary": "An analysis cut is a tree of depth one; asking again in each half gives a tree whose boxes approach the likelihood ratio, until it grows deep enough to fit noise."
+ },
+ {
+  "number": 179,
+  "name": "dense-layer-learns-local",
+  "description": "The first layer of the 784-64-32-10 MNIST classifier of \"The entropy of a network's weights\", read as 64 pictures of 28 × 28 weights. Before training, two weights of a unit are uncorrelated at every distance (0.000 to 0.006). After five epochs they agree with their neighbours: 0.48 one pixel apart along a row or column, 0.32 at two and 0.19 at three, half the one-pixel value by 2.6 pixels, and only 0.01 to 0.03 from 6 pixels on. Each unit still pays for every pixel: 784 × 64 = 50,176 weights. A 3 × 3 convolution with as many maps keeps only the nine near pixels and shares one filter at every position: 9 × 64 = 576 weights, 87 times fewer, for 676 times the outputs (43,264). A dense layer giving that many outputs would need 33,918,976 weights, and a local layer that does not share would need 389,376. Trained on the same 60,000 digits with the same budget (2,340 updates of 128, Adam), a small CNN with 3 × 3 filters (5,258 parameters) and the dense classifier (52,650) name 98.2% and 96.5% of held-out digits. Moved by 1, 2, 3 and 4 pixels, the dense classifier falls to 93%, 73%, 45% and 24%, and the CNN to 97%, 91%, 75% and 51%. A shifted digit's first-layer maps are its maps shifted, exactly; the pooling and dense head that follow are not, so both models still lose digits that move.",
+  "section": "c. Bridges between topics (6)",
+  "module": "study_bridge_local",
+  "title": "A dense layer learns to be local",
+  "summary": "Training gives a dense layer's near pixels similar weights; a 3×3 convolution keeps only those near weights and shares them, using 576 weights instead of 50,176, and loses fewer held-out digits when they move."
+ },
+ {
+  "number": 180,
+  "name": "markov-chain-to-rnn",
+  "description": "Tables counted from the 892,324-character Tiny Shakespeare training split, orders 0 to 8 with add-α smoothing chosen on validation, scored on 111,474 held-out characters. On the text they were counted from they only improve, from 4.77 bits per character to 1.47. Held out they are best at order 4, 2.85 bits, then get worse, to 4.81 at order 8, where 56% of held-out contexts were never counted (8% at order 4). A GRU with 128 hidden units and 82,881 parameters, trained here in numpy by truncated backpropagation through time (1,200 updates of 64 streams × 64 characters, 5.5 passes, one seed), falls from 6.03 bits untrained to 2.68 held out. It scores 2.22 on training text, a gap of 0.46 against the table's 1.01. The order-4 table stores 125,229 counts of 65⁵ = 1,160,290,625 possible. Where a held-out position's order-4 context was never counted, the table gives every character 1/65 (6.02 bits) and the GRU scores 4.34; where it was counted 1–9 times, 3.35 against 2.87; where it was counted 10 times or more, the two are about even (2.46 against 2.52, and 2.47 against 2.45). As perplexity, 2^bits: 65 for a uniform guess, 28.4 for single characters, 7.2 for the best table and 6.4 for the GRU.",
+  "section": "c. Bridges between topics (6)",
+  "module": "study_bridge_text",
+  "title": "From a Markov chain to an RNN",
+  "summary": "A table of counted contexts must have seen the exact context, so on held-out text it gets worse past a few characters; a small recurrent network carries a state and shares its parameters across contexts, and beats the best table."
+ },
+ {
+  "number": 181,
+  "name": "labels-against-rewards",
+  "description": "A 784-64-10 classifier trained on MNIST two ways from the same start and on the same batches of 64 for 10,000 Adam updates, three seeds: cross-entropy on the label (gradient on the logits p − onehot(y)), and REINFORCE as a one-step bandit, where a digit drawn from the softmax earns 1 if it is right and 0 if not and the label is never shown (gradient (r − b)(p − onehot(a)), baseline a moving average of past rewards). For one real training digit, a 6 with p(6) = 0.54, the reward's gradient averaged over the draw is exactly 0.536 times the label's (the mean of 10,000 draws is within 0.002): a right guess gives the label's gradient times (1 − b), and a wrong one only pushes that guess down. Over a whole batch the two gradients have a cosine of only 0.28–0.35. A label can carry log₂ 10 = 3.32 bits; the right/wrong reward's entropy peaks at 0.92–1.00 bits and falls to 0.26–0.29 once 95% of guesses are right, so a run's rewards carry 0.25–0.28M bits against its labels' 2.12M. On the 10,000 held-out digits the reward needs 3.5–9.5 times the updates to reach 90% (600–1,900 against 160–200) and ends at 95.0–95.5% against 97.4–97.6%. In one seed of three the rewarded network stopped naming four digits, the 4s from update 100 to 1,700: a digit never guessed is never rewarded.",
+  "section": "c. Bridges between topics (6)",
+  "module": "study_bridge_reward",
+  "title": "Labels against rewards",
+  "summary": "The same classifier trained from labels and from a right-or-wrong reward: the same direction on average, at most a bit per digit, and several times the updates."
+ },
+ {
+  "number": 182,
+  "name": "bits-in-a-weight",
+  "description": "The 784-64-32-10 classifier of \"The entropy of a network's weights\" (seed 0, 96.55% of test digits right) has its 52,544 weights rounded to each number format, and each is measured three ways: the bits it stores, the entropy of the values the weights take there (what an ideal code would need), and held-out accuracy on the 10,000 test digits. Counted in bins of 0.01 the weights had 5.23 bits each; float32 stores 32, and 52,522 of the 52,544 values differ, so a count can show at most log₂ 52,544 = 15.68 bits. FP16 carries 13.29 of its 16 bits (13,417 values), BF16 10.54 (2,703 values) and FP8 6.28 of 8 (108 values), and all three keep the accuracy (96.55%, 96.55%, 96.49%). In plain FP4, whose smallest nonzero value is 0.5, the 98.1% of weights within 0.25 of zero round to 0: five values, 0.16 bits, and 17.0% right. With one power-of-two scale per 32 weights (8 bits a block, 0.25 bits a weight), FP4 leaves 8.3% at zero, carries 3.86 of its 4 bits and gets 96.2% right. On symmetric integer grids accuracy holds down to 5 bits, 3.61 bits carried (96.6%); at 4 bits (2.54 carried) it is 94.0%, at 3 bits 89.0% and at 2 bits 19.3%.",
+  "section": "c. Bridges between topics (6)",
+  "module": "study_bridge_bits",
+  "title": "How many bits a weight carries",
+  "summary": "A trained weight stored in 32 bits carries far fewer: rounded to each number format, the entropy of its values against the accuracy kept, and why plain 4-bit needs a shared scale."
  }
 ]
