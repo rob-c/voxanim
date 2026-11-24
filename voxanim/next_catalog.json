@@ -2131,5 +2131,302 @@
   "module": "study_blocks_s",
   "title": "A new encoder needs a new store",
   "summary": "Vectors from two encoders don't mix: a retrained encoder's queries against the old store find the right digit 7.6% of the time, below chance, until the whole store is embedded again (96.6%)."
+ },
+ {
+  "number": 238,
+  "name": "faces-a-box",
+  "description": "A held-out scene we made: two photos of faces pasted onto textured paper and two not-faces (photos shuffled in 8 × 8 blocks), so every box is exact. One face was pasted at x 18, y 52, 19 pixels wide; the script's box = (x + s / 2, y + s / 2, s, s) writes it as centre and size, (27.5, 61.5, 19, 19). box_convert(..., \"cxcywh\", \"xyxy\") gives the same box as two corners, x1 = 27.5 − 9.5 = 18 and so on: (18, 52, 37, 71). The trained detector's box for that face, 0.97 sure, is (18.9, 49.4, 38.4, 69.1). Magnified, their IoU is worked out as areas: overlap 308, together 361 + 383 − 308 = 436, so IoU = 308 ÷ 436 = 0.71, as box_iou prints (0.7077; the other face 0.7452). Right boxes overlap the truth by 0.78 on average over the 200 held-out scenes.",
+  "section": "i. Finding faces: bounding boxes (7)",
+  "module": "study_blocks_t",
+  "title": "A box is four numbers",
+  "summary": "A box is four numbers, centre and size or two corners, and IoU (overlap ÷ together, 0.71 here) says how well two boxes agree."
+ },
+ {
+  "number": 239,
+  "name": "faces-the-grid",
+  "description": "The held-out scene under the detector's answer grid: 96 ÷ 8 = 12 cells across and down, each 8 × 8 pixels. The face's centre (27.5, 61.5) falls in row 7 (61.5 ÷ 8 = 7.69) and column 3 (27.5 ÷ 8 = 3.44). Magnified, that cell says where in it the centre is, 0.44 across and 0.69 down, and how big the box is as log(19 ÷ 16) = 0.17 (sizes 16 to 32 give 0 to 0.69), as offsets() returns them. targets() puts has = 1 and those 4 numbers in each face's cell: 2 of the 144 cells. The other 142 say 0, including the cells under the two not-faces.",
+  "section": "i. Finding faces: bounding boxes (7)",
+  "module": "study_blocks_t",
+  "title": "A grid of guesses",
+  "summary": "A detector answers on a 12 × 12 grid: the cell holding a face's centre says 1, where in the cell the centre is, and log(size ÷ 16); every other cell says 0."
+ },
+ {
+  "number": 240,
+  "name": "faces-the-detector",
+  "description": "The held-out scene through the trained detector. block() reads it with 8 stamps of 3 × 3, keeps what is above 0 and halves it: [1, 1, 96, 96] → [1, 8, 48, 48]. Two more blocks give [1, 16, 24, 24] and [1, 32, 12, 12], each drawn as a stack of the real maps. A 1 × 1 convolution turns each cell's 32 numbers into 5, [1, 5, 12, 12]. The first, as a chance, laid over the scene, is 0.97 in the face's cell; 4 cells pass 0.5, three of them round the other face, in the row above its target cell because its centre sits on a cell edge. The detector learns 80 + 1,168 + 4,640 + 165 = 6,053 numbers. Each 3 × 3 stamp and each halving widens what one cell sees: 3, 4, 8, 10, 18, then 22 × 22 pixels. On the trained model, changing every pixel outside that square leaves the cell's 5 numbers exactly as they were.",
+  "section": "i. Finding faces: bounding boxes (7)",
+  "module": "study_blocks_t",
+  "title": "From pixels to a grid",
+  "summary": "Three conv-ReLU-pool blocks take a 96 × 96 scene to a 12 × 12 grid, a 1 × 1 convolution gives each cell 5 numbers, 6,053 learned in all, and each cell sees 22 × 22 pixels."
+ },
+ {
+  "number": 241,
+  "name": "faces-two-losses",
+  "description": "Training step 0's 16 made scenes (faces of people 0–29 pasted on textured paper) become 16 grids of 12 × 12 cells: 2,304 cells, of which 38 hold a face's centre (1.6%). 'There' (region fc-loss) is binary cross-entropy over every cell, face cells counted 10 times (region fc-weight), so faces are 380 of the 2,646 counted, 14.4%; at the starting weights it is 0.853 (0.760 without the weight). 'Where' is the squared error of the box on the 38 face cells only. One cell is worked: it should say 0.06, 0.56, 0.66, 0.66 and says 0.47, 0.49, 0.06, 0.05, a miss of 0.911. Where is the mean over the 38, 0.438, and the loss is 0.853 + 5 × 0.438 = 3.044. The same run trained without the weight finds 72 of the 412 faces in 200 scenes of unseen people at confidence 0.5 (AP 0.47); with it, 348 (AP 0.92). One run each, from the same start on the same scenes.",
+  "section": "i. Finding faces: bounding boxes (7)",
+  "module": "study_blocks_u",
+  "title": "Two losses: is it there, and where",
+  "summary": "A detector's loss in two parts: 'there' on every cell, with the rare face cells counted 10 times, and 'where' on face cells only. Without the weight, AP falls from 0.92 to 0.47."
+ },
+ {
+  "number": 242,
+  "name": "faces-training-the-detector",
+  "description": "One training run of 6,000 steps, 16 new made scenes a step: 'there' falls from 0.85 to 0.06 and 'where' from 0.44 to 0.03 (each point after step 0 the mean of 100 steps; the whole loss from 3.04 to 0.22). The first held-out test scene, two faces of unseen people and two not-faces, is run through the detector at steps 0, 100, 500, 2,000 and 6,000 (regions fc-train and fc-decode). At step 0 every cell says just over 0.5 (0.53 to 0.54); by step 100 no cell is above 0.5, and at 500 the surest says only 0.22. By 2,000 the faces' cells pass 0.5: 3 boxes for 2 faces. At 6,000 the two faces get the scene's only boxes, 0.98 and 0.97.",
+  "section": "i. Finding faces: bounding boxes (7)",
+  "module": "study_blocks_u",
+  "title": "Training the detector",
+  "summary": "Watching the detector learn: its two losses fall over 6,000 steps, and on a scene of unseen people the grid goes from 'everywhere' to 'nowhere' to exactly the two faces."
+ },
+ {
+  "number": 243,
+  "name": "faces-nms",
+  "description": "The trained detector on the first test scene (picked by a rule: the first where NMS drops a box): 4 of its 144 cells are above 0.5. Each becomes a box in pixels (region fc-decode); cell (5, 8), at 0.98, gives a box 27.9 wide centred at (69.9, 47.2). Three of the four boxes sit on one face, overlapping the surest by IoU 0.77 and 0.39. Non-maximum suppression at IoU 0.3 (region fc-nms) keeps the surest box and drops every box overlapping it by more than 0.3: 2 boxes for the 2 faces. Over all 200 test scenes, 685 boxes above 0.5 become 412.",
+  "section": "i. Finding faces: bounding boxes (7)",
+  "module": "study_blocks_u",
+  "title": "One box per face",
+  "summary": "Several cells claim the same face; non-maximum suppression keeps the surest box and drops the ones that overlap it."
+ },
+ {
+  "number": 244,
+  "name": "faces-precision-and-recall",
+  "description": "Matching at IoU 0.5 on the first test scene with a wrong box (scene 3): 3 boxes right, 1 on no face. Over 200 scenes of the unseen people at confidence 0.5, 348 of the 412 faces are found (recall 84.5%) and 348 of the 412 boxes are right (precision 84.5%; the two match by chance), with 64 wrong boxes. Taking boxes down to lower confidence finds more faces but adds wrong ones: from 0.9 up, 55.8% found and 99.6% right; from 0.1, 97.8% and 52.1%. AP, the area under precision against recall, is 0.92. The same detector trained without weighting the face cells never finds more than 56.8% of the faces: AP 0.47, 72 found at 0.5.",
+  "section": "i. Finding faces: bounding boxes (7)",
+  "module": "study_blocks_u",
+  "title": "Is the detector any good?",
+  "summary": "Precision, recall and AP on faces the detector never saw: 348 of 412 found and 64 wrong boxes at 0.5, AP 0.92 against 0.47 without the weight."
+ },
+ {
+  "number": 245,
+  "name": "faces-a-face-is-numbers",
+  "description": "A 64 × 64 photo is 4,096 numbers from 0 (dark) to 1 (light): photo 300, person 30's first, with nine of its numbers written out. The 400 photos are drawn as a sheet, 40 people of 10 photos each: people 0–29 train the models, people 30–39 are only tested on. Compared pixel by pixel (each photo's 4,096 numbers scaled to length 1), person 30's first two photos are 0.340 apart, and person 30's and person 31's first photos only 0.336: the two people are closer. Over all 4,950 pairs of people 30–39, the 450 pairs of one person lie between 0.06 and 0.42 and the 4,500 pairs of two people between 0.17 and 0.52; between 0.17 and 0.42 there are 377 of the first and 4,158 of the second.",
+  "section": "j. Recognising faces (7)",
+  "module": "study_blocks_v",
+  "title": "A face is 4,096 numbers",
+  "summary": "A face is 4,096 numbers, and pixel distances of one person and of two people overlap."
+ },
+ {
+  "number": 246,
+  "name": "faces-an-embedding",
+  "description": "The encoder of examples/faces.py on photo 300 (person 30, never trained on), averaged to 32 × 32: three blocks of convolution, ReLU and pooling take it from [1, 32, 32] to [8, 16, 16], [16, 8, 8] and [32, 4, 4]; Flatten lays those out as 512 numbers, and one linear layer turns them into 32. They come out with length 0.09; F.normalize divides by it, so every face becomes 32 numbers of length 1. The blocks learn 80, 1,168 and 4,640 numbers and the linear layer 16,416: 22,304 in all.",
+  "section": "j. Recognising faces (7)",
+  "module": "study_blocks_v",
+  "title": "A face as 32 numbers",
+  "summary": "An encoder turns a 32 × 32 face into 32 numbers of length 1, with 22,304 numbers learned."
+ },
+ {
+  "number": 247,
+  "name": "faces-triplets",
+  "description": "The triplet loss on the first triplet of training, from people 0–29: photos 144 and 149 of person 14 (anchor and positive) and photo 30 of person 3 (negative). Before training the positive is 0.04 from the anchor and the negative 0.09: the negative must be 0.5 further, so the loss is max(0.04 − 0.09 + 0.5, 0) = 0.45. Over 1,500 steps of 32 triplets the loss falls to 0.0004, and the share of triplets not yet 0.5 apart from 100% to 1% (step 0, then means of 25 steps; 1.7% over the last 100 steps). After training the same triplet is 0.24 and 1.27 apart: more than 0.5 further, loss 0.",
+  "section": "j. Recognising faces (7)",
+  "module": "study_blocks_v",
+  "title": "Triplets: same closer than different",
+  "summary": "The triplet loss pushes another person 0.5 further away than another photo of the same person, and training does it."
+ },
+ {
+  "number": 248,
+  "name": "faces-verification",
+  "description": "The 100 photos of people 30–39, never trained on, make 4,950 pairs: 450 of one person and 4,500 of two. Through the trained encoder their distances form two piles, one person's mostly near and two people's far, still overlapping. The threshold, 0.72, is chosen on the training people's pairs (where the two kinds of mistake are equally common there), never on these: on the unseen people it gives 86 false accepts (1.9% of 4,500) and 111 false rejects (24.7% of 450), 4,753 of 4,950 right. The equal error rate on these pairs is 12.4% for the encoder against 22.0% for raw pixels and 18.0% for the untrained network; at their own thresholds from people 0–29, the encoder makes 197 mistakes and raw pixels 390.",
+  "section": "j. Recognising faces (7)",
+  "module": "study_blocks_v",
+  "title": "Same person or not?",
+  "summary": "Face verification: one threshold set on the training people, two kinds of mistake, and an equal error rate of 12.4% against 22.0% for raw pixels."
+ },
+ {
+  "number": 249,
+  "name": "faces-identification",
+  "description": "One photo each of people 30 to 34, never seen in training, is enrolled: gallery = v[:50:10], photos 300, 310, …, 340, each turned by the encoder into 32 numbers of length 1. A new photo is named after the nearest enrolled face (torch.cdist, then argmin). Photo 305 is 0.18 from person 30's enrolled photo and 1.04 to 1.40 from the others, under the threshold of 0.72 chosen on the training people: it is named person 30. Photo 301, also person 30, is nearest to person 31, at 0.81: over the threshold, so the answer is \"unsure\", and the name would have been wrong. Each is the first of the 45 new photos to fall under, or over, the threshold. Over all 45, the nearest enrolled face is the right person for 36, exactly as many as raw pixels (36): from one enrolled photo, the encoder does not help this identification (it helps verification: equal error rate 12.4% against 22.0%); 14 of the 45 are unsure. The 50 photos of people 35 to 39, never enrolled, are sorted by their distance to the nearest enrolled face (0.66 to 1.15): 6 fall under the threshold and would be let in.",
+  "section": "j. Recognising faces (7)",
+  "module": "study_blocks_w",
+  "title": "Who is it?",
+  "summary": "Identification from one enrolled photo each: the nearest enrolled face names 36 of 45 new photos of five people, no better than raw pixels, says \"unsure\" over the threshold, and lets in 6 of 50 strangers' photos."
+ },
+ {
+  "number": 250,
+  "name": "faces-the-whole-pipeline",
+  "description": "The detector and the recogniser together on a scene they never saw: the first seeded scene of people 30 to 34 with three faces (its third; the two before had one and two), picked by that rule rather than by how well it goes. The faces are pasted onto textured paper, so the true boxes are exact, and none is an enrolled photo. The detector keeps 7 cells over 0.5, and non-maximum suppression leaves 3 boxes, one per face, scored 0.96, 0.93 and 0.92. Each box is cut out of the scene and resized to 32 × 32 by area, the size the encoder trained on, then turned into 32 numbers and matched to the five enrolled photos: person 30 at 0.34, person 34 at 0.84 and person 31 at 0.71. All three are right, but person 34's distance is over the 0.72 threshold, so that one is \"unsure\". Over 200 such scenes (391 faces) the detector finds 341. From the detector's box, 227 of those 341 are named right (67%); from the true box, 320 of all 391 (82%). The boxes found overlap the truth by 0.76 on average, and a box a little off changes the crop, which costs names.",
+  "section": "j. Recognising faces (7)",
+  "module": "study_blocks_w",
+  "title": "Find, cut out, compare",
+  "summary": "Find, cut out, compare: on one scene, the detector's three boxes, each face cut out, its 32 numbers and the nearest enrolled person; over 200 scenes, 67% of the faces found are named right from the detector's box and 82% from the true box."
+ },
+ {
+  "number": 251,
+  "name": "faces-what-40-people-cannot-show",
+  "description": "The same threshold, person by person, among the ten people the models never trained on, by number only. Of each person's 45 same-person pairs it rejects 25, 2, 9, 0, 17, 33, 0, 3, 0 and 22 (people 30 to 39): 73% for person 35, none for three others, 25% (111 of 450) over all ten. Of each person's 900 pairs with someone else it accepts 7 to 34 (0.2% to 3.8%; 1.9% over all 4,500 pairs). Then the whole dataset as 40 × 10 tiles: 40 people, ten photos each, taken at one lab (AT&T Laboratories Cambridge) in 1992–94 for research, 30 people trained on and 10 tested. What it cannot measure, said plainly: how a system's errors differ across ages, skin tones, lighting, cameras or poses it never saw. Real systems are tested on far larger, more varied sets and still err unevenly; the numbers here do not transfer to them.",
+  "section": "j. Recognising faces (7)",
+  "module": "study_blocks_w",
+  "title": "What 40 people can't tell you",
+  "summary": "Error rates person by person among ten unseen people (0% to 73% of their own pairs rejected), and what 40 people photographed at one lab in 1992–94 cannot show about how face recognition errs."
+ },
+ {
+  "number": 252,
+  "name": "hosting-device-and-server",
+  "description": "A phone (or laptop) and a server side by side. On the phone, a chat app and the question \"What is a server?\", written for the animation. The server is a computer far away, holding the model: GPT-2 small, 124,439,808 numbers (498 MB), drawn as orange tiles of its real weights. The phone holds the app, the words and the reply, never the model. The app sends a request over the internet: 82 bytes of text (len(body) in examples/serve.py). GPT-2's real reply comes back one token at a time: 20 tokens, 92 bytes, \"A server is a place where you can communicate with other people. It's a place where you can\". It is poor because GPT-2 (2019) was not trained to chat. Last, the sizes on a log scale, each mark 1,000 times the last: request 82 bytes, reply 92, model 497,759,232, which is 6,070,234 times the request. Real services run far bigger models whose sizes are mostly not published.",
+  "section": "k. Hosting a language model (11)",
+  "module": "study_blocks_x",
+  "title": "Your device and the server",
+  "summary": "What is on your phone (the app, your words, the reply) and what is on the server far away (the model, 124,439,808 numbers): an 82-byte request goes out, 20 tokens come back, and the model is 6,070,234 times the request."
+ },
+ {
+  "number": 253,
+  "name": "hosting-a-request-is-text",
+  "description": "The request of examples/serve.py built line by line (region hs-request), with the script's own comments as the picture's words. First one message, {\"role\": \"user\", \"content\": \"What is a server?\"}. Then the request around it: the messages so far and \"max_tokens\": 20. Then json.dumps(...).encode() makes one line of text, 82 characters and 82 bytes, sent off to the server. Last, an example conversation written for the animation, over three turns. Each request holds the whole talk so far (1, 3, then 5 messages): 82, 252, then 422 bytes. The server turns these into prompts of 10, 36, then 66 tokens (GPT-2's tokenizer; a service's own would count a little differently).",
+  "section": "k. Hosting a language model (11)",
+  "module": "study_blocks_x",
+  "title": "A request is text",
+  "summary": "A request is a short piece of text, 82 bytes of JSON; every turn sends the whole conversation again: 82, 252, then 422 bytes (10, 36, then 66 tokens)."
+ },
+ {
+  "number": 254,
+  "name": "hosting-the-model-is-a-file",
+  "description": "GPT-2 small as one file of 124,439,808 numbers, learned once in training and only read while it answers. Part by part: the token table, 50,257 × 768 = 38,597,376; 12 layers of 7,087,872 each; positions, 786,432; the last norm, 1,536; added up, 124,439,808. Each number is kept in 4 bytes, so the model takes 497,759,232 bytes, about 498 MB. When the server starts, load() (region hs-load) reads the file once into its memory, drawn as shelves. Four people's requests then all read that one copy (reply(W, ...) in region hs-handler); it is not loaded again while the server runs.",
+  "section": "k. Hosting a language model (11)",
+  "module": "study_blocks_x",
+  "title": "The model is a file of numbers",
+  "summary": "GPT-2's 124,439,808 numbers part by part, 497,759,232 bytes at 4 bytes each, loaded once into the server's memory and read there by every request."
+ },
+ {
+  "number": 255,
+  "name": "hosting-text-to-tokens",
+  "description": "On the server, the example request (82 bytes of JSON, written for the animation) becomes one text, \"User: What is a server?\" and \"Assistant:\" (34 characters), for GPT-2 to continue. GPT-2's tokenizer cuts it into 10 tokens, drawn as blue tiles (a space shown as ␣, the new line as ↵): User, :, ␣What, ␣is, ␣a, ␣server, ?, ↵, Assistant, :. Each is a number in GPT-2's list of 50,257: 12982, 25, 1867, 318, 257, 4382, 30, 198, 48902, 25; the colon is 25 both times. Tokens are what a service counts, limits and bills: here 10 read and at most 20 written (max_tokens), at most 30 of GPT-2's limit of 1,024. A service's own tokenizer would cut the text a little differently.",
+  "section": "k. Hosting a language model (11)",
+  "module": "study_blocks_y",
+  "title": "Text becomes tokens",
+  "summary": "The request becomes one text of 34 characters, then 10 tokens, each a number from GPT-2's list of 50,257: what a service counts, limits and bills."
+ },
+ {
+  "number": 256,
+  "name": "hosting-one-token-at-a-time",
+  "description": "The server (GPT-2) and a phone, joined by the internet. GPT-2 reads the 10 tokens and gives each of its 50,257 tokens a chance: the five likeliest first tokens are \" A\" 11.3%, \" It\" 5.1%, \" Server\" 4.8%, \" The\" 4.7%, \" I\" 3.6%. The likeliest is sent along the cable to the phone at once, then added to the text (11 tokens). Steps 2 to 5 go the same way (\" server\" 68.2%, \" is\" 51.4%, \" a\" 55.0%, \" place\" 5.4%), then the rest stream in: \" A server is a place where you can communicate with other people. It's a place where you can\". That is 20 tokens, stopping mid-sentence at max_tokens. GPT-2 (2019) was not trained to chat; its reply is poor and repeats itself. What is shown is what a server does with any model.",
+  "section": "k. Hosting a language model (11)",
+  "module": "study_blocks_y",
+  "title": "One token at a time",
+  "summary": "GPT-2's real reply written one token at a time: the five likeliest next tokens each step, the likeliest sent to the phone at once, 20 tokens and then it stops."
+ },
+ {
+  "number": 257,
+  "name": "hosting-read-once-remember",
+  "description": "Without a cache, every new token means running the whole text again: after the 10-token prompt, 11 tokens, then 12, up to 30, which is 410 tokens run for 20 reply tokens. The cache: in each of GPT-2's 12 layers, every token read leaves keys and values that later tokens look back at, kept like shelves ([12 heads, 30 tokens, 64] per layer at the end). With it, only the new token runs: 20 tokens. The reply is the same 20 tokens, and the scores differ from recomputing by at most 0.0000068 (rounding). Counted from GPT-2's shapes, that is 2.5 billion multiply-adds instead of 35.7 billion, 14.4 times fewer. This is less than the 20.5 times fewer tokens run, because scoring all 50,257 tokens costs the same either way.",
+  "section": "k. Hosting a language model (11)",
+  "module": "study_blocks_y",
+  "title": "Read once, then remember",
+  "summary": "The key-value cache: keys and values kept, only the new token run; the same reply (scores within 0.0000068) for 14.4 times fewer multiply-adds over 20 tokens."
+ },
+ {
+  "number": 258,
+  "name": "hosting-many-people-one-model",
+  "description": "One copy of the model serves many people. Four people's questions, written for the animation, are read by examples/serve.py's GPT-2, and each gets a first reply token (\" A\", \" It\", \" I\", \" Hello\"). Their next tokens (\" server\", \"'s\", \"'m\", \"!\") are made first one step per person, which reads all 124,439,808 weights (498 MB at 4 bytes each) four times, 1,991 MB. Then they are made in one batch_step, a matrix with a row per person, which reads the weights once and gives the same four tokens (scores within 2e-6). Weights read per token as people share a step: 498 MB for one, 249 MB for two, 7.8 MB each for 64. These are counts, not speeds.",
+  "section": "k. Hosting a language model (11)",
+  "module": "study_blocks_z",
+  "title": "Many people, one model",
+  "summary": "One step for four people reads GPT-2's 498 MB of weights once and gives each the same next token as a step of their own; shared by 64, that is 7.8 MB per token."
+ },
+ {
+  "number": 259,
+  "name": "hosting-memory-per-conversation",
+  "description": "For every token it has read, the server keeps a key and a value of 768 numbers in each of GPT-2's 12 layers: 73,728 bytes at 4 bytes a number (the real keys and values of \" server\" are drawn). The real reply's conversation (10 tokens asked, 20 written) keeps 30 tokens, 2.2 MB. GPT-2 has 1,024 places, so a full conversation keeps 75 MB. Memory is drawn as ten 100 MB shelves: the model's 498 MB is shared by everyone, each conversation's cache is its own, and six full ones fit beside the model in a GB. A GB of cache holds 13,563 tokens: 13 full conversations or 452 as short as the real reply. A long conversation takes the room of many short ones.",
+  "section": "k. Hosting a language model (11)",
+  "module": "study_blocks_z",
+  "title": "Why a conversation has a limit",
+  "summary": "Each token kept costs 73,728 bytes of memory while the conversation lasts: 75 MB for GPT-2's 1,024 tokens, 13,563 tokens per GB beside the model's 498 MB."
+ },
+ {
+  "number": 260,
+  "name": "hosting-a-coding-agent",
+  "description": "A coding agent's conversation, written for the animation, its tokens counted with GPT-2's tokenizer. The coding agent, the file parser.py and the tests are on the person's laptop; the service only runs the model, which only writes text. Each of four calls sends the whole conversation so far: 25, 87, 150, then 189 tokens. Three times the model answers with text asking for a tool: read the file, edit it, run the tests. The laptop runs it and the result joins the conversation. The fourth answer asks for no tool, \"Fixed: … The 3 tests pass.\", and the loop ends. 451 tokens were sent over the four calls, and 79 written.",
+  "section": "k. Hosting a language model (11)",
+  "module": "study_blocks_z",
+  "title": "A coding agent's loop",
+  "summary": "An agent on the laptop sends the whole conversation each call (25 → 87 → 150 → 189 tokens); the model answers with text asking for a tool, and the laptop, not the service, reads the file, edits it and runs the tests."
+ },
+ {
+  "number": 261,
+  "name": "thinking-tokens",
+  "description": "A tiny transformer (2 layers, width 64, 103,114 numbers, trained once by examples/thinking.py) is asked for the parity of 12 bits, 1 if the count of ones is odd. The question is a row of tokens: an effort token, the 12 bits and \"=\". The string shown is held-out string 1 of 468 (0 1 0 1 0 1 0 0 0 0 0 0, three ones, answer 1), picked by a rule: the first whose effort-12 run is right at every step and whose effort-0 answer is wrong. The model, drawn as one orange card, writes one token per pass. Each pass reads every token so far. At effort 0 it answers at once: one pass, which reads 14 tokens and writes 0, wrong. At effort 12 it first writes a step under each bit, the parity so far (0 1 1 0 0 1 1 1 1 1 1 1), each one read back by the next pass, and then the answer 1, right: 13 tokens, 13 passes. These are the model's own tokens. Over the 468 strings it never saw, 465 are right with 12 steps, against 215 (46%, about chance) with no steps. Then a large served model: its thinking is the same kind of thing, tokens written before the answer, often not shown to the person, but read back and counted like any other.",
+  "section": "k. Hosting a language model (11)",
+  "module": "study_blocks_za",
+  "title": "Thinking: tokens it writes for itself",
+  "summary": "Thinking is tokens the model writes for itself and reads back: one pass per token. A tiny model answering a held-out parity question at once guesses wrong, and writing 12 steps first makes it right, 465 of 468 against 215 (46%) with no steps."
+ },
+ {
+  "number": 262,
+  "name": "thinking-effort",
+  "description": "Effort is how many thinking steps the tiny parity model may write before its answer: 0, 1, 2, 3, 4, 6 or 12. On one held-out string, effort 0 asks for the answer alone (1 token), effort 3 for a step every 4 bits (4 tokens), and effort 12 for a step every bit (13 tokens), as examples/thinking.py's example() writes them. Every token written is one more pass through the whole model, all 103,114 numbers, so effort k costs k + 1 passes. On the 468 bit strings it never saw, right answers are 215, 213, 218, 226, 241, 224 and 465 for 0 to 12 steps, and tokens written are 1, 2, 3, 4, 5, 7 and 13. Up to 6 steps it stays about chance (234), because each step still covers 2 or more bits. With one bit a step it is right on 465. This is one run: where the cliff falls is this model's. What carries over to large served models: a coding agent can ask for more or less effort per request, and more thinking means more tokens, so more passes, time and cost; it helps when each step it allows is one the model can do. What this toy cannot show: by how much it helps, or that more always helps.",
+  "section": "k. Hosting a language model (11)",
+  "module": "study_blocks_za",
+  "title": "Effort: how much thinking is allowed",
+  "summary": "Effort is a budget of thinking tokens: at every effort, right answers out of 468 and tokens written (one pass each). The tiny model stays about chance up to 6 steps and gets 465 of 468 with 12, for 13 tokens instead of 1."
+ },
+ {
+  "number": 263,
+  "name": "resample-down",
+  "description": "Making a picture smaller with conv2d, nothing learned. The kernel is [1, 2, 1] / 4 times itself, shown as a multiplication table: nine sixteenths, 1 2 1 / 2 4 2 / 1 2 1, adding up to 16/16 = 1, so a flat grey stays the same. On photo 0 of the Olivetti faces the kernel covers 9 pixels at an eye's edge (picked by a rule: the most varied 9 in the middle of the picture). Multiplied by the kernel's numbers and added up they give 0.53, one pixel of the 32 × 32 picture. With stride 2 the kernel jumps 2 pixels at a time until all 1,024 are filled. The same thing is a matrix D of 32 × 64: each row is [1, 2, 1] / 4 moved 2 places on, and row 0's first number falls past the edge. D @ plate shrinks a zone plate down to 32 × 64, @ D.T shrinks it across to 32 × 32, and the result is conv2d's picture (the script prints 1.7881e-07: float32 rounding). Where the plate's rings are finer than 32 × 32 can hold (827 of the 1,024 small pixels), a true copy is plain grey. Keeping every second pixel leaves false rings of RMS 0.354 there; blurring first leaves 0.079.",
+  "section": "l. Resizing pictures (2)",
+  "module": "study_blocks_zb",
+  "title": "Smaller: blur, then skip",
+  "summary": "Downsampling with a fixed blur kernel and stride 2, the same as a matrix D, and why skipping pixels makes false rings."
+ },
+ {
+  "number": 264,
+  "name": "resample-up",
+  "description": "Making a picture bigger with conv_transpose2d. Photo 0's 32 × 32 picture is spread to 64 × 64 with a zero after each pixel (1,024 kept, 3,072 zeros), then the kernel × 4 slides over it. A kept pixel stays itself, a gap between two gets half of each ((0.64 + 0.53) / 2 = 0.59), and a gap among four gets their average (0.54): bilinear interpolation. Nearest instead copies each pixel into a 2 × 2 block, and the picture comes out blocky. A flat picture of ones comes back 1 inside, 0.5 on the last row and column and 0.25 at the corner, because one neighbour there is past the edge. So the photo's last row is dim (0.28 on average) until up_even divides by what each pixel received (0.57). Over the 400 photos, going down and back up, the mean squared difference from the photo (pixels 0 to 1) inside the 1-pixel border is 0.00129 for bilinear and 0.00302 for nearest. Over the whole picture bilinear scores 0.00343, and 0.00199 with the edge made even. Skipping instead of blurring before bilinear lands closer still (0.00092): the blur throws detail away, and what it buys is no false rings (0.354 against 0.079 on the zone plate), not a closer copy.",
+  "section": "l. Resizing pictures (2)",
+  "module": "study_blocks_zb",
+  "title": "Bigger: spread, then blur",
+  "summary": "Upsampling with a transposed convolution: zeros between the pixels, then the kernel × 4 (bilinear), against nearest's blocks, the edge that gets half, and 400 measured round trips."
+ },
+ {
+  "number": 265,
+  "name": "ae-to-gan-rewire",
+  "description": "An autoencoder's two blocks, the encoder (784→256→16, 205,072 numbers) and the decoder (16→256→784, 205,840), are drawn as orange cards of their real weights. A held-out 7 is squeezed to its 16-number code and rebuilt, then scored pixel by pixel (784 scores, loss 0.07). Unplugged, the decoder slides into the generator's place with every number kept and turns a made-up code (noise with the mean and spread of real codes) into a picture. The encoder's last layer (4,112 numbers) is left out, and its body (200,960 numbers, kept) becomes the judge with one new layer, 256→1, \"real?\" (257 numbers). The GAN's wiring is noise → generator → judge ← real. Side by side, the autoencoder sends every digit through 16 numbers, while in the GAN no digit passes through a code and the judge scores whole pictures.",
+  "section": "m. From autoencoder to GAN (4)",
+  "module": "study_blocks_zc",
+  "title": "Same blocks, wired again",
+  "summary": "An autoencoder's encoder and decoder, unchanged inside, wired again as a GAN: only the judge's one-number head is new."
+ },
+ {
+  "number": 266,
+  "name": "ae-gan-blurry-or-sharp",
+  "description": "Real held-out digits and the autoencoder's rebuilds of them, beside the decoder fed the same made-up codes before and after the GAN game (the first three of each, not chosen for looks; some made ones are speckled). Over 1,000 of each, the share of grey pixels (between 0.2 and 0.8) is 6.0% for real digits, 9.4% for rebuilds, and 9.1% before and 7.4% after the game. The course classifier is as sure of rebuilds as of real digits (0.94, 0.94) and less sure of made ones (0.74 before, 0.84 after). Why rebuilds are grey: scored pixel by pixel through a 16-number code, a pixel that is ink in half the digits a code could be scores best at 0.5 (loss 0.69, against 1.20 for 0.1 or 0.9). The generator is instead scored by the judge on the whole picture.",
+  "section": "m. From autoencoder to GAN (4)",
+  "module": "study_blocks_zc",
+  "title": "Blurry or sharp",
+  "summary": "The same decoder on the same made-up codes before and after the GAN game, against real digits and rebuilds: how grey each is, and why rebuilds blur."
+ },
+ {
+  "number": 267,
+  "name": "ae-gan-rebuild-or-invent",
+  "description": "Given a digit, the autoencoder rebuilds that digit: four held-out digits come back read as 7, 2, 1, 0, and over 1,000 held-out digits the course classifier reads 928 rebuilds as their digit (92.8%; the real digits themselves, 949). The generator's only input is 16 made-up numbers, so there is no way to give it a digit or ask for one; a new code gives a new digit. What 1,000 made digits after the game are read as: every digit appears, from 63 (5s) to 135 (8s). Sixteen made digits are shown as they are, many readable and some speckled or malformed, none chosen. Counts are what the classifier reads, not ground truth.",
+  "section": "m. From autoencoder to GAN (4)",
+  "module": "study_blocks_zc",
+  "title": "Rebuild or invent",
+  "summary": "The autoencoder rebuilds the digit it is given; the GAN makes every digit from noise but none on request."
+ },
+ {
+  "number": 268,
+  "name": "ae-gan-one-loss-or-two",
+  "description": "The autoencoder has one loss, and it falls smoothly over 3,000 steps, from 0.69 at the first step to 0.10 over the last 100. The GAN has two, one per player. Over 6,000 steps (means of 100), the judge's loss goes from 1.43 to 1.20 and the generator's from 0.67 to 0.88: as the judge gets better at telling, the generator fools it less often. Neither nears 0; both stay near the losses of a judge that cannot tell (2 ln 2 = 1.39 and ln 2 = 0.69). The same made-up codes are drawn at steps 0, 500, 2,000 and 6,000: the pictures change while the losses barely say how, so a GAN's pictures are judged by eye.",
+  "section": "m. From autoencoder to GAN (4)",
+  "module": "study_blocks_zc",
+  "title": "One loss or two players",
+  "summary": "The autoencoder's one loss falls; the GAN's judge and generator pull against each other and only balance."
+ },
+ {
+  "number": 269,
+  "name": "minuit-feels-its-way",
+  "description": "iminuit 2.33.0's MIGRAD fitting y = a exp(−x/τ) + b to 40 made-up points, every call it made shown in its order. The model's three numbers are a point in a 3-D space drawn in perspective (a left–right, τ back, b up); the start (1, 1, 0) has chi-square 2,692. Before stepping, MIGRAD asks about points a little up and down each axis: 12 probes, two step sizes per parameter (0.00025 and 0.0025 for a and τ, 0.0012 and 0.0025 for b), each shown in a magnified inset and marked lower or higher. Its first step goes too far (chi-square 3,454) and is dropped; the line search comes back to 109 and keeps it. Round each kept point it probes the three axes again, then steps: 52 probes, 12 tries and 5 kept points in 65 calls, chi-square 2,692 → 109 → 35.3 → 34.0 → 33.9. Meanwhile the model's curve closes in on the data. The last probes change chi-square by less than 0.0001 (flat), and it stops with EDM 0.00014 at a = 5.14, τ = 2.41, b = 1.007 (chi-square 33.9 for 40 points). HESSE's 16 further calls give the errors ±0.18, ±0.21 and ±0.11.",
+  "section": "n. Minuit and SGD (2)",
+  "module": "study_blocks_zd",
+  "title": "How Minuit feels its way",
+  "summary": "Before each step Minuit asks the model about points a little up and down each axis, then steps, sometimes too far and back, until the minimum."
+ },
+ {
+  "number": 270,
+  "name": "minuit-and-sgd",
+  "description": "The same fit by SGD (stochastic gradient descent), from the same start. Each step looks at a batch of 8 of the 40 points and moves the learning rate, 0.005, times their slope. The first ten steps are drawn one by one, chi-square on all 40 points falling from 2,692 to 643. Over 3,000 steps the path wobbles like a drunken walk, since each batch pulls a different way, but it gets there. Magnified, its last 1,000 positions wander round the minimum with a spread of about 0.02, a tenth of Minuit's errors. Their average, (5.131, 2.399, 1.020), has chi-square 33.96, against Minuit's 33.94 found in 65 calls and 5 kept steps. Counted in single-point model evaluations (counts, not times), SGD used 3,000 × 8 = 24,000 and MIGRAD 65 × 40 = 2,600. For a small fit Minuit wins easily and gives error bars; SGD pays off when the data are too many for every step to look at all of them. One SGD run, one seed.",
+  "section": "n. Minuit and SGD (2)",
+  "module": "study_blocks_zd",
+  "title": "Minuit and SGD",
+  "summary": "Minuit's handful of careful steps on all the data, or SGD's thousands of noisy steps on a few points at a time that average out at the same minimum."
  }
 ]

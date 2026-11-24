@@ -163,14 +163,14 @@ def test_the_next_catalogue_is_listed_under_its_own_titles():
     listed = {n: t for *_, items in site.SECTIONS for n, t in items}
     anchors = [anchor for anchor, *_ in site.SECTIONS]
     assert len(anchors) == len(set(anchors))
-    assert len(site.NEXT_SECTIONS) == 32
+    assert len(site.NEXT_SECTIONS) == 38
     new = len(site.NEXT_SECTIONS)
     for item in ITEMS:
         assert listed[item["preset"]] == item["title"] == drawing(item["name"]).TITLE
         first, about = site.describe(presets.REGISTRY[item["preset"]])
         assert first == site.prose(item["summary"])           # the card shows the plain summary
         assert item["description"].split()[0] in about         # the dialog adds what was measured
-    assert new == 32
+    assert new == 38
     for _anchor, heading, intro, items in site.SECTIONS:
         assert heading and intro.endswith(".") and items
         assert "review" not in intro.lower()
@@ -389,3 +389,41 @@ def test_a_local_preview_without_the_hero_leads_with_what_it_has(tmp_path):
     os.remove(folder / "bump-hunt.mp4")
     with pytest.raises(site.SiteError, match="no animation has"):
         site.build(str(tmp_path / "site2"), media_dir=str(folder))
+
+
+def test_the_glossary_entries():
+    entries = site.glossary()
+    assert len(entries) >= 200
+    terms = [e["term"].lower() for e in entries]
+    assert len(terms) == len(set(terms))                       # no term twice
+    for e in entries:
+        assert set(e) == {"term", "full", "topic", "plain", "aka", "see"}, e
+        assert e["term"] and e["topic"] and e["plain"].endswith("."), e
+        assert len(e["plain"]) <= 130, e["term"]                # one plain line
+        assert not e["see"] or e["see"] in presets.REGISTRY, e["see"]
+    assert len({e["topic"] for e in entries}) <= 16
+    by = {e["term"]: e for e in entries}
+    assert "DNN" in by["MLP"]["aka"] and "Overtraining" in by["Overfitting"]["aka"]
+    assert "Signal efficiency" in by["Recall"]["aka"]
+    hep = [e for e in entries if e["topic"] == "Particle physics (HEP)"]
+    assert len(hep) >= 30 and {"MVA", "Discriminant", "Working point"} <= {e["term"] for e in hep}
+    # the words the two fields use differently each point to the other meaning
+    for word in ("Inference", "Calibration", "Normalisation", "Bias"):
+        assert "see " in by[word]["aka"], word
+    fitting = {e["term"] for e in entries if e["topic"] == "Fitting and minimisation"}
+    assert {"Minuit", "MIGRAD", "HESSE", "MINOS", "EDM", "Hessian", "Fit"} <= fitting
+
+
+def test_the_glossary_page():
+    entries = site.glossary()
+    found = {e["see"]: {} for e in entries if e["see"]}
+    page = site.glossary_html(found)
+    assert "{{" not in page and page.count("<tr data-topic=") == len(entries)
+    assert 'href="./#gpt2-hosting-a-coding-agent"' in page
+    assert "<td>IoU</td><td>Intersection over Union</td>" in page
+    assert "<td>MLP</td><td>Multi-Layer Perceptron</td>" in page and "DNN (common in HEP)" in page
+    # an animation not on the page (not released yet) gets no link
+    fewer = site.glossary_html({})
+    assert "watch</a>" not in fewer and fewer.count("<tr data-topic=") == len(entries)
+    with open(os.path.join(os.path.dirname(site.__file__), "index.html")) as fh:
+        assert 'href="glossary.html"' in fh.read()

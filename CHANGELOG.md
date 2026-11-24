@@ -1,5 +1,75 @@
 # Changelog
 
+## 2.4.0
+
+Thirty-three new animations (398 in all): finding and recognising faces, hosting a language
+model with thinking and effort, resizing pictures with convolutions, an autoencoder wired into a
+GAN, and Minuit against SGD; and a glossary page of 357 machine learning and particle physics
+terms. The new animations and `vector-db-versions` are rendered; the rest are 2.3.0's.
+
+- **Finding and recognising faces, 14 animations** (238–251), in two sections after "Vision
+  models", on the Olivetti faces (AT&T Laboratories Cambridge, 1992–94: ten photos of each of
+  40 people, taken for face-recognition research; `voxanim/olivetti.py` reads scikit-learn's
+  file without scipy and matches `fetch_olivetti_faces` exactly). People 0–29 train; people
+  30–39 are only tested on, and are referred to by number only. A detector (6,053 numbers)
+  on made scenes: a box as four numbers and IoU, a 12 × 12 grid of guesses, the layers, two
+  losses (weighting the rare face cells: AP 0.92 against 0.47 without), training, one box per
+  face (NMS), precision and recall. A recogniser (22,304 numbers): a face as 4,096 numbers,
+  as 32, triplets, verification (equal error rate 12.4% against 22.0% for raw pixels; the
+  threshold chosen on the training people), identification (36 of 45, no better than raw
+  pixels from one enrolled photo, said so), the whole pipeline (67% named right from the
+  detector's boxes, 82% from the true boxes), and what 40 people cannot show.
+  `examples/faces.py` is the real program; `voxanim/study_faces.py` its numpy twin, matched to
+  torch by a test.
+- **Hosting a language model, 11 animations** (252–262), for people who have never thought
+  about servers: what is on a phone or laptop and what is on the server, a request is text
+  (the whole conversation, every time), the model is a file of 124,439,808 numbers, tokens,
+  one token at a time, the key-value cache, many people sharing one copy, why a conversation
+  has a limit, a coding agent's loop, and what "thinking" and "effort" are.
+  `examples/serve.py` is a real minimal server for GPT-2 (voxanim's numpy GPT-2), measured by
+  `voxanim/study_hosting.py`, which runs the script itself; `examples/thinking.py` and
+  `voxanim/study_thinking.py` train a tiny transformer whose effort token sets how many steps
+  it may write: at chance with up to 6 steps, 465 of 468 with a step per bit. Counts, not
+  speeds; no company, product or chip is named.
+- **Resizing pictures with convolutions, 2 animations** (263–264), after "Convolution
+  settings, one at a time": smaller with a 3 × 3 blur kernel and stride 2 (the matrix D,
+  conv2d = D X Dᵀ; on a zone plate, false rings of RMS 0.354 when skipping, 0.079 when blurring
+  first) and bigger with conv_transpose2d (bilinear: inside the border 0.00129 against 0.00302
+  for nearest over 400 photos; the edge receives half, and is made even).
+  `examples/resample.py` and `voxanim/study_resample.py`, matched to torch by a test.
+- **From autoencoder to GAN, 4 animations** (265–268), after "Autoencoders and latent codes":
+  an autoencoder's two blocks wired again as a GAN (the decoder, weights and all, becomes the
+  generator; the encoder's body becomes the judge, with one new 1-number head), then measured
+  against it: grey (blurred) pixels 9.1% from the decoder before the GAN game and 7.4% after
+  (real digits 6.0%, autoencoder rebuilds 9.4%); the autoencoder rebuilds a given digit (92.8%
+  read right), the GAN cannot be given one; one loss against two players.
+  `examples/ae_gan.py` and `voxanim/study_aegan.py`, matched to torch by a test.
+- **A glossary page** (`glossary.html`, linked from the top bar and the introduction): 357
+  terms and acronyms from machine learning and from particle physics (HEP) data analysis,
+  each with what it stands for and one plain sentence on what it is and what it is for, in 15
+  topics, searchable, each linked to the animation that shows it where there is one
+  (`website/glossary.json`; a test checks every link and every line). Meant to make someone
+  fluent between the two fields: an "Also called" column gives each field's name for the same
+  thing (an MLP is often a "DNN" in HEP, overfitting "overtraining", recall "signal
+  efficiency", a fit "training", a minimiser an "optimizer", −log L "cross-entropy"); the words
+  the two use differently point at each other (inference, calibration, normalisation, bias,
+  weight); "Fitting and minimisation" covers Minuit (MIGRAD, HESSE, MINOS, SIMPLEX, EDM, the
+  error definition), the Hessian and covariance, Newton and quasi-Newton steps, line searches,
+  finite differences against autodiff, and full-batch against mini-batch steps; the shared
+  statistics (likelihood, NLL, estimators, pulls, goodness of fit, intervals, priors and MAP,
+  Neyman–Pearson) and 55 HEP terms (MVA, working points, regions and sidebands, significance,
+  CLs, nuisance parameters, template fits, luminosity, unfolding, scale factors, data/MC
+  agreement, decorrelation and more) are in too.
+- **Minuit and SGD, 2 animations** (269–270), after "Minimisation and chi-square fitting":
+  every call iminuit's MIGRAD makes on a 3-parameter fit to made-up data, recorded from
+  iminuit itself (`voxanim/minuit_calls.json`): it probes each parameter up and down before
+  each step, overshoots once and comes back, and reaches the minimum in 65 calls (HESSE adds
+  16 for the error bars); then SGD on the same fit, 3,000 small noisy steps on 8 of the 40
+  points at a time, a drunken walk whose positions average out near Minuit's minimum, for
+  24,000 single-point evaluations against MIGRAD's 2,600. `examples/minuit_vs_sgd.py` and
+  `voxanim/study_minuit.py`; a test reruns iminuit to check the record.
+- Evidence tags can name their dataset (`blocks.measured(what, on=...)`).
+
 ## 2.3.0
 
 Fourteen new animations (365 in all): padding, in a CNN and in a batch, and vector

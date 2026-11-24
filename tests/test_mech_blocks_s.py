@@ -128,7 +128,7 @@ def test_the_titles_and_the_chain_are_the_catalogues():
     assert titles["vector-db-store-and-search"] == M.Ivf.LAST
     assert M.Ivf.NEXT == titles["vector-db-versions"] == M.Versions.TITLE
     assert titles["vector-db-ivf"] == M.Versions.LAST
-    assert M.Versions.NEXT == "The cost of context: attention, RNN, SSM"
+    assert M.Versions.NEXT == "Your device and the server"
 
 
 @needs_mnist
@@ -198,7 +198,7 @@ def test_versions():
     four = texts(a, 3, 0.9)
     assert {"store: encoder2 · query: encoder2", "re-embedded", "96.6%", "7.6%",
             "the store [60000, 32], embedded again",
-            "next: The cost of context: attention, RNN, SSM"} <= set(four)
+            "next: Your device and the server"} <= set(four)
     assert [t for t in four if t.isdigit()] == [str(v) for v in m["again"]["labels"]]
     assert "    v = encoder2(X)" in mono(a, 3)
     assert a.station_for(3) == "forward"

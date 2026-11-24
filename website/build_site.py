@@ -50,7 +50,8 @@ from voxanim import __version__, presets  # noqa: E402
 from voxanim.previews import CLIP_SUFFIX, POSTER_SUFFIX  # noqa: E402
 
 REPO = os.environ.get("GITHUB_REPOSITORY", "rob-c/voxanim")
-STATIC = ("style.css", "app.js", "logo-mark.svg", "logo.svg", "logo-dark.svg")
+STATIC = ("style.css", "app.js", "glossary.js", "logo-mark.svg", "logo.svg", "logo-dark.svg")
+GLOSSARY = os.path.join(HERE, "glossary.json")      # the glossary page's rows
 HERO = "conv2d"
 SITE_ARCHIVE = "voxanim-site.tar.gz"           # as tools/release_assets.py names them
 GIF_ARCHIVE = "voxanim-gifs-%s.tar"
@@ -320,13 +321,32 @@ NEXT_SECTIONS = {
           "A vector database built in a few lines of real code: an encoder trained on pairs, a "
           "store searched by dot products, an index that looks in fewer places, and why a "
           "new encoder needs a new store."),
+    "i": ("face-detection", "Finding faces: bounding boxes",
+          "A detector built and trained step by step on scenes of real faces: boxes, a grid of "
+          "guesses, two losses, one box per face, and how good it is on unseen people."),
+    "j": ("face-recognition", "Recognising faces",
+          "A face turned into 32 numbers, trained with triplets, then verification, "
+          "identification and the whole pipeline, and what a small dataset cannot show."),
+    "k": ("hosting", "Hosting a language model",
+          "What happens between typing a question and reading the reply: what is on your "
+          "device, what is on the server, how the model writes, remembers and serves many "
+          "people at once, how a coding agent uses it, and what thinking and effort are."),
+    "l": ("resizing", "Resizing pictures with convolutions",
+          "Two everyday image jobs done with fixed kernels, nothing learned: making a picture "
+          "smaller without false patterns, and bigger without blocks."),
+    "m": ("ae-to-gan", "From autoencoder to GAN",
+          "The same two blocks, wired two ways: an autoencoder rebuilds what it is given, a GAN "
+          "invents and is judged on the whole picture; what each is good and bad at."),
+    "n": ("minuit-vs-sgd", "Minuit and SGD",
+          "How a physicist's minimiser, Minuit, feels its way to a fit's minimum, and how "
+          "machine learning's SGD stumbles there instead: the same fit, two ways."),
 }
 # Groups c (the bridges between topics) and d (counting a model's weights) are not sections:
 # each of their animations is placed beside the ones it explains (see _regroup).
 BRIDGES = {item["preset"]: True for item in NEXT_ITEMS if item["section"][:3] in ("c. ", "d. ")}
 # Where each group sits on the page: the catalogue's order, except that the two groups added
 # after the hundred follow the generative models they build on, not the end of the page.
-NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMNabefgh"
+NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMNabefghijklmn"
 assert sorted(NEXT_ORDER) == sorted(NEXT_SECTIONS)
 for _letter in NEXT_ORDER:
     _anchor, _heading, _intro = NEXT_SECTIONS[_letter]
@@ -663,7 +683,8 @@ def _regroup(sections):
 PARTS = (
     ("Statistics for data analysis",
      "Probability, fits, errors, tests and limits: what a measurement says, and how sure it is.",
-     ("probability", "randomness", "fitting", "likelihood", "systematics", "selection", "tests",
+     ("probability", "randomness", "fitting", "minuit-vs-sgd", "likelihood", "systematics",
+      "selection", "tests",
       "discovery")),
     ("Trees and classical machine learning",
      "The first models: ones you can read, and the ideas used to judge every model after them.",
@@ -681,7 +702,8 @@ PARTS = (
       "generalisation", "regularisation", "capacity")),
     ("Convolutions and vision",
      "Networks for images: a filter sliding over a picture, and what is built from it.",
-     ("convolutions", "lessons", "vision")),
+     ("convolutions", "lessons", "resizing", "vision", "face-detection",
+      "face-recognition")),
     ("Models in use",
      "Networks and trees doing a job, and the craft of training, shrinking and running them.",
      ("analysis-ml", "optimisation-deeper", "pruning", "finetune", "efficiency", "systems")),
@@ -690,7 +712,7 @@ PARTS = (
      ("rl", "reinforcement-learning-methods", "memory-and-dynamics")),
     ("Autoencoders and generative models",
      "From squeezing a picture into a few numbers to drawing new ones: AE, VAE, GAN and DEC.",
-     ("latent", "generative-families", "label-embeddings", "generative-models",
+     ("latent", "ae-to-gan", "generative-families", "label-embeddings", "generative-models",
       "anomaly-and-background")),
     ("Sequences and recurrent networks",
      "Data that comes in order: networks with a memory, and words turned into vectors.",
@@ -701,7 +723,7 @@ PARTS = (
     ("Large language models",
      "Training them, getting text out of them, steering them, and looking inside, with GPT-2.",
      ("training-language-models", "decoding", "behaviour", "fine-tuning", "interpretability",
-      "retrieval", "vector-databases")),
+      "retrieval", "vector-databases", "hosting")),
     ("After the transformer",
      "State-space models and other large sequence models built to go beyond it.",
      ("modern",)),
@@ -764,6 +786,42 @@ def page_html(found, tag, sections=None, local=False):
     return re.sub(r"\{\{(\w+)\}\}", lambda m: fill[m.group(1)], template)
 
 
+def glossary():
+    """The glossary's entries, in the order of the file: term, what it stands for (if an
+    acronym), topic, one plain sentence, other names for it (in particle physics, HEP, among
+    others: an MLP is often a "DNN" there, overfitting "overtraining"), and the animation that
+    shows it (or "")."""
+    with open(GLOSSARY, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def glossary_html(found):
+    """The glossary page. An entry's "see it" link goes to its animation on the main page
+    when that animation is on it (``found``), and is left out otherwise."""
+    entries = sorted(glossary(), key=lambda e: e["term"].lower())
+    esc = html.escape
+    titles = {n: t for *_, items in SECTIONS for n, t in items}
+    rows = []
+    for e in entries:
+        see = ""
+        if e["see"] and e["see"] in found:
+            see = '<a href="./#%s" title="%s">watch</a>' % (esc(e["see"]),
+                                                            esc(titles.get(e["see"], "")))
+        text = " ".join((e["term"], e["full"], e["aka"], e["plain"], e["topic"])).lower()
+        rows.append('      <tr data-topic="%s" data-text="%s"><td>%s</td><td>%s</td><td>%s</td>'
+                    '<td>%s</td><td>%s</td><td>%s</td></tr>'
+                    % (esc(e["topic"]), esc(text), esc(e["term"]), esc(e["full"]),
+                       esc(e["plain"]), esc(e["aka"]), esc(e["topic"]), see))
+    topics = sorted({e["topic"] for e in entries})
+    with open(os.path.join(HERE, "glossary.html"), encoding="utf-8") as fh:
+        template = fh.read()
+    fill = {"count": str(len(entries)), "rows": "\n".join(rows), "repo": REPO,
+            "version": __version__,
+            "topics": "\n".join('        <option value="%s">%s</option>' % (esc(t), esc(t))
+                                for t in topics)}
+    return re.sub(r"\{\{(\w+)\}\}", lambda m: fill[m.group(1)], template)
+
+
 def build(out, media_dir=None, tag=None):
     """Write the site into ``out`` (see the module docstring)."""
     check_sections()
@@ -785,6 +843,8 @@ def build(out, media_dir=None, tag=None):
         shutil.copyfile(os.path.join(HERE, f), os.path.join(out, f))
     with open(os.path.join(out, "index.html"), "w", encoding="utf-8") as fh:
         fh.write(page)
+    with open(os.path.join(out, "glossary.html"), "w", encoding="utf-8") as fh:
+        fh.write(glossary_html(found))
     # GitHub Pages: serve the files as they are, no Jekyll
     open(os.path.join(out, ".nojekyll"), "w").close()
     return found

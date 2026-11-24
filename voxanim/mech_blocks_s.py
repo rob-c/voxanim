@@ -286,7 +286,7 @@ class Versions(Searched):
     PHASES = (("two encoders", 13.0), ("old store", 13.0), ("all queries", 14.0),
               ("embed again", 14.0))
     LAST = "An index: look in fewer places"
-    NEXT = "The cost of context: attention, RNN, SSM"
+    NEXT = "Your device and the server"
     STATION = ("forward", None, None, "forward")
     CARD = (0.105, 0.5)             # the test digit
     STRIP_X = (0.215, 0.455)        # the two strips of 32

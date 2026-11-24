@@ -1,0 +1,2858 @@
+[
+ {
+  "term": "AI",
+  "full": "Artificial Intelligence",
+  "topic": "Basics",
+  "plain": "Computers doing tasks we used to think needed a person, like reading, seeing or deciding.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "ML",
+  "full": "Machine Learning",
+  "topic": "Basics",
+  "plain": "Getting a computer to learn a task from examples instead of being told every rule.",
+  "see": "blocks-a-tensor",
+  "aka": ""
+ },
+ {
+  "term": "Model",
+  "full": "",
+  "topic": "Basics",
+  "plain": "The thing that learns: a recipe of maths plus the numbers (weights) it has learned.",
+  "see": "blocks-a-model-is-a-stack",
+  "aka": "Fit function, PDF (HEP fits)"
+ },
+ {
+  "term": "Weight",
+  "full": "",
+  "topic": "Basics",
+  "plain": "One number a model learns; a model is mostly a big pile of weights.",
+  "see": "blocks-a-linear-layer",
+  "aka": "Not an event weight: a weight here is a number the model learns"
+ },
+ {
+  "term": "Bias",
+  "full": "",
+  "topic": "Basics",
+  "plain": "An extra number added after the weights, so a layer can shift its answer up or down.",
+  "see": "blocks-a-linear-layer",
+  "aka": "Offset, intercept. Not a statistical bias: see Bias (statistics)"
+ },
+ {
+  "term": "Parameter",
+  "full": "",
+  "topic": "Basics",
+  "plain": "Any number the model learns while training: its weights and biases.",
+  "see": "counting-weights-dnn-and-cnn",
+  "aka": "Weights and biases; fit parameters (HEP)"
+ },
+ {
+  "term": "Hyperparameter",
+  "full": "",
+  "topic": "Basics",
+  "plain": "A setting you choose before training, like the learning rate or the batch size; the model does not learn it.",
+  "see": "blocks-learning-rate",
+  "aka": "Tuning parameter, setting"
+ },
+ {
+  "term": "Tensor",
+  "full": "",
+  "topic": "Basics",
+  "plain": "A block of numbers with a shape, such as a picture of 28 x 28 numbers.",
+  "see": "blocks-a-tensor",
+  "aka": ""
+ },
+ {
+  "term": "Shape",
+  "full": "",
+  "topic": "Basics",
+  "plain": "How many numbers a tensor has along each side, written like [64, 1, 28, 28].",
+  "see": "blocks-a-tensor",
+  "aka": ""
+ },
+ {
+  "term": "Feature",
+  "full": "",
+  "topic": "Basics",
+  "plain": "One measured fact about an example, like a pixel's brightness or a person's age.",
+  "see": "",
+  "aka": "Variable, observable, input (HEP)"
+ },
+ {
+  "term": "Label",
+  "full": "",
+  "topic": "Basics",
+  "plain": "The right answer that comes with a training example, like 'this digit is a 7'.",
+  "see": "blocks-a-batch",
+  "aka": "Truth label, target; signal / background (HEP)"
+ },
+ {
+  "term": "Dataset",
+  "full": "",
+  "topic": "Basics",
+  "plain": "The collection of examples a model learns from and is tested on.",
+  "see": "blocks-the-data-pipeline",
+  "aka": "Sample (HEP)"
+ },
+ {
+  "term": "MNIST",
+  "full": "Modified National Institute of Standards and Technology (digits)",
+  "topic": "Basics",
+  "plain": "70,000 small pictures of hand-written digits, the classic first dataset for learning ML.",
+  "see": "blocks-a-tensor",
+  "aka": ""
+ },
+ {
+  "term": "Training",
+  "full": "",
+  "topic": "Training",
+  "plain": "Showing a model examples and nudging its weights so its answers get better.",
+  "see": "blocks-the-training-loop",
+  "aka": "Fitting (HEP and statistics)"
+ },
+ {
+  "term": "Inference",
+  "full": "",
+  "topic": "Basics",
+  "plain": "Using a trained model to answer new questions; nothing is learned any more.",
+  "see": "gpt2-hosting-one-token-at-a-time",
+  "aka": "Prediction (ML). In statistics and HEP, 'inference' means estimating parameters from data: see Statistical inference"
+ },
+ {
+  "term": "Supervised learning",
+  "full": "",
+  "topic": "Basics",
+  "plain": "Learning from examples that come with the right answers.",
+  "see": "mlp-classifier",
+  "aka": ""
+ },
+ {
+  "term": "Unsupervised learning",
+  "full": "",
+  "topic": "Basics",
+  "plain": "Finding patterns in data that has no right answers attached, like grouping similar pictures.",
+  "see": "pca-and-kmeans",
+  "aka": ""
+ },
+ {
+  "term": "Self-supervised learning",
+  "full": "",
+  "topic": "Basics",
+  "plain": "Making the answers from the data itself, like hiding a word and predicting it.",
+  "see": "word2vec-training",
+  "aka": ""
+ },
+ {
+  "term": "Classification",
+  "full": "",
+  "topic": "Basics",
+  "plain": "Choosing which group something belongs to, like which digit a picture shows.",
+  "see": "mlp-classifier",
+  "aka": "Signal-background separation (HEP)"
+ },
+ {
+  "term": "Regression",
+  "full": "",
+  "topic": "Basics",
+  "plain": "Predicting a number, like a price or an energy, rather than a group.",
+  "see": "network-regression",
+  "aka": "Energy or momentum regression (HEP)"
+ },
+ {
+  "term": "Loss",
+  "full": "",
+  "topic": "Training",
+  "plain": "One number saying how wrong the model is; training tries to make it smaller.",
+  "see": "blocks-the-loss",
+  "aka": "Cost, objective; chi-square or −log L in HEP fits"
+ },
+ {
+  "term": "Loss function",
+  "full": "",
+  "topic": "Training",
+  "plain": "The rule that turns the model's answers and the right answers into the loss.",
+  "see": "every-loss-is-a-likelihood",
+  "aka": "Cost function, objective"
+ },
+ {
+  "term": "Gradient",
+  "full": "",
+  "topic": "Training",
+  "plain": "For every weight, which way and how strongly to change it to lower the loss.",
+  "see": "blocks-backward",
+  "aka": "Slope, first derivatives"
+ },
+ {
+  "term": "Backpropagation",
+  "full": "",
+  "topic": "Training",
+  "plain": "Working out every weight's gradient by going backwards through the model from the loss.",
+  "see": "mlp-8-backward-pass",
+  "aka": ""
+ },
+ {
+  "term": "Gradient descent",
+  "full": "",
+  "topic": "Training",
+  "plain": "Training by stepping every weight a little against its gradient, over and over.",
+  "see": "gradient-descent",
+  "aka": ""
+ },
+ {
+  "term": "SGD",
+  "full": "Stochastic Gradient Descent",
+  "topic": "Training",
+  "plain": "Gradient descent on small random batches of examples instead of all the data at once.",
+  "see": "blocks-optimizer-step",
+  "aka": "Mini-batch gradient descent"
+ },
+ {
+  "term": "Adam",
+  "full": "Adaptive Moment Estimation",
+  "topic": "Training",
+  "plain": "A popular optimizer that gives each weight its own step size from its recent gradients.",
+  "see": "blocks-adam",
+  "aka": ""
+ },
+ {
+  "term": "AdamW",
+  "full": "Adam with decoupled Weight decay",
+  "topic": "Training",
+  "plain": "Adam with weight decay applied separately, the usual way to train transformers.",
+  "see": "adamw-vs-l2",
+  "aka": ""
+ },
+ {
+  "term": "Optimizer",
+  "full": "",
+  "topic": "Training",
+  "plain": "The rule that uses the gradients to change the weights, such as SGD or Adam.",
+  "see": "optimisers",
+  "aka": "Minimiser (HEP), e.g. Minuit"
+ },
+ {
+  "term": "Learning rate",
+  "full": "",
+  "topic": "Training",
+  "plain": "How big a step the optimizer takes each time; too small crawls, too big bounces.",
+  "see": "blocks-learning-rate",
+  "aka": "Step size"
+ },
+ {
+  "term": "LR schedule",
+  "full": "Learning Rate schedule",
+  "topic": "Training",
+  "plain": "Changing the learning rate during training, such as warming up then slowly lowering it.",
+  "see": "learning-rate-schedule",
+  "aka": ""
+ },
+ {
+  "term": "Warm-up",
+  "full": "",
+  "topic": "Training",
+  "plain": "Starting training with a small learning rate and raising it, to avoid an unstable start.",
+  "see": "warmup-and-clipping",
+  "aka": ""
+ },
+ {
+  "term": "Momentum",
+  "full": "",
+  "topic": "Training",
+  "plain": "Letting each step keep some of the previous step's direction, like a rolling ball.",
+  "see": "optimisers",
+  "aka": ""
+ },
+ {
+  "term": "Batch",
+  "full": "",
+  "topic": "Training",
+  "plain": "A group of examples processed together in one training step.",
+  "see": "blocks-a-batch",
+  "aka": "Mini-batch"
+ },
+ {
+  "term": "Batch size",
+  "full": "",
+  "topic": "Training",
+  "plain": "How many examples go into one step; it changes how noisy each step is.",
+  "see": "batch-size-and-noise",
+  "aka": ""
+ },
+ {
+  "term": "Epoch",
+  "full": "",
+  "topic": "Training",
+  "plain": "One full pass through all the training examples.",
+  "see": "blocks-epochs-and-batches",
+  "aka": "A pass over all events (HEP)"
+ },
+ {
+  "term": "Step",
+  "full": "",
+  "topic": "Training",
+  "plain": "One update of the weights: one batch in, one change out.",
+  "see": "blocks-one-step-slow-motion",
+  "aka": ""
+ },
+ {
+  "term": "Initialisation",
+  "full": "",
+  "topic": "Training",
+  "plain": "The starting values of the weights before training; a bad start can stop learning.",
+  "see": "initialisation",
+  "aka": ""
+ },
+ {
+  "term": "Overfitting",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "Learning the training examples so closely that the model does worse on new ones.",
+  "see": "overfitting",
+  "aka": "Overtraining (HEP)"
+ },
+ {
+  "term": "Underfitting",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "A model too simple, or trained too little, to capture the pattern at all.",
+  "see": "bias-variance",
+  "aka": ""
+ },
+ {
+  "term": "Generalisation",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "How well a model does on examples it has never seen.",
+  "see": "double-descent",
+  "aka": ""
+ },
+ {
+  "term": "Regularisation",
+  "full": "",
+  "topic": "Training",
+  "plain": "Any trick that keeps a model from overfitting, such as weight decay or dropout.",
+  "see": "regularisers",
+  "aka": "Penalty term; a prior, in Bayesian words"
+ },
+ {
+  "term": "Weight decay",
+  "full": "",
+  "topic": "Training",
+  "plain": "Pulling every weight a little towards zero each step, to keep the model simple.",
+  "see": "l1-l2-weights",
+  "aka": "L2 penalty; a Gaussian prior on the weights"
+ },
+ {
+  "term": "L1 / L2",
+  "full": "",
+  "topic": "Training",
+  "plain": "Penalties on the size of the weights: L1 pushes some to exactly zero, L2 shrinks them all.",
+  "see": "l1-vs-l2",
+  "aka": ""
+ },
+ {
+  "term": "Dropout",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "Switching random neurons off during training, so the model cannot rely on any one.",
+  "see": "blocks-dropout",
+  "aka": ""
+ },
+ {
+  "term": "Early stopping",
+  "full": "",
+  "topic": "Training",
+  "plain": "Stopping training when the score on held-out data stops improving.",
+  "see": "boosting-shrinkage-and-early-stopping",
+  "aka": ""
+ },
+ {
+  "term": "Data augmentation",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "Making extra training examples by changing the real ones a little, like shifting a picture.",
+  "see": "augmentation",
+  "aka": ""
+ },
+ {
+  "term": "Train / validation / test",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "Three separate piles of data: one to learn from, one to tune settings, one for the final honest score.",
+  "see": "cross-validation",
+  "aka": "Training / testing samples (HEP)"
+ },
+ {
+  "term": "Cross-validation",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "Testing on each part of the data in turn while training on the rest, for a fairer score.",
+  "see": "cross-validation",
+  "aka": "k-fold training (HEP)"
+ },
+ {
+  "term": "Held-out data",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "Examples kept away from training so they can test the model fairly.",
+  "see": "blocks-evaluation",
+  "aka": "Test sample, testing set"
+ },
+ {
+  "term": "Accuracy",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "The share of answers that are right.",
+  "see": "blocks-evaluation",
+  "aka": ""
+ },
+ {
+  "term": "Precision",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "Of the things the model said 'yes' to, the share that really were yes.",
+  "see": "faces-precision-and-recall",
+  "aka": "Purity (HEP)"
+ },
+ {
+  "term": "Recall",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "Of the things that really were yes, the share the model found.",
+  "see": "faces-precision-and-recall",
+  "aka": "Signal efficiency, true positive rate, sensitivity"
+ },
+ {
+  "term": "F1",
+  "full": "F1 score",
+  "topic": "Data and evaluation",
+  "plain": "One number that balances precision and recall (their harmonic mean).",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "TP / FP / TN / FN",
+  "full": "True Positive / False Positive / True Negative / False Negative",
+  "topic": "Data and evaluation",
+  "plain": "The four ways a yes-or-no answer can be right or wrong.",
+  "see": "type-i-and-type-ii-errors",
+  "aka": "In HEP: signal kept, background kept, background rejected, signal lost"
+ },
+ {
+  "term": "Confusion matrix",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "A table counting which answers the model gave for each true answer.",
+  "see": "blocks-cnn-what-it-gets-wrong",
+  "aka": ""
+ },
+ {
+  "term": "ROC",
+  "full": "Receiver Operating Characteristic",
+  "topic": "Data and evaluation",
+  "plain": "A curve of found-right against false alarms as you move the yes/no threshold.",
+  "see": "roc-and-calibration",
+  "aka": "In HEP often drawn as background rejection against signal efficiency"
+ },
+ {
+  "term": "AUC",
+  "full": "Area Under the Curve",
+  "topic": "Data and evaluation",
+  "plain": "The area under the ROC curve: 1 is perfect, 0.5 is guessing.",
+  "see": "roc-and-calibration",
+  "aka": "ROC integral (HEP)"
+ },
+ {
+  "term": "AP / mAP",
+  "full": "Average Precision / mean Average Precision",
+  "topic": "Data and evaluation",
+  "plain": "The area under a precision-recall curve; mAP averages it over classes. Used to score detectors.",
+  "see": "faces-precision-and-recall",
+  "aka": ""
+ },
+ {
+  "term": "Calibration",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "Whether a model's confidence matches how often it is right; 80% sure should be right 80% of the time.",
+  "see": "gpt2-calibration",
+  "aka": "Not HEP calibration (correcting a detector): see Calibration (HEP)"
+ },
+ {
+  "term": "Threshold",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "The cut-off that turns a score into a yes or no.",
+  "see": "faces-verification",
+  "aka": "Working point, cut value (HEP)"
+ },
+ {
+  "term": "Bias-variance",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "The trade-off between a model too simple to fit (bias) and one too jumpy to trust (variance).",
+  "see": "bias-variance",
+  "aka": "Under- and overfitting"
+ },
+ {
+  "term": "Double descent",
+  "full": "",
+  "topic": "Data and evaluation",
+  "plain": "Test error that falls, rises, then falls again as models get bigger.",
+  "see": "double-descent",
+  "aka": ""
+ },
+ {
+  "term": "Neuron",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "One unit in a layer: it adds up its weighted inputs, adds a bias and applies an activation.",
+  "see": "mlp-1-forward-layer1",
+  "aka": ""
+ },
+ {
+  "term": "Layer",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "One stage of a network that turns its input numbers into new numbers.",
+  "see": "blocks-a-model-is-a-stack",
+  "aka": ""
+ },
+ {
+  "term": "Linear layer / Dense layer",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "A layer where every output is a weighted sum of every input, plus a bias.",
+  "see": "blocks-a-linear-layer",
+  "aka": "Fully connected layer, FC"
+ },
+ {
+  "term": "Activation function",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "A bend applied after a layer (like ReLU) so a network can learn more than straight lines.",
+  "see": "activations",
+  "aka": ""
+ },
+ {
+  "term": "ReLU",
+  "full": "Rectified Linear Unit",
+  "topic": "Networks and layers",
+  "plain": "The simplest activation: keep positive numbers, turn negative ones into 0.",
+  "see": "blocks-relu",
+  "aka": ""
+ },
+ {
+  "term": "GELU",
+  "full": "Gaussian Error Linear Unit",
+  "topic": "Networks and layers",
+  "plain": "A smooth cousin of ReLU, used in GPT-2 and most transformers.",
+  "see": "activation-smoothness",
+  "aka": ""
+ },
+ {
+  "term": "Sigmoid",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "An S-shaped squash that turns any number into one between 0 and 1.",
+  "see": "activations",
+  "aka": "Logistic function"
+ },
+ {
+  "term": "Softmax",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "Turns a list of scores into chances that add up to 1.",
+  "see": "blocks-logits-and-softmax",
+  "aka": ""
+ },
+ {
+  "term": "Logits",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "The raw scores a model gives before softmax turns them into chances.",
+  "see": "blocks-logits-and-softmax",
+  "aka": "Raw scores"
+ },
+ {
+  "term": "Cross-entropy",
+  "full": "",
+  "topic": "Training",
+  "plain": "The usual loss for choosing between classes: how surprised the model is by the right answer.",
+  "see": "gpt2-softmax-cross-entropy",
+  "aka": "Log loss, negative log-likelihood"
+ },
+ {
+  "term": "BCE",
+  "full": "Binary Cross-Entropy",
+  "topic": "Training",
+  "plain": "Cross-entropy for yes-or-no answers.",
+  "see": "faces-two-losses",
+  "aka": ""
+ },
+ {
+  "term": "MSE",
+  "full": "Mean Squared Error",
+  "topic": "Training",
+  "plain": "The average of the squared differences between answers and right answers.",
+  "see": "network-regression",
+  "aka": ""
+ },
+ {
+  "term": "MAE",
+  "full": "Mean Absolute Error",
+  "topic": "Training",
+  "plain": "The average size of the mistakes, ignoring their sign.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "MLP",
+  "full": "Multi-Layer Perceptron",
+  "topic": "Networks and layers",
+  "plain": "A network of linear layers with activations between them, the simplest deep network.",
+  "see": "mlp-4-forward-pass",
+  "aka": "DNN (common in HEP), fully connected network, feed-forward network"
+ },
+ {
+  "term": "DNN",
+  "full": "Deep Neural Network",
+  "topic": "Networks and layers",
+  "plain": "Any neural network with several layers.",
+  "see": "counting-weights-dnn-and-cnn",
+  "aka": "In HEP usually means an MLP: a fully connected network"
+ },
+ {
+  "term": "Deep learning",
+  "full": "",
+  "topic": "Basics",
+  "plain": "Machine learning with neural networks of many layers.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "Neural network",
+  "full": "",
+  "topic": "Basics",
+  "plain": "A model made of layers of simple units, loosely inspired by brain cells.",
+  "see": "blocks-a-model-is-a-stack",
+  "aka": "NN, ANN (artificial neural network)"
+ },
+ {
+  "term": "Normalisation",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "Rescaling numbers inside a network so they stay a sensible size; it makes training steadier.",
+  "see": "blocks-normalisation",
+  "aka": "Not HEP normalisation (a distribution's overall size): see Normalisation (HEP)"
+ },
+ {
+  "term": "BN",
+  "full": "Batch Normalisation",
+  "topic": "Networks and layers",
+  "plain": "Normalising each feature using the average over the batch.",
+  "see": "batchnorm-in-cnns",
+  "aka": ""
+ },
+ {
+  "term": "LN",
+  "full": "Layer Normalisation",
+  "topic": "Networks and layers",
+  "plain": "Normalising each example's numbers across its own features; used in transformers.",
+  "see": "blocks-normalisation",
+  "aka": ""
+ },
+ {
+  "term": "RMSNorm",
+  "full": "Root Mean Square Normalisation",
+  "topic": "Networks and layers",
+  "plain": "A simpler layer norm that only rescales, without subtracting the mean.",
+  "see": "rmsnorm-vs-layernorm",
+  "aka": ""
+ },
+ {
+  "term": "Residual / skip connection",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "Adding a layer's input back to its output, so information and gradients flow easily through deep networks.",
+  "see": "skip-connections",
+  "aka": ""
+ },
+ {
+  "term": "Embedding",
+  "full": "",
+  "topic": "Retrieval and embeddings",
+  "plain": "A list of numbers that stands for a thing (a word, a picture, a face) so similar things get similar numbers.",
+  "see": "blocks-embedding",
+  "aka": "Representation, latent vector"
+ },
+ {
+  "term": "Latent space / code",
+  "full": "",
+  "topic": "Generative models",
+  "plain": "The small set of numbers a model squeezes its input into.",
+  "see": "generative-latent-spaces",
+  "aka": "Latent representation, bottleneck code"
+ },
+ {
+  "term": "Bottleneck",
+  "full": "",
+  "topic": "Generative models",
+  "plain": "A narrow layer that forces the model to keep only what matters.",
+  "see": "bottleneck-sweep",
+  "aka": ""
+ },
+ {
+  "term": "CNN",
+  "full": "Convolutional Neural Network",
+  "topic": "Convolutions and vision",
+  "plain": "A network for pictures that slides small filters over the image instead of connecting every pixel.",
+  "see": "blocks-cnn-the-model",
+  "aka": ""
+ },
+ {
+  "term": "Convolution",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "Sliding a small grid of weights over a picture and taking a weighted sum at each place.",
+  "see": "conv2d",
+  "aka": ""
+ },
+ {
+  "term": "Kernel / filter",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "The small grid of weights a convolution slides over the picture.",
+  "see": "blocks-conv2d",
+  "aka": ""
+ },
+ {
+  "term": "Stride",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "How many pixels the filter moves each time; stride 2 halves the picture.",
+  "see": "lesson-stride-2",
+  "aka": ""
+ },
+ {
+  "term": "Padding",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "Extra pixels added round the edge so a convolution can keep the picture's size.",
+  "see": "padding-a-ring",
+  "aka": ""
+ },
+ {
+  "term": "Pooling",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "Shrinking a picture by keeping the biggest (max) or the average value of each small square.",
+  "see": "blocks-pooling",
+  "aka": ""
+ },
+ {
+  "term": "Dilation",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "Spreading a filter's taps apart so it sees a wider area with the same weights.",
+  "see": "lesson-dilation-2",
+  "aka": ""
+ },
+ {
+  "term": "Channel",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "One layer of a picture's numbers, like red, green or blue, or one learned feature map.",
+  "see": "lesson-conv3d-channels",
+  "aka": ""
+ },
+ {
+  "term": "Feature map",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "The picture a filter makes: where in the input its pattern appears.",
+  "see": "blocks-cnn-forward",
+  "aka": ""
+ },
+ {
+  "term": "Receptive field",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "The patch of the original picture that one output number can see.",
+  "see": "receptive-field",
+  "aka": ""
+ },
+ {
+  "term": "Transposed convolution",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "A convolution run backwards to make a picture bigger (upsampling).",
+  "see": "resample-up",
+  "aka": ""
+ },
+ {
+  "term": "Upsampling / downsampling",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "Making a picture bigger or smaller.",
+  "see": "resample-down",
+  "aka": ""
+ },
+ {
+  "term": "Aliasing",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "False patterns that appear when fine detail is shrunk without blurring first.",
+  "see": "resample-down",
+  "aka": ""
+ },
+ {
+  "term": "Depthwise convolution",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "A convolution that filters each channel on its own, using far fewer weights.",
+  "see": "depthwise",
+  "aka": ""
+ },
+ {
+  "term": "1x1 convolution",
+  "full": "Pointwise convolution",
+  "topic": "Convolutions and vision",
+  "plain": "A convolution that only mixes channels at each pixel.",
+  "see": "lesson-pointwise",
+  "aka": ""
+ },
+ {
+  "term": "U-Net",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "A network shaped like a U: it shrinks a picture, then grows it back, with shortcuts across.",
+  "see": "semantic-segmentation",
+  "aka": ""
+ },
+ {
+  "term": "ViT",
+  "full": "Vision Transformer",
+  "topic": "Convolutions and vision",
+  "plain": "A transformer that reads a picture as a sequence of small patches.",
+  "see": "vit-attention",
+  "aka": ""
+ },
+ {
+  "term": "Object detection",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "Finding things in a picture and drawing a box round each one.",
+  "see": "object-detection-basics",
+  "aka": ""
+ },
+ {
+  "term": "Bounding box",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "The rectangle round a found object, given by four numbers.",
+  "see": "faces-a-box",
+  "aka": ""
+ },
+ {
+  "term": "IoU",
+  "full": "Intersection over Union",
+  "topic": "Convolutions and vision",
+  "plain": "How much two boxes overlap: the shared area divided by the area they cover together.",
+  "see": "faces-a-box",
+  "aka": ""
+ },
+ {
+  "term": "NMS",
+  "full": "Non-Maximum Suppression",
+  "topic": "Convolutions and vision",
+  "plain": "Removing duplicate boxes on the same object, keeping only the surest.",
+  "see": "faces-nms",
+  "aka": ""
+ },
+ {
+  "term": "Segmentation",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "Labelling every pixel of a picture with what it belongs to.",
+  "see": "semantic-segmentation",
+  "aka": ""
+ },
+ {
+  "term": "Face verification",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "Deciding whether two face photos show the same person.",
+  "see": "faces-verification",
+  "aka": ""
+ },
+ {
+  "term": "Face identification",
+  "full": "",
+  "topic": "Convolutions and vision",
+  "plain": "Deciding which of a set of known people a face belongs to, or none.",
+  "see": "faces-identification",
+  "aka": ""
+ },
+ {
+  "term": "FAR / FRR",
+  "full": "False Accept Rate / False Reject Rate",
+  "topic": "Convolutions and vision",
+  "plain": "How often a check wrongly lets a stranger in, and how often it wrongly turns away the right person.",
+  "see": "faces-verification",
+  "aka": ""
+ },
+ {
+  "term": "EER",
+  "full": "Equal Error Rate",
+  "topic": "Convolutions and vision",
+  "plain": "The error rate where false accepts and false rejects are equally common.",
+  "see": "faces-verification",
+  "aka": ""
+ },
+ {
+  "term": "Triplet loss",
+  "full": "",
+  "topic": "Retrieval and embeddings",
+  "plain": "A loss that pulls two examples of the same thing together and pushes a different one away.",
+  "see": "faces-triplets",
+  "aka": ""
+ },
+ {
+  "term": "Contrastive learning",
+  "full": "",
+  "topic": "Retrieval and embeddings",
+  "plain": "Learning embeddings by bringing matching pairs together and pushing others apart.",
+  "see": "clip-contrastive",
+  "aka": ""
+ },
+ {
+  "term": "InfoNCE",
+  "full": "Info Noise-Contrastive Estimation",
+  "topic": "Retrieval and embeddings",
+  "plain": "A contrastive loss: pick the right partner out of a batch of wrong ones.",
+  "see": "vector-db-training",
+  "aka": ""
+ },
+ {
+  "term": "Hard negatives",
+  "full": "",
+  "topic": "Retrieval and embeddings",
+  "plain": "Wrong examples that look very like the right one; they make contrastive training harder and better.",
+  "see": "hard-negatives",
+  "aka": ""
+ },
+ {
+  "term": "Cosine similarity",
+  "full": "",
+  "topic": "Retrieval and embeddings",
+  "plain": "How closely two lists of numbers point the same way, from -1 to 1.",
+  "see": "vector-db-store-and-search",
+  "aka": ""
+ },
+ {
+  "term": "Vector database",
+  "full": "",
+  "topic": "Retrieval and embeddings",
+  "plain": "A store of embeddings that can quickly find the ones nearest to a question.",
+  "see": "vector-db-store-and-search",
+  "aka": ""
+ },
+ {
+  "term": "ANN search",
+  "full": "Approximate Nearest Neighbour search",
+  "topic": "Retrieval and embeddings",
+  "plain": "Finding nearly the nearest vectors much faster by not checking every one.",
+  "see": "vector-db-ivf",
+  "aka": ""
+ },
+ {
+  "term": "HNSW",
+  "full": "Hierarchical Navigable Small World",
+  "topic": "Retrieval and embeddings",
+  "plain": "A layered graph that finds near neighbours by hopping from point to point.",
+  "see": "vector-search-hnsw",
+  "aka": ""
+ },
+ {
+  "term": "IVF",
+  "full": "Inverted File index",
+  "topic": "Retrieval and embeddings",
+  "plain": "Grouping vectors into lists and only searching the few lists nearest the question.",
+  "see": "vector-db-ivf",
+  "aka": ""
+ },
+ {
+  "term": "RAG",
+  "full": "Retrieval-Augmented Generation",
+  "topic": "Retrieval and embeddings",
+  "plain": "Fetching relevant text and putting it in front of a language model before it answers.",
+  "see": "gpt2-retrieval-augmented-generation",
+  "aka": ""
+ },
+ {
+  "term": "PCA",
+  "full": "Principal Component Analysis",
+  "topic": "Statistics and classical ML",
+  "plain": "Finding the few directions along which data varies most, to describe it with fewer numbers.",
+  "see": "pca-and-kmeans",
+  "aka": ""
+ },
+ {
+  "term": "k-means",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "Grouping points into k clusters, each around its average.",
+  "see": "pca-and-kmeans",
+  "aka": ""
+ },
+ {
+  "term": "t-SNE / UMAP",
+  "full": "t-distributed Stochastic Neighbour Embedding / Uniform Manifold Approximation and Projection",
+  "topic": "Statistics and classical ML",
+  "plain": "Ways to draw high-dimensional data in 2D, keeping neighbours near each other.",
+  "see": "tsne-and-umap",
+  "aka": ""
+ },
+ {
+  "term": "SVM",
+  "full": "Support Vector Machine",
+  "topic": "Statistics and classical ML",
+  "plain": "A classic classifier that draws the widest possible gap between two classes.",
+  "see": "svm-and-kernels",
+  "aka": ""
+ },
+ {
+  "term": "Decision tree",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "A model that answers by asking a chain of yes/no questions about the features.",
+  "see": "decision-tree",
+  "aka": "Tree, CART"
+ },
+ {
+  "term": "Random forest",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "Many decision trees, each trained on a random sample, voting together.",
+  "see": "random-forest",
+  "aka": ""
+ },
+ {
+  "term": "Boosting",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "Building trees one after another, each fixing the previous ones' mistakes.",
+  "see": "gradient-boosting",
+  "aka": "Boosted trees"
+ },
+ {
+  "term": "XGBoost",
+  "full": "eXtreme Gradient Boosting",
+  "topic": "Statistics and classical ML",
+  "plain": "A fast, popular library for boosted trees.",
+  "see": "xgboost-one-round",
+  "aka": ""
+ },
+ {
+  "term": "BDT",
+  "full": "Boosted Decision Tree",
+  "topic": "Statistics and classical ML",
+  "plain": "Boosted trees, as physicists often call them.",
+  "see": "boosted-regression-trees",
+  "aka": "Gradient-boosted trees (ML)"
+ },
+ {
+  "term": "Entropy",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "How unpredictable something is, measured in bits.",
+  "see": "measuring-entropy",
+  "aka": ""
+ },
+ {
+  "term": "Gini impurity",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "How mixed the classes in a group are; trees split to make groups purer.",
+  "see": "entropy-and-gini-by-hand",
+  "aka": ""
+ },
+ {
+  "term": "KL divergence",
+  "full": "Kullback-Leibler divergence",
+  "topic": "Statistics and classical ML",
+  "plain": "How different one set of probabilities is from another.",
+  "see": "kl-divergence",
+  "aka": ""
+ },
+ {
+  "term": "MLE",
+  "full": "Maximum Likelihood Estimation",
+  "topic": "Statistics and classical ML",
+  "plain": "Choosing the settings that make the observed data most likely.",
+  "see": "likelihood-curve",
+  "aka": "Maximum likelihood fit (HEP); minimising cross-entropy is one (ML)"
+ },
+ {
+  "term": "Bayes' theorem",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "The rule for updating a belief when new evidence arrives.",
+  "see": "bayes-theorem-areas",
+  "aka": ""
+ },
+ {
+  "term": "GP",
+  "full": "Gaussian Process",
+  "topic": "Statistics and classical ML",
+  "plain": "A model of smooth curves that also says how unsure it is between the data points.",
+  "see": "gp-prior",
+  "aka": "Kriging; used in HEP for smooth background fits"
+ },
+ {
+  "term": "p-value",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "How often chance alone would give a result at least this extreme.",
+  "see": "p-values",
+  "aka": "Local / global p-value (HEP)"
+ },
+ {
+  "term": "Chi-square",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "A number measuring how far data are from a fitted curve, allowing for the errors.",
+  "see": "chi-square-fit",
+  "aka": "χ², least squares (weighted by errors)"
+ },
+ {
+  "term": "AE",
+  "full": "Autoencoder",
+  "topic": "Generative models",
+  "plain": "A network that squeezes its input into a small code and rebuilds it from that code.",
+  "see": "autoencoder-training",
+  "aka": "Used in HEP for model-independent anomaly searches"
+ },
+ {
+  "term": "Encoder",
+  "full": "",
+  "topic": "Generative models",
+  "plain": "The part of a model that turns an input into a compact code or embedding.",
+  "see": "ae-to-gan-rewire",
+  "aka": ""
+ },
+ {
+  "term": "Decoder",
+  "full": "",
+  "topic": "Generative models",
+  "plain": "The part of a model that turns a code back into data, such as a picture or text.",
+  "see": "ae-to-gan-rewire",
+  "aka": ""
+ },
+ {
+  "term": "VAE",
+  "full": "Variational Autoencoder",
+  "topic": "Generative models",
+  "plain": "An autoencoder whose codes are kept smooth and random-like, so new examples can be drawn from them.",
+  "see": "vae-dense-2d",
+  "aka": ""
+ },
+ {
+  "term": "ELBO",
+  "full": "Evidence Lower Bound",
+  "topic": "Generative models",
+  "plain": "The quantity a VAE maximises: rebuild well, while keeping the codes close to random noise.",
+  "see": "vae-kl-term",
+  "aka": ""
+ },
+ {
+  "term": "GAN",
+  "full": "Generative Adversarial Network",
+  "topic": "Generative models",
+  "plain": "Two networks in a contest: a generator makes fakes and a judge (discriminator) tries to spot them.",
+  "see": "gan-training",
+  "aka": ""
+ },
+ {
+  "term": "Generator",
+  "full": "",
+  "topic": "Generative models",
+  "plain": "The part of a GAN that turns random numbers into made-up examples.",
+  "see": "ae-to-gan-rewire",
+  "aka": ""
+ },
+ {
+  "term": "Discriminator",
+  "full": "",
+  "topic": "Generative models",
+  "plain": "The judge in a GAN: it scores whether an example is real or made up.",
+  "see": "ae-to-gan-rewire",
+  "aka": ""
+ },
+ {
+  "term": "Mode collapse",
+  "full": "",
+  "topic": "Generative models",
+  "plain": "When a GAN's generator makes only a few kinds of output instead of the full variety.",
+  "see": "gan-mode-collapse",
+  "aka": ""
+ },
+ {
+  "term": "Diffusion model",
+  "full": "",
+  "topic": "Generative models",
+  "plain": "A model that learns to remove noise step by step, so it can turn pure noise into a picture.",
+  "see": "diffusion",
+  "aka": ""
+ },
+ {
+  "term": "DDPM / DDIM",
+  "full": "Denoising Diffusion Probabilistic / Implicit Models",
+  "topic": "Generative models",
+  "plain": "Two ways of running a diffusion model's steps: many random ones, or fewer fixed ones.",
+  "see": "ddpm-vs-ddim",
+  "aka": ""
+ },
+ {
+  "term": "CFG",
+  "full": "Classifier-Free Guidance",
+  "topic": "Generative models",
+  "plain": "Pushing a diffusion model harder towards what was asked for, at some cost to variety.",
+  "see": "classifier-free-guidance",
+  "aka": ""
+ },
+ {
+  "term": "Normalizing flow",
+  "full": "",
+  "topic": "Generative models",
+  "plain": "A model that reshapes simple noise into data through steps that can be run backwards exactly.",
+  "see": "normalizing-flows",
+  "aka": ""
+ },
+ {
+  "term": "VQ-VAE",
+  "full": "Vector-Quantised VAE",
+  "topic": "Generative models",
+  "plain": "An autoencoder whose codes are picked from a fixed list of learned vectors.",
+  "see": "vq-vae-codebook",
+  "aka": ""
+ },
+ {
+  "term": "DEC",
+  "full": "Deep Embedded Clustering",
+  "topic": "Generative models",
+  "plain": "Grouping data into clusters inside an autoencoder's code space.",
+  "see": "dec-dense",
+  "aka": ""
+ },
+ {
+  "term": "Sequence",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "Data that comes in order, like words in a sentence or readings over time.",
+  "see": "rnn-training-step",
+  "aka": ""
+ },
+ {
+  "term": "RNN",
+  "full": "Recurrent Neural Network",
+  "topic": "Sequences and language",
+  "plain": "A network that reads a sequence one step at a time, carrying a memory forward.",
+  "see": "rnn-training-step",
+  "aka": ""
+ },
+ {
+  "term": "LSTM",
+  "full": "Long Short-Term Memory",
+  "topic": "Sequences and language",
+  "plain": "An RNN with gates that decide what to remember and forget, so it keeps information longer.",
+  "see": "lstm-training-step",
+  "aka": ""
+ },
+ {
+  "term": "GRU",
+  "full": "Gated Recurrent Unit",
+  "topic": "Sequences and language",
+  "plain": "A simpler gated RNN, like a lighter LSTM.",
+  "see": "gated-memory",
+  "aka": ""
+ },
+ {
+  "term": "Seq2seq",
+  "full": "Sequence to sequence",
+  "topic": "Sequences and language",
+  "plain": "A model that reads one sequence and writes another, like translating a sentence.",
+  "see": "seq2seq-attention",
+  "aka": ""
+ },
+ {
+  "term": "Teacher forcing",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "During training, giving the model the true previous word rather than its own guess.",
+  "see": "teacher-forcing",
+  "aka": ""
+ },
+ {
+  "term": "NLP",
+  "full": "Natural Language Processing",
+  "topic": "Sequences and language",
+  "plain": "Getting computers to work with human language.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "Token",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "A piece of text a language model reads or writes: a word, part of a word or a mark.",
+  "see": "gpt2-hosting-text-to-tokens",
+  "aka": ""
+ },
+ {
+  "term": "Tokenizer",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "The tool that cuts text into tokens and turns them into numbers.",
+  "see": "gpt2-tokenizer",
+  "aka": ""
+ },
+ {
+  "term": "BPE",
+  "full": "Byte-Pair Encoding",
+  "topic": "Sequences and language",
+  "plain": "A way to build a tokenizer by repeatedly joining the most common pairs of pieces.",
+  "see": "gpt2-tokenizer",
+  "aka": ""
+ },
+ {
+  "term": "Vocabulary",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "The full list of tokens a model knows; GPT-2 has 50,257.",
+  "see": "gpt2-hosting-text-to-tokens",
+  "aka": ""
+ },
+ {
+  "term": "Word2vec",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "An early way to learn word embeddings from which words appear near each other.",
+  "see": "word2vec-training",
+  "aka": ""
+ },
+ {
+  "term": "LLM",
+  "full": "Large Language Model",
+  "topic": "Sequences and language",
+  "plain": "A very large model trained on text to predict the next token; chat assistants are built on them.",
+  "see": "gpt2-hosting-device-and-server",
+  "aka": ""
+ },
+ {
+  "term": "GPT",
+  "full": "Generative Pre-trained Transformer",
+  "topic": "Sequences and language",
+  "plain": "A family of language models that write text one token at a time; GPT-2 is a 2019 one.",
+  "see": "gpt2-transformer-block",
+  "aka": ""
+ },
+ {
+  "term": "BERT",
+  "full": "Bidirectional Encoder Representations from Transformers",
+  "topic": "Sequences and language",
+  "plain": "A language model that reads text in both directions, used for understanding rather than writing.",
+  "see": "causal-vs-bidirectional",
+  "aka": ""
+ },
+ {
+  "term": "Pre-training",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "The first, long training on huge amounts of general data.",
+  "see": "transfer-learning",
+  "aka": ""
+ },
+ {
+  "term": "Fine-tuning",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "Further training of a pre-trained model on a smaller, specific dataset.",
+  "see": "transfer-learning",
+  "aka": ""
+ },
+ {
+  "term": "Transfer learning",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "Reusing what a model learned on one task to help with another.",
+  "see": "transfer-learning",
+  "aka": ""
+ },
+ {
+  "term": "LoRA",
+  "full": "Low-Rank Adaptation",
+  "topic": "Sequences and language",
+  "plain": "Fine-tuning by learning a small add-on to each weight matrix instead of changing it all.",
+  "see": "gpt2-lora",
+  "aka": ""
+ },
+ {
+  "term": "Instruction tuning",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "Fine-tuning a language model on examples of following instructions.",
+  "see": "instruction-tuning",
+  "aka": ""
+ },
+ {
+  "term": "RLHF",
+  "full": "Reinforcement Learning from Human Feedback",
+  "topic": "Sequences and language",
+  "plain": "Training a language model with rewards learned from people's preferences between answers.",
+  "see": "rlhf-ppo",
+  "aka": ""
+ },
+ {
+  "term": "DPO",
+  "full": "Direct Preference Optimisation",
+  "topic": "Sequences and language",
+  "plain": "Learning from preferred and rejected answers directly, without a separate reward model.",
+  "see": "dpo",
+  "aka": ""
+ },
+ {
+  "term": "Prompt",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "The text given to a language model for it to continue or answer.",
+  "see": "gpt2-conditioning",
+  "aka": ""
+ },
+ {
+  "term": "Context window",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "How many tokens a model can look at at once; GPT-2's is 1,024.",
+  "see": "gpt2-hosting-memory-per-conversation",
+  "aka": ""
+ },
+ {
+  "term": "Perplexity",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "How surprised a language model is by real text, on average; lower is better.",
+  "see": "gpt2-perplexity-explained",
+  "aka": ""
+ },
+ {
+  "term": "Sampling",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "Choosing the next token at random according to the model's chances.",
+  "see": "gpt2-sampling",
+  "aka": ""
+ },
+ {
+  "term": "Temperature",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "A dial on sampling: low makes the model pick its top choice, high makes it more random.",
+  "see": "gpt2-sampling",
+  "aka": ""
+ },
+ {
+  "term": "Top-k / top-p",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "Sampling only from the k likeliest tokens, or from the likeliest ones that add up to p.",
+  "see": "gpt2-sampling",
+  "aka": ""
+ },
+ {
+  "term": "Greedy decoding",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "Always picking the single likeliest next token.",
+  "see": "gpt2-hosting-one-token-at-a-time",
+  "aka": ""
+ },
+ {
+  "term": "Beam search",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "Keeping several of the best partial answers at once and extending them all.",
+  "see": "gpt2-beam-search",
+  "aka": ""
+ },
+ {
+  "term": "Hallucination",
+  "full": "",
+  "topic": "Sequences and language",
+  "plain": "When a language model confidently says something false or made up.",
+  "see": "gpt2-hallucination",
+  "aka": ""
+ },
+ {
+  "term": "Attention",
+  "full": "",
+  "topic": "Attention and transformers",
+  "plain": "Letting each token look at the others and take in what is relevant to it.",
+  "see": "attention-training-step",
+  "aka": ""
+ },
+ {
+  "term": "Self-attention",
+  "full": "",
+  "topic": "Attention and transformers",
+  "plain": "Attention where a sequence looks at itself.",
+  "see": "blocks-attention",
+  "aka": ""
+ },
+ {
+  "term": "Cross-attention",
+  "full": "",
+  "topic": "Attention and transformers",
+  "plain": "Attention where one sequence looks at another, like a translation looking back at the source.",
+  "see": "cross-attention",
+  "aka": ""
+ },
+ {
+  "term": "Q / K / V",
+  "full": "Query / Key / Value",
+  "topic": "Attention and transformers",
+  "plain": "In attention, what each token asks for, what it offers to be found by, and what it passes on.",
+  "see": "blocks-attention",
+  "aka": ""
+ },
+ {
+  "term": "Multi-head attention",
+  "full": "",
+  "topic": "Attention and transformers",
+  "plain": "Several attentions side by side, each free to look for different things.",
+  "see": "multi-head-vs-single",
+  "aka": ""
+ },
+ {
+  "term": "Transformer",
+  "full": "",
+  "topic": "Attention and transformers",
+  "plain": "The network design behind modern language models: attention plus small MLPs, stacked in blocks.",
+  "see": "gpt2-transformer-block",
+  "aka": ""
+ },
+ {
+  "term": "Causal mask",
+  "full": "",
+  "topic": "Attention and transformers",
+  "plain": "Stopping each token from looking at later tokens, so a model cannot peek at the answer.",
+  "see": "causal-vs-bidirectional",
+  "aka": ""
+ },
+ {
+  "term": "Positional encoding",
+  "full": "",
+  "topic": "Attention and transformers",
+  "plain": "Numbers added so a transformer knows the order of the tokens.",
+  "see": "sinusoidal-positions",
+  "aka": ""
+ },
+ {
+  "term": "RoPE",
+  "full": "Rotary Position Embedding",
+  "topic": "Attention and transformers",
+  "plain": "Telling attention where tokens sit by rotating their queries and keys.",
+  "see": "gpt2-rotary-embeddings",
+  "aka": ""
+ },
+ {
+  "term": "ALiBi",
+  "full": "Attention with Linear Biases",
+  "topic": "Attention and transformers",
+  "plain": "Telling attention about distance by lowering scores for far-away tokens.",
+  "see": "alibi",
+  "aka": ""
+ },
+ {
+  "term": "MoE",
+  "full": "Mixture of Experts",
+  "topic": "Attention and transformers",
+  "plain": "A layer of many small networks where each token only uses a few, saving work.",
+  "see": "mixture-of-experts",
+  "aka": ""
+ },
+ {
+  "term": "SSM",
+  "full": "State Space Model",
+  "topic": "Attention and transformers",
+  "plain": "A sequence model that carries a running summary forward, as an alternative to attention.",
+  "see": "ssm-recurrence",
+  "aka": ""
+ },
+ {
+  "term": "Mamba",
+  "full": "",
+  "topic": "Attention and transformers",
+  "plain": "A state space model that chooses what to keep as it reads.",
+  "see": "mamba-selective-scan",
+  "aka": ""
+ },
+ {
+  "term": "Residual stream",
+  "full": "",
+  "topic": "Attention and transformers",
+  "plain": "The running list of numbers each layer of a transformer reads from and adds to.",
+  "see": "gpt2-residual-stream",
+  "aka": ""
+ },
+ {
+  "term": "Induction head",
+  "full": "",
+  "topic": "Attention and transformers",
+  "plain": "An attention head that spots repeated patterns and copies what came next last time.",
+  "see": "gpt2-induction-heads",
+  "aka": ""
+ },
+ {
+  "term": "Interpretability",
+  "full": "",
+  "topic": "Attention and transformers",
+  "plain": "Opening a model up to understand how it reaches its answers.",
+  "see": "gpt2-linear-probes",
+  "aka": ""
+ },
+ {
+  "term": "SAE",
+  "full": "Sparse Autoencoder",
+  "topic": "Attention and transformers",
+  "plain": "An autoencoder used to split a model's inner numbers into fewer, clearer features.",
+  "see": "gpt2-sparse-autoencoder-features",
+  "aka": ""
+ },
+ {
+  "term": "Server",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "A computer somewhere else that answers requests sent to it over the internet.",
+  "see": "gpt2-hosting-device-and-server",
+  "aka": ""
+ },
+ {
+  "term": "Client",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "The program on your device that sends requests to a server and shows the replies.",
+  "see": "gpt2-hosting-a-request-is-text",
+  "aka": ""
+ },
+ {
+  "term": "Request / response",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "A message sent to a server, and the answer it sends back.",
+  "see": "gpt2-hosting-a-request-is-text",
+  "aka": ""
+ },
+ {
+  "term": "API",
+  "full": "Application Programming Interface",
+  "topic": "Hosting and systems",
+  "plain": "A fixed way for one program to ask another for something, like asking a model a question.",
+  "see": "gpt2-hosting-a-request-is-text",
+  "aka": ""
+ },
+ {
+  "term": "JSON",
+  "full": "JavaScript Object Notation",
+  "topic": "Hosting and systems",
+  "plain": "A simple text format for structured data, used to send requests and replies.",
+  "see": "gpt2-hosting-a-request-is-text",
+  "aka": ""
+ },
+ {
+  "term": "HTTP",
+  "full": "Hypertext Transfer Protocol",
+  "topic": "Hosting and systems",
+  "plain": "The rules web browsers and servers use to send requests and replies.",
+  "see": "gpt2-hosting-a-request-is-text",
+  "aka": ""
+ },
+ {
+  "term": "Streaming",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "Sending each piece of the reply as soon as it is ready instead of waiting for the end.",
+  "see": "gpt2-hosting-one-token-at-a-time",
+  "aka": ""
+ },
+ {
+  "term": "KV cache",
+  "full": "Key-Value cache",
+  "topic": "Hosting and systems",
+  "plain": "Keeping each token's keys and values so a model need not re-read the whole text for every new token.",
+  "see": "gpt2-hosting-read-once-remember",
+  "aka": ""
+ },
+ {
+  "term": "Prefill / decode",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "The two phases of answering: reading the whole prompt at once, then writing one token at a time.",
+  "see": "gpt2-hosting-read-once-remember",
+  "aka": ""
+ },
+ {
+  "term": "Batching (serving)",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "Running many people's requests through the model together, so its weights are read once for all.",
+  "see": "gpt2-hosting-many-people-one-model",
+  "aka": ""
+ },
+ {
+  "term": "Throughput / latency",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "How much work gets done per second, and how long one answer takes to arrive.",
+  "see": "batching-and-throughput",
+  "aka": ""
+ },
+ {
+  "term": "Agent",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "A program that uses a model in a loop, letting it call tools, read the results and keep going.",
+  "see": "gpt2-hosting-a-coding-agent",
+  "aka": ""
+ },
+ {
+  "term": "Tool call",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "Text from a model asking the program around it to do something, like read a file or run tests.",
+  "see": "gpt2-hosting-a-coding-agent",
+  "aka": ""
+ },
+ {
+  "term": "Thinking / reasoning tokens",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "Tokens a model writes for itself before its answer, often hidden, but counted.",
+  "see": "thinking-tokens",
+  "aka": ""
+ },
+ {
+  "term": "Effort",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "A setting for how much a model may think before answering: more effort, more tokens, more time.",
+  "see": "thinking-effort",
+  "aka": ""
+ },
+ {
+  "term": "Speculative decoding",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "Letting a small model guess several tokens and a big one check them all at once, to answer faster.",
+  "see": "gpt2-speculative-decoding",
+  "aka": ""
+ },
+ {
+  "term": "Flash attention",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "A way to compute attention in tiles so it needs far less memory.",
+  "see": "flash-attention-tiling",
+  "aka": ""
+ },
+ {
+  "term": "CPU",
+  "full": "Central Processing Unit",
+  "topic": "Hosting and systems",
+  "plain": "A computer's main chip: a few fast cores that are good at anything.",
+  "see": "cpu-and-gpu-training",
+  "aka": ""
+ },
+ {
+  "term": "GPU",
+  "full": "Graphics Processing Unit",
+  "topic": "Hosting and systems",
+  "plain": "A chip with thousands of small cores, very fast at the matrix maths of neural networks.",
+  "see": "cpu-and-gpu-training",
+  "aka": ""
+ },
+ {
+  "term": "VRAM / HBM",
+  "full": "Video RAM / High-Bandwidth Memory",
+  "topic": "Hosting and systems",
+  "plain": "The fast memory on a GPU, where the model's weights must sit while it runs.",
+  "see": "roofline",
+  "aka": ""
+ },
+ {
+  "term": "FLOP",
+  "full": "Floating-Point Operation",
+  "topic": "Hosting and systems",
+  "plain": "One addition or multiplication of decimal numbers; used to count a model's work.",
+  "see": "roofline",
+  "aka": ""
+ },
+ {
+  "term": "MAC",
+  "full": "Multiply-Accumulate",
+  "topic": "Hosting and systems",
+  "plain": "One multiply and one add, the basic step of a matrix product.",
+  "see": "gpt2-hosting-read-once-remember",
+  "aka": ""
+ },
+ {
+  "term": "Roofline",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "A picture of whether a computation is slowed by arithmetic or by moving data.",
+  "see": "roofline",
+  "aka": ""
+ },
+ {
+  "term": "Data parallelism",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "Training on several devices at once, each with a copy of the model and its own share of the data.",
+  "see": "data-parallel-allreduce",
+  "aka": ""
+ },
+ {
+  "term": "Tensor / pipeline parallelism",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "Splitting one model across several devices, by cutting its layers or its matrices.",
+  "see": "tensor-and-pipeline-parallel",
+  "aka": ""
+ },
+ {
+  "term": "ZeRO",
+  "full": "Zero Redundancy Optimizer",
+  "topic": "Hosting and systems",
+  "plain": "Splitting the optimizer's memory across devices so no copy is repeated.",
+  "see": "zero-sharding",
+  "aka": ""
+ },
+ {
+  "term": "Activation checkpointing",
+  "full": "",
+  "topic": "Hosting and systems",
+  "plain": "Saving memory in training by forgetting some inner numbers and working them out again later.",
+  "see": "activation-checkpointing",
+  "aka": ""
+ },
+ {
+  "term": "FP32 / FP16 / BF16",
+  "full": "32-bit / 16-bit float / Brain Float 16",
+  "topic": "Efficiency",
+  "plain": "Ways of storing a decimal number in 4 or 2 bytes; fewer bytes are faster but less precise.",
+  "see": "mixed-precision",
+  "aka": ""
+ },
+ {
+  "term": "INT8",
+  "full": "8-bit integer",
+  "topic": "Efficiency",
+  "plain": "Storing each number as a whole number in one byte, to make a model smaller and faster.",
+  "see": "quantization",
+  "aka": ""
+ },
+ {
+  "term": "Quantization",
+  "full": "",
+  "topic": "Efficiency",
+  "plain": "Storing a model's numbers with fewer bits so it takes less memory.",
+  "see": "quantization",
+  "aka": "Fixed-point arithmetic for FPGAs (HEP triggers)"
+ },
+ {
+  "term": "QAT",
+  "full": "Quantization-Aware Training",
+  "topic": "Efficiency",
+  "plain": "Training a model while pretending its numbers are stored with fewer bits, so it copes when they are.",
+  "see": "quantization-aware-training",
+  "aka": ""
+ },
+ {
+  "term": "Mixed precision",
+  "full": "",
+  "topic": "Efficiency",
+  "plain": "Training with 16-bit numbers where it is safe and 32-bit where it matters.",
+  "see": "mixed-precision",
+  "aka": ""
+ },
+ {
+  "term": "Pruning",
+  "full": "",
+  "topic": "Efficiency",
+  "plain": "Removing the weights or parts of a model that matter least, to make it smaller.",
+  "see": "magnitude-pruning",
+  "aka": ""
+ },
+ {
+  "term": "Distillation",
+  "full": "",
+  "topic": "Efficiency",
+  "plain": "Training a small model to copy a big model's answers.",
+  "see": "distillation",
+  "aka": "Knowledge distillation, teacher-student"
+ },
+ {
+  "term": "Scaling laws",
+  "full": "",
+  "topic": "Efficiency",
+  "plain": "How a model's loss improves, predictably, as its size, data and compute grow.",
+  "see": "scaling-laws",
+  "aka": ""
+ },
+ {
+  "term": "RL",
+  "full": "Reinforcement Learning",
+  "topic": "Reinforcement learning",
+  "plain": "Learning by trying actions and getting rewards, rather than from right answers.",
+  "see": "labels-against-rewards",
+  "aka": ""
+ },
+ {
+  "term": "Agent (RL)",
+  "full": "",
+  "topic": "Reinforcement learning",
+  "plain": "In reinforcement learning, the learner that acts in a world and collects rewards.",
+  "see": "q-learning",
+  "aka": ""
+ },
+ {
+  "term": "Reward",
+  "full": "",
+  "topic": "Reinforcement learning",
+  "plain": "The score an RL agent gets for what it did; it learns to get more of it.",
+  "see": "reward-shaping",
+  "aka": ""
+ },
+ {
+  "term": "Policy",
+  "full": "",
+  "topic": "Reinforcement learning",
+  "plain": "An RL agent's rule for choosing an action in each situation.",
+  "see": "policy-gradient",
+  "aka": ""
+ },
+ {
+  "term": "Q-learning",
+  "full": "",
+  "topic": "Reinforcement learning",
+  "plain": "Learning how good each action is in each situation, from rewards.",
+  "see": "q-learning",
+  "aka": ""
+ },
+ {
+  "term": "DQN",
+  "full": "Deep Q-Network",
+  "topic": "Reinforcement learning",
+  "plain": "Q-learning with a neural network, as used to play video games.",
+  "see": "dqn-replay-buffer",
+  "aka": ""
+ },
+ {
+  "term": "PPO",
+  "full": "Proximal Policy Optimisation",
+  "topic": "Reinforcement learning",
+  "plain": "A steady way to improve a policy, used in RLHF.",
+  "see": "rlhf-ppo",
+  "aka": ""
+ },
+ {
+  "term": "MCTS",
+  "full": "Monte Carlo Tree Search",
+  "topic": "Reinforcement learning",
+  "plain": "Planning by trying out many possible futures and favouring the promising ones.",
+  "see": "mcts-tic-tac-toe",
+  "aka": ""
+ },
+ {
+  "term": "Bandit",
+  "full": "Multi-armed bandit",
+  "topic": "Reinforcement learning",
+  "plain": "The simplest RL problem: choose between options whose payouts you must discover.",
+  "see": "multi-armed-bandits",
+  "aka": ""
+ },
+ {
+  "term": "Reward hacking",
+  "full": "",
+  "topic": "Reinforcement learning",
+  "plain": "An agent scoring well by exploiting a flaw in the reward instead of doing the task.",
+  "see": "reward-hacking",
+  "aka": ""
+ },
+ {
+  "term": "MVA",
+  "full": "Multivariate Analysis",
+  "topic": "Particle physics (HEP)",
+  "plain": "HEP's name for using a trained classifier (BDT or DNN) on many variables at once.",
+  "see": "cuts-vs-multivariate",
+  "aka": "Machine-learning classifier"
+ },
+ {
+  "term": "TMVA",
+  "full": "Toolkit for Multivariate Data Analysis",
+  "topic": "Particle physics (HEP)",
+  "plain": "The ROOT library long used in HEP to train BDTs and neural networks.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "Discriminant",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "A classifier's output score, used as one variable to separate signal from background.",
+  "see": "classifier-score-as-variable",
+  "aka": "MVA output, classifier score"
+ },
+ {
+  "term": "Cut-based analysis",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Selecting events with a list of hand-chosen thresholds on variables instead of a trained classifier.",
+  "see": "cuts-vs-multivariate",
+  "aka": "Rule-based selection"
+ },
+ {
+  "term": "Working point",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "A chosen threshold on a classifier, fixed by a target efficiency, like the 70% working point.",
+  "see": "moving-a-cut",
+  "aka": "Decision threshold"
+ },
+ {
+  "term": "Signal / background",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "The events you are looking for, and everything else that looks like them.",
+  "see": "from-a-cut-to-a-tree",
+  "aka": "Positive / negative class"
+ },
+ {
+  "term": "Signal efficiency",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "The share of real signal events a selection keeps.",
+  "see": "moving-a-cut",
+  "aka": "Recall, true positive rate"
+ },
+ {
+  "term": "Background rejection",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "The share of background a selection throws away, often given as 1 over the share kept.",
+  "see": "roc-and-calibration",
+  "aka": "Specificity, true negative rate; or 1 / false positive rate"
+ },
+ {
+  "term": "Mistag rate",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "How often background is wrongly tagged as signal, as in b-tagging.",
+  "see": "",
+  "aka": "False positive rate"
+ },
+ {
+  "term": "Overtraining check",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Comparing a classifier's scores on training and test samples to spot overfitting.",
+  "see": "overtraining-check",
+  "aka": "Overfitting test, train-test comparison"
+ },
+ {
+  "term": "Event",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "One recorded collision (or simulated one): the unit HEP classifies.",
+  "see": "",
+  "aka": "Example, instance: one row of data"
+ },
+ {
+  "term": "Event weight",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "A number saying how much a simulated event counts, to match real data; not a network weight.",
+  "see": "",
+  "aka": "Sample weight, importance weight"
+ },
+ {
+  "term": "MC",
+  "full": "Monte Carlo (simulation)",
+  "topic": "Particle physics (HEP)",
+  "plain": "Simulated events made with random numbers to model what the detector should see.",
+  "see": "",
+  "aka": "Simulation, synthetic data"
+ },
+ {
+  "term": "Toy MC / pseudo-experiments",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Many fake datasets drawn at random from a model, to see how results scatter.",
+  "see": "interval-coverage",
+  "aka": "Simulation study, parametric bootstrap"
+ },
+ {
+  "term": "Asimov dataset",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "A single made-up dataset where every bin holds exactly its expected count, used for quick sensitivity estimates.",
+  "see": "",
+  "aka": "Expected-value dataset"
+ },
+ {
+  "term": "Signal region / control region",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Where you look for the signal, and nearby regions with little signal used to measure the background.",
+  "see": "sideband-background",
+  "aka": ""
+ },
+ {
+  "term": "Sideband",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "A region next to the signal region, used to estimate the background underneath it.",
+  "see": "sideband-background",
+  "aka": ""
+ },
+ {
+  "term": "Bump hunt",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Searching a mass spectrum for a small peak on a smooth background.",
+  "see": "bump-hunt",
+  "aka": "Anomaly search in a spectrum"
+ },
+ {
+  "term": "Significance",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "How many standard deviations a result is from background-only; roughly s / √b for a simple count.",
+  "see": "why-five-sigma",
+  "aka": "z-score"
+ },
+ {
+  "term": "5σ",
+  "full": "Five sigma",
+  "topic": "Particle physics (HEP)",
+  "plain": "HEP's bar for claiming a discovery: a 1 in 3.5 million chance that background alone fakes it.",
+  "see": "why-five-sigma",
+  "aka": "p < 2.9 × 10⁻⁷"
+ },
+ {
+  "term": "Look-elsewhere effect",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Looking in many places makes a chance bump more likely somewhere, so the significance must be corrected.",
+  "see": "look-elsewhere-effect",
+  "aka": "Multiple comparisons"
+ },
+ {
+  "term": "CLs",
+  "full": "Confidence Level of signal",
+  "topic": "Particle physics (HEP)",
+  "plain": "HEP's method for upper limits that avoids excluding signals the search could not see.",
+  "see": "cls-method",
+  "aka": ""
+ },
+ {
+  "term": "Upper limit",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "The largest signal still compatible with the data, at a chosen confidence.",
+  "see": "poisson-upper-limits",
+  "aka": ""
+ },
+ {
+  "term": "Brazil plot",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "An upper-limit plot with green and yellow bands for the expected limit's spread.",
+  "see": "brazil-band",
+  "aka": "Expected-limit bands"
+ },
+ {
+  "term": "Nuisance parameter",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "A quantity you must allow for but do not care about, like an energy scale uncertainty.",
+  "see": "nuisance-parameters-profiling",
+  "aka": ""
+ },
+ {
+  "term": "Systematic uncertainty",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "An uncertainty from how the measurement was made, not from random counting.",
+  "see": "statistical-vs-systematic",
+  "aka": "Systematics"
+ },
+ {
+  "term": "Profile likelihood",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Handling nuisance parameters by re-fitting them for each value of the quantity you care about.",
+  "see": "nuisance-parameters-profiling",
+  "aka": ""
+ },
+ {
+  "term": "Unbinned / binned fit",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Fitting a model to each event's value, or to counts in histogram bins.",
+  "see": "binned-vs-unbinned-fits",
+  "aka": ""
+ },
+ {
+  "term": "Selection sculpting",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "When a selection or classifier bends the shape of a distribution, such as faking a peak.",
+  "see": "selection-sculpting",
+  "aka": "Distribution shift from selection"
+ },
+ {
+  "term": "Model-independent search",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Looking for anything unexpected rather than one predicted signal, often with autoencoders.",
+  "see": "autoencoder-anomaly-detection",
+  "aka": "Anomaly detection"
+ },
+ {
+  "term": "Jet",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "A spray of particles from one quark or gluon, recorded together in the detector.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "b-tagging",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Identifying jets from bottom quarks, a classic HEP classification task done with ML.",
+  "see": "",
+  "aka": "Jet flavour classification"
+ },
+ {
+  "term": "Pile-up",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Extra collisions recorded at the same time as the one of interest.",
+  "see": "",
+  "aka": "Overlapping background events"
+ },
+ {
+  "term": "Trigger",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "The fast first selection that decides which collisions to keep; increasingly runs ML on FPGAs.",
+  "see": "",
+  "aka": "Online event filter"
+ },
+ {
+  "term": "GNN",
+  "full": "Graph Neural Network",
+  "topic": "Particle physics (HEP)",
+  "plain": "A network that works on points and their links, used in HEP for tracks, jets and particle clouds.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "ROOT",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "CERN's data-analysis software, the long-time standard file format and toolkit in HEP.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "ONNX",
+  "full": "Open Neural Network Exchange",
+  "topic": "Particle physics (HEP)",
+  "plain": "A file format for trained networks, used to run Python-trained models inside C++ HEP software.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "Fit",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Choosing a model's parameters so it matches the data; machine learning calls this training.",
+  "see": "chi-square-fit",
+  "aka": "Training (ML)"
+ },
+ {
+  "term": "Minimiser",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "A program that finds the parameters giving the smallest loss.",
+  "see": "minimisers-on-chi-square",
+  "aka": "Optimizer (ML)"
+ },
+ {
+  "term": "Minuit",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "CERN's minimiser, used for HEP fits since the 1970s.",
+  "see": "minuit-feels-its-way",
+  "aka": ""
+ },
+ {
+  "term": "iminuit",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Minuit for Python: you give it a function and a start, and it finds the minimum and the errors.",
+  "see": "minuit-feels-its-way",
+  "aka": ""
+ },
+ {
+  "term": "MIGRAD",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Minuit's main minimiser: it feels the slope by probing each parameter, steps, and builds up the curvature as it goes.",
+  "see": "minuit-feels-its-way",
+  "aka": "Quasi-Newton, variable-metric method"
+ },
+ {
+  "term": "HESSE",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Minuit's step that measures the curvature at the minimum, giving the error bars and their correlations.",
+  "see": "minuit-feels-its-way",
+  "aka": "Hessian-based errors"
+ },
+ {
+  "term": "MINOS",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Minuit's step for uneven error bars: walk each parameter out, re-fitting the rest, until the loss rises enough.",
+  "see": "likelihood-intervals",
+  "aka": "Profile-likelihood intervals"
+ },
+ {
+  "term": "SIMPLEX",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "A minimiser that uses no slopes at all: a small shape of points that rolls and shrinks downhill.",
+  "see": "minimisers-on-chi-square",
+  "aka": "Nelder-Mead"
+ },
+ {
+  "term": "EDM",
+  "full": "Estimated Distance to Minimum",
+  "topic": "Fitting and minimisation",
+  "plain": "Minuit's estimate of how far the loss still is above its minimum; it stops when this is tiny.",
+  "see": "minuit-feels-its-way",
+  "aka": "Convergence tolerance"
+ },
+ {
+  "term": "Error definition",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "How much the loss must rise to mark one standard deviation: 1 for chi-square, 0.5 for −log L.",
+  "see": "error-ellipse",
+  "aka": "UP, errordef (Minuit)"
+ },
+ {
+  "term": "Hessian",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "The table of second derivatives: how curved the loss is along and between every pair of parameters.",
+  "see": "newton-vs-gradient-descent",
+  "aka": "Curvature matrix"
+ },
+ {
+  "term": "Covariance matrix",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "How uncertain each fitted parameter is and how their errors move together; it comes from the inverse of the Hessian.",
+  "see": "error-ellipse",
+  "aka": "Error matrix (Minuit)"
+ },
+ {
+  "term": "Correlation",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "How much two quantities move together, from −1 to 1.",
+  "see": "error-ellipse",
+  "aka": ""
+ },
+ {
+  "term": "Newton's method",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Stepping straight to where a bowl with the measured slope and curvature would have its bottom.",
+  "see": "newton-vs-gradient-descent",
+  "aka": "Second-order method"
+ },
+ {
+  "term": "Quasi-Newton",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "A Newton-like method that learns the curvature from its own steps instead of computing it, like MIGRAD or BFGS.",
+  "see": "minimisers-on-chi-square",
+  "aka": "BFGS, DFP, variable metric"
+ },
+ {
+  "term": "Line search",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Trying a few step lengths along one direction to find a good one.",
+  "see": "minuit-feels-its-way",
+  "aka": ""
+ },
+ {
+  "term": "Finite differences",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Estimating a slope by evaluating the loss a little either side of a point, as Minuit does.",
+  "see": "minuit-feels-its-way",
+  "aka": "Numerical derivative"
+ },
+ {
+  "term": "Automatic differentiation",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Getting exact slopes by applying the chain rule to every step of the code, as neural-network libraries do.",
+  "see": "autodiff-graph",
+  "aka": "Autodiff, backpropagation (for networks)"
+ },
+ {
+  "term": "Second-order method",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "A minimiser that uses curvature as well as slope, so it takes fewer, better-aimed steps.",
+  "see": "second-order-preconditioners",
+  "aka": "Newton, quasi-Newton"
+ },
+ {
+  "term": "Convergence",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "The point where further steps no longer improve the fit, by the minimiser's own test.",
+  "see": "loss-landscape-descent",
+  "aka": "Stopping criterion"
+ },
+ {
+  "term": "Local / global minimum",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "A dip that is lowest only nearby, against the lowest point of all.",
+  "see": "minimisers-on-chi-square",
+  "aka": ""
+ },
+ {
+  "term": "Saddle point",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "A flat point that is a minimum in some directions and a maximum in others.",
+  "see": "loss-landscape-descent",
+  "aka": ""
+ },
+ {
+  "term": "Convex",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Bowl-shaped everywhere, so there is only one minimum; a straight-line fit's chi-square is convex.",
+  "see": "chi-square-fit",
+  "aka": ""
+ },
+ {
+  "term": "Loss landscape",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "The loss drawn over the parameters, with its valleys, ridges and minima.",
+  "see": "loss-landscape-descent",
+  "aka": "Chi-square surface, likelihood surface (HEP)"
+ },
+ {
+  "term": "Conditioning",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "How differently curved the loss is in different directions; badly conditioned losses are slow to minimise.",
+  "see": "second-order-preconditioners",
+  "aka": "Ill-conditioning"
+ },
+ {
+  "term": "Full batch / mini-batch",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Using all the data for every step (classic fits, Minuit) or a few examples (SGD).",
+  "see": "minuit-and-sgd",
+  "aka": ""
+ },
+ {
+  "term": "Drunken walk",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "The noisy path of SGD: each step is a little off, but the errors average out around the minimum.",
+  "see": "minuit-and-sgd",
+  "aka": "Random walk, stochastic noise"
+ },
+ {
+  "term": "Starting values",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Where a minimiser begins; a poor start can land it in the wrong minimum.",
+  "see": "minimisers-on-chi-square",
+  "aka": "Initialisation (ML)"
+ },
+ {
+  "term": "Statistical inference",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "Using data to estimate parameters and how sure we are of them; ML's 'inference' means prediction instead.",
+  "see": "frequentist-and-bayesian",
+  "aka": ""
+ },
+ {
+  "term": "Likelihood",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "How probable the observed data are for given parameter values.",
+  "see": "likelihood-curve",
+  "aka": "L"
+ },
+ {
+  "term": "NLL",
+  "full": "Negative Log-Likelihood",
+  "topic": "Statistics and classical ML",
+  "plain": "Minus the log of the likelihood; minimising it is maximum likelihood.",
+  "see": "every-loss-is-a-likelihood",
+  "aka": "−log L; cross-entropy (ML)"
+ },
+ {
+  "term": "Estimator",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "A recipe that turns data into a value for a parameter; a fit and a trained model's prediction are both one.",
+  "see": "likelihood-curve",
+  "aka": ""
+ },
+ {
+  "term": "Bias (statistics)",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "How far an estimator's average lands from the truth; not a network's bias.",
+  "see": "bias-variance",
+  "aka": ""
+ },
+ {
+  "term": "Variance (statistics)",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "How much an estimator would scatter if the data were collected again.",
+  "see": "bias-variance",
+  "aka": ""
+ },
+ {
+  "term": "Uncertainty",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "How far a measured or fitted value might be from the truth, usually one standard deviation.",
+  "see": "error-on-the-mean",
+  "aka": "Error, error bar, standard error"
+ },
+ {
+  "term": "Confidence interval",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "A range built so that, in repeated experiments, it would hold the truth a stated share of the time.",
+  "see": "interval-coverage",
+  "aka": ""
+ },
+ {
+  "term": "Coverage",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "How often an interval method really holds the truth, against how often it claims to.",
+  "see": "interval-coverage",
+  "aka": ""
+ },
+ {
+  "term": "Prior / posterior",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "What you believe before seeing the data, and after; Bayes' theorem links them.",
+  "see": "prior-washing-out",
+  "aka": ""
+ },
+ {
+  "term": "Credible interval",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "The Bayesian range that holds the parameter with a stated probability, given the data and prior.",
+  "see": "frequentist-and-bayesian",
+  "aka": ""
+ },
+ {
+  "term": "MAP",
+  "full": "Maximum A Posteriori",
+  "topic": "Statistics and classical ML",
+  "plain": "The most probable parameters given the data and a prior; an L2-regularised fit is one with a Gaussian prior.",
+  "see": "regularisers",
+  "aka": "Regularised fit"
+ },
+ {
+  "term": "Frequentist / Bayesian",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "Two schools: probability as long-run frequency, or as degree of belief.",
+  "see": "frequentist-and-bayesian",
+  "aka": ""
+ },
+ {
+  "term": "Residual",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "The difference between a data point and the model at that point.",
+  "see": "chi-square-fit",
+  "aka": ""
+ },
+ {
+  "term": "Pull",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "A difference divided by its uncertainty; pulls of a good fit spread with width 1.",
+  "see": "chi-square-per-dof",
+  "aka": ""
+ },
+ {
+  "term": "Goodness of fit",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "Whether a fit describes the data well, such as chi-square per degree of freedom near 1.",
+  "see": "chi-square-per-dof",
+  "aka": ""
+ },
+ {
+  "term": "Degrees of freedom",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "The number of data points minus the number of fitted parameters.",
+  "see": "chi-square-per-dof",
+  "aka": "ndf"
+ },
+ {
+  "term": "Poisson distribution",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "How counts of rare, independent events scatter; HEP's counting statistics.",
+  "see": "binomial-poisson-gaussian",
+  "aka": ""
+ },
+ {
+  "term": "Gaussian",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "The bell curve; sums of many small effects end up shaped like it.",
+  "see": "central-limit-theorem",
+  "aka": "Normal distribution"
+ },
+ {
+  "term": "Error propagation",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "Working out the uncertainty of a result from the uncertainties of its inputs.",
+  "see": "error-propagation",
+  "aka": ""
+ },
+ {
+  "term": "Bootstrap",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "Estimating an uncertainty by refitting many datasets resampled from your own data.",
+  "see": "bootstrap-errors",
+  "aka": ""
+ },
+ {
+  "term": "Hypothesis test",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "Deciding between two explanations of the data, such as background only or signal plus background.",
+  "see": "p-values",
+  "aka": ""
+ },
+ {
+  "term": "Test statistic",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "One number computed from the data that a hypothesis test is based on.",
+  "see": "neyman-pearson",
+  "aka": ""
+ },
+ {
+  "term": "Type I / Type II error",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "Rejecting a true hypothesis (a false alarm) and keeping a false one (a miss).",
+  "see": "type-i-and-type-ii-errors",
+  "aka": "False positive / false negative (ML)"
+ },
+ {
+  "term": "Likelihood ratio",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "How much more probable the data are under one hypothesis than another.",
+  "see": "neyman-pearson",
+  "aka": ""
+ },
+ {
+  "term": "Neyman–Pearson lemma",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "The likelihood ratio is the best possible test between two hypotheses; a well-trained classifier learns it.",
+  "see": "neyman-pearson",
+  "aka": "Optimal classifier"
+ },
+ {
+  "term": "Ensemble",
+  "full": "",
+  "topic": "Statistics and classical ML",
+  "plain": "Several models whose answers are combined, often better than any one.",
+  "see": "random-forest",
+  "aka": ""
+ },
+ {
+  "term": "Parameter of interest",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "The quantity a fit is really after, like a signal strength, as opposed to nuisance parameters.",
+  "see": "nuisance-parameters-profiling",
+  "aka": "POI"
+ },
+ {
+  "term": "Signal strength",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "How much signal there is compared with the prediction: 1 means as predicted, 0 means none.",
+  "see": "bump-hunt",
+  "aka": "μ"
+ },
+ {
+  "term": "Template fit",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Fitting data as a sum of predicted shapes, one per process, scaling each.",
+  "see": "sideband-background",
+  "aka": ""
+ },
+ {
+  "term": "Extended likelihood",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "A likelihood that also fits the total number of events, not only their shape.",
+  "see": "binned-vs-unbinned-fits",
+  "aka": ""
+ },
+ {
+  "term": "Cross-section",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "How likely a process is in each collision, measured in barns.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "Luminosity",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "How many collisions a dataset holds; times a cross-section it gives the expected number of events.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "Normalisation (HEP)",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "The overall size of a predicted distribution, such as cross-section times luminosity; not a normalisation layer.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "Calibration (HEP)",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Correcting a detector's measured values so they match the true ones; not ML calibration.",
+  "see": "network-regression",
+  "aka": ""
+ },
+ {
+  "term": "Scale factor",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "A correction that makes simulation match data, such as for a tagging efficiency.",
+  "see": "",
+  "aka": "Data/MC correction"
+ },
+ {
+  "term": "Data/MC agreement",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "How well simulation matches real data; models trained on simulation depend on it.",
+  "see": "",
+  "aka": "Domain shift, sim-to-real gap (ML)"
+ },
+ {
+  "term": "Domain adaptation",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Making a model trained on one kind of data, like simulation, work on another, like real data.",
+  "see": "",
+  "aka": ""
+ },
+ {
+  "term": "Unfolding",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Removing detector effects from a measured distribution to estimate the true one.",
+  "see": "",
+  "aka": "Deconvolution, inverse problem"
+ },
+ {
+  "term": "Invariant mass",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "A combination of particles' energies and momenta that peaks at the mass of the particle they came from.",
+  "see": "bump-hunt",
+  "aka": ""
+ },
+ {
+  "term": "High-level / low-level variables",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Variables built by physicists, like an invariant mass, against raw ones, like each particle's momentum.",
+  "see": "cuts-vs-multivariate",
+  "aka": "Engineered / raw features"
+ },
+ {
+  "term": "Decorrelation",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Training a classifier so its output does not depend on a variable like mass, so it cannot sculpt it.",
+  "see": "selection-sculpting",
+  "aka": ""
+ },
+ {
+  "term": "Truth (MC)",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "What really happened in a simulated event, known because we simulated it; the labels ML trains on.",
+  "see": "",
+  "aka": "Ground truth, labels"
+ }
+]

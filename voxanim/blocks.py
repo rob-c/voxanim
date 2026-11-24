@@ -34,7 +34,11 @@ the course's program) or ``examples/blocks_parts.py`` (:data:`PARTS`, the blocks
 classifier does not use, and the broken programs) or ``examples/mnist_cnn.py``
 (:data:`CNN_SCRIPT`, the same program with a CNN for its model; its regions are the
 script's names with ``cnn-`` in front) or ``examples/padding.py`` (:data:`PADDING`,
-regions ``pad-...``) or ``examples/vector_db.py`` (:data:`VECTOR_DB`, regions ``vdb-...``),
+regions ``pad-...``), ``examples/vector_db.py`` (:data:`VECTOR_DB`, regions ``vdb-...``) or
+``examples/faces.py`` (:data:`FACES`, regions ``fc-...``), ``examples/serve.py`` (:data:`SERVE`,
+``hs-...``), ``examples/thinking.py`` (:data:`THINKING`, ``th-...``) or ``examples/resample.py``
+(:data:`RESAMPLE`, ``rs-...``), ``examples/ae_gan.py`` (:data:`AE_GAN`, ``ag-...``) or
+``examples/minuit_vs_sgd.py`` (:data:`MINUIT`, ``mn-...``),
 comments left out.
 
 A subclass sets ``TITLE``, ``PHASES``, ``LAST``, ``NEXT`` and, one per phase, ``CODE``
@@ -85,6 +89,12 @@ PARTS = EXAMPLES / "blocks_parts.py"
 CNN_SCRIPT = EXAMPLES / "mnist_cnn.py"   # the same program with a CNN (regions "cnn-...")
 PADDING = EXAMPLES / "padding.py"        # padding, in a CNN and in a batch (regions "pad-...")
 VECTOR_DB = EXAMPLES / "vector_db.py"    # a vector database from scratch (regions "vdb-...")
+FACES = EXAMPLES / "faces.py"            # finding faces and telling them apart ("fc-...")
+SERVE = EXAMPLES / "serve.py"            # hosting a language model ("hs-...")
+THINKING = EXAMPLES / "thinking.py"      # thinking and effort, in a tiny model ("th-...")
+RESAMPLE = EXAMPLES / "resample.py"      # smaller and bigger pictures with conv2d ("rs-...")
+AE_GAN = EXAMPLES / "ae_gan.py"          # an autoencoder's blocks wired as a GAN ("ag-...")
+MINUIT = EXAMPLES / "minuit_vs_sgd.py"   # Minuit's probes and SGD's walk ("mn-...")
 MAX_LINES = 8                   # lines of code on screen at once
 MAX_CHARS = 41                  # and their width, in characters of the monospace font
 
@@ -117,7 +127,8 @@ def _regions(path):
 def regions():
     """``{name: (file, raw lines)}`` over the example files (names are unique)."""
     out = {}
-    for path in (SCRIPT, PARTS, CNN_SCRIPT, PADDING, VECTOR_DB):
+    for path in (SCRIPT, PARTS, CNN_SCRIPT, PADDING, VECTOR_DB, FACES, SERVE, THINKING,
+                 RESAMPLE, AE_GAN, MINUIT):
         for name, lines in _regions(path).items():
             if name in out:
                 raise ValueError("region %r is in two example files" % name)
@@ -148,8 +159,10 @@ def code_lines(name, comments=False):
     try:
         _path, lines = regions()[name]
     except KeyError:
-        raise KeyError("no region %r in %s, %s, %s, %s or %s (regions: %s)" % (
-            name, SCRIPT.name, PARTS.name, CNN_SCRIPT.name, PADDING.name, VECTOR_DB.name,
+        raise KeyError("no region %r in the example files %s (regions: %s)" % (
+            name, ", ".join(p.name for p in (SCRIPT, PARTS, CNN_SCRIPT, PADDING, VECTOR_DB,
+                                             FACES, SERVE, THINKING, RESAMPLE,
+                                             AE_GAN, MINUIT)),
             ", ".join(sorted(regions())))) from None
     if comments:
         return tuple(textwrap.dedent("\n".join(lines)).splitlines())
@@ -213,14 +226,24 @@ def exact(what):
     return "exact arithmetic: " + what
 
 
-def measured(what):
-    """An evidence tag: measured on MNIST."""
-    return "measured on MNIST: " + what
+def measured(what, on="MNIST"):
+    """An evidence tag: measured on a dataset (MNIST unless ``on`` names another, e.g.
+    "Olivetti faces", "Tiny Shakespeare" or "GPT-2")."""
+    return "measured on %s: %s" % (on, what)
+
+
+def about_data(what):
+    """An evidence tag for a phase that describes the data rather than measures anything."""
+    return "about the data: " + what
 
 
 def is_evidence(text):
-    """True for the tag every phase carries."""
-    return text.startswith(("exact arithmetic: ", "measured on MNIST: "))
+    """True for the tag every phase carries: exact arithmetic, measured on a named dataset,
+    or about the data."""
+    if text.startswith(("exact arithmetic: ", "about the data: ")):
+        return True
+    head, sep, _rest = text.partition(": ")
+    return bool(sep) and head.startswith("measured on ") and len(head) > len("measured on ")
 
 
 # ====================================================================== words and numbers

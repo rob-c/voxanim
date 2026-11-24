@@ -1,0 +1,74 @@
+<!doctype html>
+<!-- Template for website/build_site.py, which fills in the fields in double braces. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Glossary: machine learning words in plain English · voxanim</title>
+<meta name="description" content="{{count}} machine learning terms and acronyms, each explained in one plain sentence, with a link to an animation that shows it.">
+<link rel="icon" type="image/svg+xml" href="logo-mark.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..600&display=swap">
+<link rel="stylesheet" href="style.css">
+<script>
+  try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body>
+
+<a class="skip" href="#glossary">Skip to the glossary</a>
+
+<header class="top">
+  <a class="brand" href="./"><img src="logo-mark.svg" alt="" width="26" height="24">voxanim</a>
+  <nav aria-label="Project">
+    <a href="./">Animations</a>
+    <a href="glossary.html" aria-current="page">Glossary</a>
+    <a href="https://github.com/{{repo}}">Source code</a>
+  </nav>
+  <div class="prefs">
+    <button type="button" id="theme" aria-pressed="false">Dark mode</button>
+  </div>
+</header>
+
+<main class="glossary-page">
+  <header class="glossary-head">
+    <h1>Glossary</h1>
+    <p>{{count}} words and acronyms from machine learning, each in one plain sentence: what it
+    is and what it is for. "Also called" gives other names for the same thing, including the
+    ones particle physicists (HEP) use, so an MLP there is often a "DNN" and overfitting is
+    "overtraining"; HEP's own terms have a topic of their own. Where an animation on this site
+    shows it, the last column links to it.</p>
+    <div class="glossary-tools" role="search">
+      <label for="gloss-search">Search</label>
+      <input id="gloss-search" type="search" placeholder="Try GAN, token, overtraining or BDT" autocomplete="off">
+      <label for="gloss-topic">Topic</label>
+      <select id="gloss-topic">
+        <option value="">All topics</option>
+{{topics}}
+      </select>
+      <p class="glossary-count" aria-live="polite"><span id="gloss-shown">{{count}}</span> of {{count}} shown</p>
+    </div>
+  </header>
+
+  <div class="glossary-wrap">
+  <table id="glossary">
+    <thead>
+      <tr><th scope="col">Term</th><th scope="col">Stands for</th><th scope="col">In plain words</th><th scope="col">Also called</th><th scope="col">Topic</th><th scope="col">See it</th></tr>
+    </thead>
+    <tbody>
+{{rows}}
+    </tbody>
+  </table>
+  </div>
+</main>
+
+<footer>
+  <p>voxanim {{version}}, released under the MIT licence. Every summary is a simplification:
+  the animations it links to show the real thing, with real numbers.</p>
+</footer>
+
+<script src="glossary.js"></script>
+</body>
+</html>

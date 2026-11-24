@@ -32,6 +32,16 @@ GPT2 = {
     "head-ablation",
     "retrieval-augmented-generation",
     "seeds-and-sampled-text",
+    # hosting a language model: GPT-2 served by examples/serve.py
+    "hosting-device-and-server",
+    "hosting-a-request-is-text",
+    "hosting-the-model-is-a-file",
+    "hosting-text-to-tokens",
+    "hosting-one-token-at-a-time",
+    "hosting-read-once-remember",
+    "hosting-many-people-one-model",
+    "hosting-memory-per-conversation",
+    "hosting-a-coding-agent",
 }
 MNIST = {
     "second-order-preconditioners",
@@ -101,6 +111,8 @@ MNIST |= {item["name"] for item in ITEMS if 215 <= item["number"] <= 223}
 MNIST |= {item["name"] for item in ITEMS if 224 <= item["number"] <= 230}
 # vector databases: an encoder trained on MNIST pairs, a store of the 60,000 digits
 MNIST |= {item["name"] for item in ITEMS if 234 <= item["number"] <= 237}
+# from autoencoder to GAN: MLPs on MNIST, read by the course classifier
+MNIST |= {item["name"] for item in ITEMS if 265 <= item["number"] <= 268}
 TEXT = {
     item["name"]
     for item in ITEMS
@@ -113,7 +125,12 @@ TEXT |= {"markov-chains", "measuring-entropy", "seeds-and-sampled-text"}
 TEXT |= {"markov-chain-to-rnn"}
 # padding lines of text: real lines of Tiny Shakespeare
 TEXT |= {item["name"] for item in ITEMS if 231 <= item["number"] <= 233}
-NO_DATA = {item["preset"] for item in ITEMS if item["name"] not in GPT2 | MNIST | TEXT}
+# faces: the Olivetti faces (voxanim.olivetti), for detection and recognition
+FACES = {item["name"] for item in ITEMS if 238 <= item["number"] <= 251}
+# resizing pictures: a zone plate (exact) and the Olivetti photos
+FACES |= {"resample-down", "resample-up"}
+NO_DATA = {item["preset"] for item in ITEMS
+           if item["name"] not in GPT2 | MNIST | TEXT | FACES}
 
 
 def redesigned(name):
@@ -206,6 +223,17 @@ DRAWN_BY = (
     ("mech_blocks_q", 232, 233),
     ("mech_blocks_r", 234, 235),
     ("mech_blocks_s", 236, 237),
+    ("mech_blocks_t", 238, 240),
+    ("mech_blocks_u", 241, 244),
+    ("mech_blocks_v", 245, 248),
+    ("mech_blocks_w", 249, 251),
+    ("mech_blocks_x", 252, 254),
+    ("mech_blocks_y", 255, 257),
+    ("mech_blocks_z", 258, 260),
+    ("mech_blocks_za", 261, 262),
+    ("mech_blocks_zb", 263, 264),
+    ("mech_blocks_zc", 265, 268),
+    ("mech_blocks_zd", 269, 270),
 )
 NUMBER = {item["name"]: item["number"] for item in ITEMS}
 

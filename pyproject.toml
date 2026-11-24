@@ -35,7 +35,7 @@ packages = ["voxanim"]
 version = { attr = "voxanim.__version__" }
 
 [tool.setuptools.package-data]
-voxanim = ["fonts/*", "next_catalog.json"]
+voxanim = ["fonts/*", "next_catalog.json", "minuit_calls.json"]
 
 # ------------------------------------------------------------------ lint
 

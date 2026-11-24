@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 365 animations, from a 3×3
+numpy. 398 animations, from a 3×3
 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
@@ -26,7 +26,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 365 animations
+python3 -m voxanim list --names                   # the 398 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim render gradient-descent --theme dark   # the dark-mode copy
@@ -908,14 +908,14 @@ outcome does not depend on it (40 seeds of 40 end on a shortest path with
 these settings). `tests/test_gridworld.py` replays every recorded step with
 the rule and checks the convergence and the numbers above.
 
-### The next 237: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
+### The next 270: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
 
-A further 237 animations, in thirty-four groups: 109 added in 1.6.0, in 1.7.0 eight on
+A further 270 animations, in forty groups: 109 added in 1.6.0, in 1.7.0 eight on
 randomness and 41 for a physics course on data analysis and machine learning, in 1.8.0
 one on training with and without a GPU, in 1.9.0 ten on decision trees, forests and
 boosting, and since then five on entropy, impurity and loss and six bridges between
 topics, each opening the section it leads into, two that count a model's weights, and thirty, "Blocks and code", that show a
-PyTorch model and its training as blocks beside the code, for students who find this hard, with nine more that change its model to a small CNN, ten on padding and four on vector databases. The GPU one, `cpu-and-gpu-training`, is the catalogue's
+PyTorch model and its training as blocks beside the code, for students who find this hard, with nine more that change its model to a small CNN, ten on padding, four on vector databases, fourteen on finding and recognising faces eleven on hosting a language model two on resizing pictures with convolutions four on wiring an autoencoder's blocks into a GAN and two on Minuit against SGD. The GPU one, `cpu-and-gpu-training`, is the catalogue's
 single explicit exception to the rule that results on screen are computed or measured: its
 speeds are representative round figures, labelled as such in every phase. They are listed in
 `next_catalog.json` and
@@ -1189,6 +1189,39 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `vector-db-store-and-search` | **Store, then search.** A vector database: a table of vectors with ids and labels beside it, searched by dot products. |
 | `vector-db-ivf` | **An index: look in fewer places.** An inverted-file index searches only the lists nearest the query: 4 of 64 lists find 99.5% of the true 10 nearest while comparing 8.1% of the vectors. |
 | `vector-db-versions` | **A new encoder needs a new store.** Vectors from two encoders don't mix: a retrained encoder's queries against the old store find the right digit 7.6% of the time, below chance, until the whole store is embedded again (96.6%). |
+| `faces-a-box` | **A box is four numbers.** A box is four numbers, centre and size or two corners, and IoU (overlap ÷ together, 0.71 here) says how well two boxes agree. |
+| `faces-the-grid` | **A grid of guesses.** A detector answers on a 12 × 12 grid: the cell holding a face's centre says 1, where in the cell the centre is, and log(size ÷ 16); every other cell says 0. |
+| `faces-the-detector` | **From pixels to a grid.** Three conv-ReLU-pool blocks take a 96 × 96 scene to a 12 × 12 grid, a 1 × 1 convolution gives each cell 5 numbers, 6,053 learned in all, and each cell sees 22 × 22 pixels. |
+| `faces-two-losses` | **Two losses: is it there, and where.** A detector's loss in two parts: 'there' on every cell, with the rare face cells counted 10 times, and 'where' on face cells only. Without the weight, AP falls from 0.92 to 0.47. |
+| `faces-training-the-detector` | **Training the detector.** Watching the detector learn: its two losses fall over 6,000 steps, and on a scene of unseen people the grid goes from 'everywhere' to 'nowhere' to exactly the two faces. |
+| `faces-nms` | **One box per face.** Several cells claim the same face; non-maximum suppression keeps the surest box and drops the ones that overlap it. |
+| `faces-precision-and-recall` | **Is the detector any good?.** Precision, recall and AP on faces the detector never saw: 348 of 412 found and 64 wrong boxes at 0.5, AP 0.92 against 0.47 without the weight. |
+| `faces-a-face-is-numbers` | **A face is 4,096 numbers.** A face is 4,096 numbers, and pixel distances of one person and of two people overlap. |
+| `faces-an-embedding` | **A face as 32 numbers.** An encoder turns a 32 × 32 face into 32 numbers of length 1, with 22,304 numbers learned. |
+| `faces-triplets` | **Triplets: same closer than different.** The triplet loss pushes another person 0.5 further away than another photo of the same person, and training does it. |
+| `faces-verification` | **Same person or not?.** Face verification: one threshold set on the training people, two kinds of mistake, and an equal error rate of 12.4% against 22.0% for raw pixels. |
+| `faces-identification` | **Who is it?.** Identification from one enrolled photo each: the nearest enrolled face names 36 of 45 new photos of five people, no better than raw pixels, says "unsure" over the threshold, and lets in 6 of 50 strangers' photos. |
+| `faces-the-whole-pipeline` | **Find, cut out, compare.** Find, cut out, compare: on one scene, the detector's three boxes, each face cut out, its 32 numbers and the nearest enrolled person; over 200 scenes, 67% of the faces found are named right from the detector's box and 82% from the true box. |
+| `faces-what-40-people-cannot-show` | **What 40 people can't tell you.** Error rates person by person among ten unseen people (0% to 73% of their own pairs rejected), and what 40 people photographed at one lab in 1992–94 cannot show about how face recognition errs. |
+| `gpt2-hosting-device-and-server` | **Your device and the server.** What is on your phone (the app, your words, the reply) and what is on the server far away (the model, 124,439,808 numbers): an 82-byte request goes out, 20 tokens come back, and the model is 6,070,234 times the request. |
+| `gpt2-hosting-a-request-is-text` | **A request is text.** A request is a short piece of text, 82 bytes of JSON; every turn sends the whole conversation again: 82, 252, then 422 bytes (10, 36, then 66 tokens). |
+| `gpt2-hosting-the-model-is-a-file` | **The model is a file of numbers.** GPT-2's 124,439,808 numbers part by part, 497,759,232 bytes at 4 bytes each, loaded once into the server's memory and read there by every request. |
+| `gpt2-hosting-text-to-tokens` | **Text becomes tokens.** The request becomes one text of 34 characters, then 10 tokens, each a number from GPT-2's list of 50,257: what a service counts, limits and bills. |
+| `gpt2-hosting-one-token-at-a-time` | **One token at a time.** GPT-2's real reply written one token at a time: the five likeliest next tokens each step, the likeliest sent to the phone at once, 20 tokens and then it stops. |
+| `gpt2-hosting-read-once-remember` | **Read once, then remember.** The key-value cache: keys and values kept, only the new token run; the same reply (scores within 0.0000068) for 14.4 times fewer multiply-adds over 20 tokens. |
+| `gpt2-hosting-many-people-one-model` | **Many people, one model.** One step for four people reads GPT-2's 498 MB of weights once and gives each the same next token as a step of their own; shared by 64, that is 7.8 MB per token. |
+| `gpt2-hosting-memory-per-conversation` | **Why a conversation has a limit.** Each token kept costs 73,728 bytes of memory while the conversation lasts: 75 MB for GPT-2's 1,024 tokens, 13,563 tokens per GB beside the model's 498 MB. |
+| `gpt2-hosting-a-coding-agent` | **A coding agent's loop.** An agent on the laptop sends the whole conversation each call (25 → 87 → 150 → 189 tokens); the model answers with text asking for a tool, and the laptop, not the service, reads the file, edits it and runs the tests. |
+| `thinking-tokens` | **Thinking: tokens it writes for itself.** Thinking is tokens the model writes for itself and reads back: one pass per token. A tiny model answering a held-out parity question at once guesses wrong, and writing 12 steps first makes it right, 465 of 468 against 215 (46%) with no steps. |
+| `thinking-effort` | **Effort: how much thinking is allowed.** Effort is a budget of thinking tokens: at every effort, right answers out of 468 and tokens written (one pass each). The tiny model stays about chance up to 6 steps and gets 465 of 468 with 12, for 13 tokens instead of 1. |
+| `resample-down` | **Smaller: blur, then skip.** Downsampling with a fixed blur kernel and stride 2, the same as a matrix D, and why skipping pixels makes false rings. |
+| `resample-up` | **Bigger: spread, then blur.** Upsampling with a transposed convolution: zeros between the pixels, then the kernel × 4 (bilinear), against nearest's blocks, the edge that gets half, and 400 measured round trips. |
+| `ae-to-gan-rewire` | **Same blocks, wired again.** An autoencoder's encoder and decoder, unchanged inside, wired again as a GAN: only the judge's one-number head is new. |
+| `ae-gan-blurry-or-sharp` | **Blurry or sharp.** The same decoder on the same made-up codes before and after the GAN game, against real digits and rebuilds: how grey each is, and why rebuilds blur. |
+| `ae-gan-rebuild-or-invent` | **Rebuild or invent.** The autoencoder rebuilds the digit it is given; the GAN makes every digit from noise but none on request. |
+| `ae-gan-one-loss-or-two` | **One loss or two players.** The autoencoder's one loss falls; the GAN's judge and generator pull against each other and only balance. |
+| `minuit-feels-its-way` | **How Minuit feels its way.** Before each step Minuit asks the model about points a little up and down each axis, then steps, sometimes too far and back, until the minimum. |
+| `minuit-and-sgd` | **Minuit and SGD.** Minuit's handful of careful steps on all the data, or SGD's thousands of noisy steps on a few points at a time that average out at the same minimum. |
 
 **Label embeddings.** A class label as a learned vector: in a classifier, in an autoencoder, and at generation.
 
@@ -1660,7 +1693,9 @@ offline tests on every push, plus a job that prepares MNIST and runs
 everything except GPT-2.
 
 The website (`website/`) is one static page generated from the preset
-registry by `website/build_site.py`. `SECTIONS` there groups and titles the
+registry by `website/build_site.py`, with a second page, a glossary of machine
+learning and particle-physics terms and acronyms, each in one plain sentence (`website/glossary.json`,
+linked to the animation that shows it where there is one). `SECTIONS` there groups and titles the
 animations. No media is in git, and no full video is on the site:
 
 - A render also makes two small files of its MP4 (`voxanim/previews.py`): a

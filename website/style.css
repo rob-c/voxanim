@@ -344,3 +344,40 @@ dialog::backdrop { background: var(--scrim); }
   .player-length, .player-theme, .player-files, .player-cmd-label, .player-cmd { grid-column: 2; }
   .player-length { grid-row: 1; align-self: end; }
 }
+
+/* ------------------------------------------------------------ glossary page */
+
+.glossary-page { max-width: 1280px; margin: 0 auto; padding: 32px var(--gutter) 48px; }
+.glossary-head h1 { font-size: clamp(2rem, 1.5rem + 2vw, 3rem); letter-spacing: -0.02em; }
+.glossary-head p { max-width: 50rem; margin-top: 12px; font-size: 1.125rem; line-height: 1.6; }
+.glossary-tools {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 24px 0 16px;
+}
+.glossary-tools label { font-weight: 600; font-size: 0.9375rem; }
+.glossary-tools input, .glossary-tools select {
+  font: inherit; color: var(--ink); background: var(--floor);
+  border: 1px solid var(--button); border-radius: 6px; padding: 6px 10px;
+}
+.glossary-tools input { min-width: min(22rem, 100%); }
+.glossary-tools .glossary-count { margin: 0 0 0 auto; font-size: 0.9375rem; color: var(--ink-2); }
+.glossary-wrap { overflow-x: auto; }
+#glossary { width: 100%; border-collapse: collapse; font-size: 0.96875rem; line-height: 1.5; }
+#glossary th {
+  position: sticky; top: 0; background: var(--floor); text-align: left;
+  font-weight: 600; padding: 10px 12px; border-bottom: 2px solid var(--ink);
+}
+#glossary td { padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+#glossary td:first-child { font-weight: 600; white-space: nowrap; }
+#glossary td:nth-child(2) { color: var(--ink-2); min-width: 10rem; }
+#glossary td:nth-child(3) { min-width: 18rem; }
+#glossary td:nth-child(4) { color: var(--ink-2); min-width: 10rem; font-size: 0.9375rem; }
+#glossary td:nth-child(5) { color: var(--ink-2); white-space: nowrap; font-size: 0.875rem; }
+#glossary td:last-child { white-space: nowrap; }
+#glossary a { color: var(--blue); }
+@media (max-width: 720px) {
+  #glossary thead { display: none; }
+  #glossary tr { display: block; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+  #glossary td { display: block; border: 0; padding: 2px 0; white-space: normal; min-width: 0; }
+  #glossary td:nth-child(5) { display: none; }
+  #glossary td:nth-child(4):not(:empty)::before { content: "Also called: "; font-weight: 600; }
+}

@@ -25,6 +25,7 @@ os.environ["VOXANIM_OFFLINE"] = "1"
 
 from voxanim import presets
 from voxanim.cache import DEFAULT_CACHE, DataMissing
+from voxanim.next_catalog import FACES as NEXT_FACES
 from voxanim.next_catalog import ITEMS as NEXT_ITEMS
 from voxanim.next_catalog import MNIST as NEXT_MNIST
 from voxanim.next_catalog import NO_DATA as NEXT_NO_DATA
@@ -57,6 +58,13 @@ needs_gpt2 = pytest.mark.skipif(
     not gpt2_cached(), reason="GPT-2 weights not downloaded (python3 -m voxanim prepare)"
 )
 needs_text = pytest.mark.skipif(not text_cached(), reason="Tiny Shakespeare text not downloaded")
+
+
+def faces_cached():
+    return os.path.exists(os.path.join(DEFAULT_CACHE, "olivettifaces.mat"))
+
+
+needs_faces = pytest.mark.skipif(not faces_cached(), reason="Olivetti faces not downloaded")
 NEXT_BY_PRESET = {item["preset"]: item for item in NEXT_ITEMS}
 
 
@@ -112,6 +120,8 @@ def data_marks(name):
             marks.append(needs_mnist)
         if item["name"] in NEXT_TEXT:
             marks.append(needs_text)
+        if item["name"] in NEXT_FACES:
+            marks.append(needs_faces)
         return marks
     if name.startswith("gpt2-"):
         return [needs_gpt2]
@@ -126,6 +136,7 @@ def available(name):
             (not name.startswith("gpt2-") or gpt2_cached())
             and (item["name"] not in NEXT_MNIST or mnist_cached())
             and (item["name"] not in NEXT_TEXT or text_cached())
+            and (item["name"] not in NEXT_FACES or faces_cached())
         )
     if name.startswith("gpt2-"):
         return gpt2_cached()

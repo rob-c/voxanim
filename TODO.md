@@ -955,3 +955,215 @@ digits):
 
 Placed as a section of its own, "Vector databases", after "Retrieval and contrastive
 learning".
+
+## "Blocks and code": finding and recognising faces, 14 animations (planned 24 November 2026: items 238–251)
+
+How a face detector (bounding boxes) and a face recogniser are designed and trained, part by
+part, in the series' style. Real data: the Olivetti faces (AT&T Laboratories Cambridge,
+1992–94; ten photos of each of 40 people, taken for face-recognition research; the file
+scikit-learn downloads, read by `voxanim/olivetti.py` without scipy and checked equal to
+`fetch_olivetti_faces`). People 0–29 train; people 30–39 are only ever tested on.
+
+`examples/faces.py` (regions `fc-...`) is the real program (torch, torchvision's
+`box_convert`, `nms`, `box_iou`, and `F.triplet_margin_loss`); `voxanim/study_faces.py` is its
+numpy twin; `tests/test_faces_equivalence.py` matches the resizing, the targets, one Adam step
+of each model, the decoding, NMS and IoU, and the verification and identification lines.
+
+Measured, one run each:
+- **Detector** (6,053 numbers; 6,000 steps of 16 scenes of 96 × 96 with 1–3 faces at 16–32 px
+  and 0–2 not-faces, a photo shuffled in 8 × 8 blocks): on 200 scenes of the unseen people
+  (412 faces), AP at IoU 0.5 is 0.92; at confidence 0.5 it finds 348 faces with 64 wrong boxes
+  (15 on not-faces); right boxes overlap the truth by 0.78 on average. The same run without
+  weighting the face cells (most cells are empty): AP 0.47, 72 faces found.
+- **Recogniser** (22,304 numbers; 1,500 steps of 32 triplets, margin 0.5): on the 4,950
+  pairs of the ten unseen people, at the threshold chosen on the training people (0.72),
+  4,753 right (86 false accepts, 111 false rejects); equal error rate 12.4% against 22.0% for
+  raw pixels and 18.0% for the untrained network. Identification from one enrolled photo of
+  each of people 30–34: 36 of their 45 other photos, the same as raw pixels (36): the encoder
+  helps verification here, not this identification; 6 of 50 photos of strangers (35–39) are
+  let in.
+- **Pipeline** (200 scenes of the enrolled people): 341 of 391 faces found; named right from
+  the detector's box 227 (67%), from the true box 320 (82%): boxes a little off (IoU 0.76)
+  cost names, which is why real systems align faces first.
+
+238. **`faces-a-box`**: a box as (cx, cy, w, h) and as corners (box_convert); IoU worked out.
+239. **`faces-the-grid`**: the 12 × 12 grid, the cell a face's centre falls in, offsets(),
+     targets(): has and want.
+240. **`faces-the-detector`**: block() three times, 96 → 48 → 24 → 12, the 1 × 1 convolution to
+     5 numbers per cell; 6,053 numbers; what one cell sees.
+241. **`faces-two-losses`**: there (every cell, faces × 10) and where (face cells only, × 5);
+     why the weight: unweighted AP 0.47 against 0.92.
+242. **`faces-training-the-detector`**: the losses over 6,000 steps; a held-out scene's grid
+     at steps 0, 100, 500, 2,000 and 6,000.
+243. **`faces-nms`**: decode, the boxes above 0.5, duplicates, nms at IoU 0.3.
+244. **`faces-precision-and-recall`**: matching at IoU 0.5, precision and recall as the
+     confidence falls, AP 0.92 (0.47 unweighted).
+245. **`faces-a-face-is-numbers`**: 64 × 64 = 4,096 numbers; 40 people × 10; pixel distances
+     of the same person and of two people overlap.
+246. **`faces-an-embedding`**: the encoder, 32 × 32 → 16 → 8 → 4, 512 → 32, length 1.
+247. **`faces-triplets`**: anchor, positive, negative, margin 0.5; the loss and the share of
+     triplets still wrong over training.
+248. **`faces-verification`**: the two distributions of distance, the threshold from the
+     training people, false accepts and rejects, against pixels.
+249. **`faces-identification`**: the gallery, nearest enrolled face, "unsure", strangers.
+250. **`faces-the-whole-pipeline`**: the first seeded scene with three faces (picked by that
+     rule): find, cut out, embed, match; then the rates over 200 scenes.
+251. **`faces-what-40-people-cannot-show`**: errors person by person among the ten unseen
+     people; what 40 people photographed at one lab in 1992–94 cannot measure (how a system
+     errs across ages, skin tones, lighting, cameras); the results do not transfer.
+
+Placed as two sections, "Finding faces: bounding boxes" and "Recognising faces", after
+"Vision models".
+
+## "Blocks and code": hosting a language model, 11 animations (planned 24 November 2026: items 252–262)
+
+For people who have never thought about servers or what is and is not on their own phone or
+laptop: what happens between typing a question and reading the reply, with at least one
+animation on what "thinking" and "effort" are in a large model served to coding agents.
+
+Real programs, real numbers, counts not speeds (speeds depend on the machine):
+- `examples/serve.py` (regions `hs-...`): a real, minimal server for GPT-2 small (124,439,808
+  numbers, voxanim's own numpy GPT-2), a client that sends a JSON request and prints the reply
+  as it streams, the key-value cache, and a batched step for several people.
+  `voxanim/study_hosting.py` loads the script itself and measures it: GPT-2 replies " A server
+  is a place where you can communicate with other people. It's a place where you can" to
+  "What is a server?"; the cache gives the same scores as recomputing (6.8e-6) for 1/14 of the
+  multiply-adds over 20 tokens; the batched step gives the same tokens as one step each; each
+  token of a conversation keeps 73,728 bytes of cache (75 MB for 1,024 tokens).
+- `examples/thinking.py` (regions `th-...`) and `voxanim/study_thinking.py`: a tiny
+  transformer (103,114 numbers) trained once on the parity of 12 bits with an effort token
+  (0–12 steps it may write first), tested on 468 strings it never saw: 46% right with no
+  steps (chance), about chance up to 6 steps, 465 of 468 with a step per bit; effort k costs
+  k + 1 passes through the model. One run: where the cliff falls is this model's.
+- An example conversation and an example coding agent's conversation are written for the
+  animations (said on screen); their bytes and tokens are counted.
+
+252. **`hosting-device-and-server`**: the phone or laptop (app, typed words, the reply shown)
+     and the server (the model, 498 MB of numbers, the computer that runs it); between them
+     a request of 82 bytes and a stream of tokens back. Nothing of the model is on the device.
+253. **`hosting-a-request-is-text`**: the JSON request; the whole conversation is sent every
+     time (82 → 252 → 422 bytes, 10 → 36 → 66 tokens over three turns).
+254. **`hosting-the-model-is-a-file`**: GPT-2 part by part (token table 38,597,376; each of 12
+     layers 7,087,872; positions 786,432), 498 MB at 4 bytes each, loaded once, kept, shared.
+255. **`hosting-text-to-tokens`**: the conversation as one text, then 10 tokens; tokens are
+     what is counted, limited and billed.
+256. **`hosting-one-token-at-a-time`**: the real reply, token by token, with the top 5 each
+     time; each token sent at once.
+257. **`hosting-read-once-remember`**: the cache: keys and values kept, only the new token
+     run; the same scores, 14 times fewer multiply-adds over 20 tokens.
+258. **`hosting-many-people-one-model`**: four people's next tokens in one step, the weights
+     read once (498 MB a step: per token 498 MB alone, 7.8 MB among 64).
+259. **`hosting-memory-per-conversation`**: 73,728 bytes per token, 75 MB for a full context;
+     13,563 tokens per GB: why a conversation has a limit and long ones cost more.
+260. **`hosting-a-coding-agent`**: the loop: the agent on the person's computer sends the
+     conversation; the service sends back text asking for a tool; the agent runs the tool on
+     the computer (read a file, edit it, run the tests) and sends the result; the history
+     grows each call (25 → 87 → 150 → 189 tokens sent).
+261. **`thinking-tokens`**: thinking is the model writing tokens for itself before the
+     answer, then reading them back; on the toy, the steps it writes and why they help.
+262. **`thinking-effort`**: effort is how many thinking tokens it may write: right answers and
+     tokens (= passes, = time and cost) at every effort; a coding agent's service sets it per
+     request. What is the same in a large served model, and what this toy cannot show.
+
+Placed as a section, "Hosting a language model", after "Vector databases".
+
+## "Blocks and code": resizing pictures with convolutions, 2 animations (planned 24 November 2026: items 263–264)
+
+Up- and downsampling as everyday image jobs done with fixed conv2d kernels (nothing learned).
+`examples/resample.py` (regions `rs-...`), `voxanim/study_resample.py` (numpy), and
+`tests/test_resample_equivalence.py` (the script's lines in torch: the same pictures).
+
+- Exact: the kernel is [1, 2, 1] / 4 times itself (sums to 1); conv2d with stride 2 and
+  padding 1 is the matrix D (32 × 64, a row per kept pixel, the kernel moved 2 places a row):
+  conv2d(X) = D X Dᵀ (1.8e-7 apart in float32); conv_transpose2d with the kernel × 4 is
+  4 Dᵀ Y D, bilinear interpolation; its last row and column receive half (0.5, corner 0.25),
+  so `up_even` divides by what each pixel received.
+- Measured: on the zone plate, where the rings are finer than 32 × 32 can hold (827 small
+  pixels), skipping leaves false rings of RMS 0.354, blur-then-skip 0.079, the 2 × 2 average
+  0.130. On the 400 Olivetti photos, down then up, mean squared error inside the 1-pixel
+  border: bilinear 0.00129 against nearest 0.00302; over the whole picture bilinear 0.00343,
+  0.00199 with the edge made even. Honest: skip-then-bilinear lands closer to the photo
+  (0.00092 inside) than blur-then-bilinear: blur throws detail away; what it buys is no false
+  patterns, not a closer copy.
+
+263. **`resample-down`** ("Smaller: blur, then skip"): the kernel built; conv2d with stride
+     2 on the zone plate and a photo; the matrix D, row by row, and D X Dᵀ = conv2d; skip
+     against blur on the zone plate, false rings measured.
+264. **`resample-up`** ("Bigger: spread, then blur"): conv_transpose2d: zeros between the
+     pixels, then the kernel × 4 fills the gaps (bilinear); nearest's blocks; the edge (half
+     received) and the fix; the round-trip errors on 400 photos.
+
+Placed as a section, "Resizing pictures with convolutions", after "Convolution settings, one
+at a time".
+
+## "Blocks and code": from autoencoder to GAN, 4 animations (planned 24 November 2026: items 265–268)
+
+An autoencoder's two blocks, wired again as a GAN, to show a GAN as a natural extension of the
+autoencoder: the decoder's job (16 numbers to a digit) is the generator's; the encoder's job
+(a digit to a few numbers) is nearly the judge's. `examples/ae_gan.py` (regions `ag-...`),
+`voxanim/study_aegan.py` (numpy), `tests/test_aegan_equivalence.py` (one AE step and one GAN
+step match torch; the rewiring keeps the blocks: the generator *is* the decoder, the judge's
+first layer *is* the encoder's).
+
+What changes and what does not, said plainly: the wiring changes; the decoder is used as it
+is, weights and all; the encoder's body is used as it is; only the judge's last layer is new
+(256 → 1, "real?", 257 numbers, where the encoder's gives 16). Then the GAN game trains them on.
+Why the pictures sharpen: the autoencoder must push every digit through the 16-number code and
+is scored pixel by pixel, so where it is unsure it paints the average, grey; the generator is
+never asked to rebuild a given digit, and it is scored by the judge on the whole picture.
+
+Measured, one run each (MNIST, held-out digits and fresh noise; the course classifier reads
+the pictures): grey pixels (between 0.2 and 0.8) real 6.0%, autoencoder rebuilds 9.4%, the
+decoder fed made-up codes 9.1% before the GAN game and 7.4% after; the classifier's certainty
+0.94, 0.94, 0.74, 0.84; the rebuilds are read as the right digit 92.8% of the time (real:
+94.9%); after the game every digit is made (63 to 135 of 1,000). GAN samples are sharper but
+some are speckled or malformed: show them as they are.
+
+265. **`ae-to-gan-rewire`** ("Same blocks, wired again"): the autoencoder as two blocks
+     (encoder 205,072 numbers, decoder 205,840) with the code between them; unplugged; the
+     decoder slides to the generator's place, fed made-up codes; the encoder's body becomes the
+     judge with its new 1-number head; the GAN's wiring: noise → generator → judge ← real.
+266. **`ae-gan-blurry-or-sharp`**: the same decoder, the same made-up codes, before and after
+     the game, beside real digits and rebuilds; grey shares and the classifier's certainty;
+     the bottleneck: the autoencoder's pixel score through 16 numbers against the judge's.
+267. **`ae-gan-rebuild-or-invent`**: the autoencoder rebuilds the digit it is given (92.8%
+     right); the GAN has no way in for a given digit; what it makes, counted by digit.
+268. **`ae-gan-one-loss-or-two`**: the autoencoder's loss falling smoothly (0.69 → 0.10); the
+     GAN's judge and generator losses pulling against each other (1.43 → 1.20 and 0.67 →
+     0.88 by their first and last 100 steps); its samples at steps 0, 500, 2,000, 6,000.
+
+Placed as a section, "From autoencoder to GAN", after "Autoencoders and latent codes".
+
+## "Blocks and code": Minuit and SGD, 2 animations (planned 24 November 2026: items 269–270)
+
+How Minuit (iminuit's MIGRAD) searches the loss before it steps, and SGD's many small noisy
+steps on the same fit. `examples/minuit_vs_sgd.py` (regions `mn-...`; numpy and iminuit),
+`voxanim/study_minuit.py`, and `voxanim/minuit_calls.json`: every call iminuit 2.33.0 made, in
+order, recorded by running the script (`tests/test_minuit_equivalence.py` runs it again when
+that iminuit is installed and checks every call; the twin's data, chi-square and SGD are the
+script's).
+
+Made-up data: 40 points of y = a exp(−x/τ) + b, a = 5, τ = 2.5, b = 1, noise 0.3. Start
+(1, 1, 0), chi-square 2,692.
+- MIGRAD: 65 calls. First it feels the slope: 12 probes, each parameter a little up and down
+  (two step sizes, 4 calls per parameter). Then it steps: the first step overshoots (chi-square
+  3,454, dropped), the line search comes back (109, kept). Around each kept point it probes the
+  3 axes again (6 calls). 52 probes, 12 tries, 5 kept. Minimum: a = 5.14, τ = 2.41, b = 1.007,
+  chi-square 33.9 for 40 points; HESSE (16 more calls) gives the errors 0.18, 0.21, 0.11.
+- SGD from the same start: 3,000 steps of learning rate 0.005, each on 8 of the 40 points: it
+  ends wandering (spread about 0.02, a tenth of Minuit's errors); the mean of its last 1,000
+  positions, (5.131, 2.399, 1.020), is near Minuit's minimum (chi-square 33.96 against 33.94).
+  Single-point model evaluations: 24,000 for SGD, 2,600 for MIGRAD. Said plainly: for a small
+  fit Minuit wins easily and gives error bars; SGD pays off when the data are too many for
+  every step to look at all of them.
+
+269. **`minuit-feels-its-way`** ("How Minuit feels its way"): the data and the model's curve;
+     the 3-D space of (a, τ, b) as axes in perspective; the start, the 12 probes (up/down,
+     left/right, forward/back) with their chi-squares, the first step's overshoot and the line
+     search, the probes again at each kept point, the path to the minimum; the curve fitting
+     the data as it goes; HESSE's error bars.
+270. **`minuit-and-sgd`** ("Minuit and SGD"): the same 3-D space; SGD's 3,000 small steps,
+     each from 8 points: the drunken walk, its wandering at the end, the average of its last
+     1,000 positions beside Minuit's minimum; the counts.
+
+Placed as a section, "Minuit and SGD", after "Minimisation and chi-square fitting".

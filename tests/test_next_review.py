@@ -15,7 +15,7 @@ from conftest import data_marks, needs_text
 from voxanim import accel, presets
 from voxanim.mech import Mechanism
 from voxanim.next_attention import counts, make, sparse_mask
-from voxanim.next_catalog import GPT2, ITEMS, MNIST, NO_DATA, TEXT, build_study, drawing
+from voxanim.next_catalog import FACES, GPT2, ITEMS, MNIST, NO_DATA, TEXT, build_study, drawing
 from voxanim.scene import Renderer, Style
 from voxanim.tinylm import Config, init
 
@@ -78,6 +78,7 @@ def test_registry_classifies_dataset_dependencies(monkeypatch):
     monkeypatch.setattr(conftest, "gpt2_cached", lambda: False)
     monkeypatch.setattr(conftest, "mnist_cached", lambda: False)
     monkeypatch.setattr(conftest, "text_cached", lambda: False)
+    monkeypatch.setattr(conftest, "faces_cached", lambda: False)
     for item in ITEMS:
         name = item["name"]
         preset = item["preset"]
@@ -89,6 +90,8 @@ def test_registry_classifies_dataset_dependencies(monkeypatch):
             expected.append(conftest.needs_mnist)
         if name in TEXT:
             expected.append(conftest.needs_text)
+        if name in FACES:
+            expected.append(conftest.needs_faces)
         assert data_marks(preset) == expected
         if expected:
             assert preset not in NO_DATA
