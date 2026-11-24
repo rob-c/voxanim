@@ -2005,5 +2005,131 @@
   "module": "study_blocks_m",
   "title": "CNN mistakes",
   "summary": "Three common CNN mistakes and the error each one gives, in plain words: the wrong in_features (400 arrive, not 784), the wrong number of channels (3 for a grey digit), and one digit without its batch; then the fix, x[0:1]."
+ },
+ {
+  "number": 224,
+  "name": "padding-maps-shrink",
+  "description": "The course's first digit as 28 × 28 tiles and a 3 × 3 stamp sliding over it: it fits 26 places across and 26 down, 676 places, so nn.Conv2d(1, 8, 3) turns [64, 1, 28, 28] into [64, 8, 26, 26]. Then the coverage map, how many places read each pixel, fills as the stamp sweeps: a corner pixel is read by 1 place, an edge pixel by 3 and a middle one by 9; 208 of the 784 pixels are read fewer than 9 times.",
+  "section": "g. Padding (10)",
+  "module": "study_blocks_n",
+  "title": "Why maps shrink",
+  "summary": "Why a convolution's maps come out smaller than its input, and why it reads the border less."
+ },
+ {
+  "number": 225,
+  "name": "padding-a-ring",
+  "description": "padding=1 puts a ring of zeros round the digit, drawn as striped tiles: 28 × 28 becomes 30 × 30, so a 3 × 3 stamp fits 28 places across and 28 down and the maps keep the input's size, [64, 8, 28, 28]. After Normalize blank paper is (0 − 0.1307) ÷ 0.3081 = −0.42, so the ring of 0 is not paper but a faint frame of ink. The coverage map again: the corner is now read 4 times and the edge 6, still fewer than the middle's 9.",
+  "section": "g. Padding (10)",
+  "module": "study_blocks_n",
+  "title": "A ring of padding",
+  "summary": "padding=1: a ring round the picture so the maps keep their size, though the border is still read less."
+ },
+ {
+  "number": 226,
+  "name": "padding-same-and-valid",
+  "description": "A table filled row by row for stamps of 3, 5 and 7: padding=\"same\" pads (k − 1) ÷ 2 = 1, 2 and 3 on every side and keeps 28 × 28; \"valid\", the default, pads nothing and loses k − 1: 26, 24 and 22. Each row has its square to scale, the valid square inside the 28 that \"same\" keeps, and the script's own printed shapes.",
+  "section": "g. Padding (10)",
+  "module": "study_blocks_n",
+  "title": "Same and valid",
+  "summary": "\"same\" keeps the size by padding (k − 1) ÷ 2; \"valid\", the default, loses k − 1."
+ },
+ {
+  "number": 227,
+  "name": "padding-modes",
+  "description": "F.pad's four modes on an 8 × 8 piece of a real 5 (rows 5–12, columns 8–15 of x[0]), each padding 2 on every side into a 12 × 12 block, the border striped: constant fills with 0, which after Normalize is not paper (−0.42) but a faint frame of ink; reflect mirrors the piece at its edge without repeating it (a row's border reads 0.94, 1.56 | 0.59, 1.56, 0.94); replicate repeats the edge (0.59, 0.59); circular brings round the other side (−0.28, −0.42), arrows tracing where each copied number comes from.",
+  "section": "g. Padding (10)",
+  "module": "study_blocks_o",
+  "title": "What goes in the border",
+  "summary": "Four ways to fill the border: zeros, a mirror, the edge repeated, or the other side."
+ },
+ {
+  "number": 228,
+  "name": "padding-deep-stacks",
+  "description": "Twelve 3 × 3 stamps as squares to scale: without padding each loses 2 and the twelfth map is 4 × 4; with padding=1 every one stays 28 × 28. The course's CNN with padding=1 walks 28 → 28 → 14 → 14 → 7 (real maps of a training digit), so its last layer reads 16 × 7 × 7 = 784 numbers, against 400 without padding.",
+  "section": "g. Padding (10)",
+  "module": "study_blocks_o",
+  "title": "Deep stacks need padding",
+  "summary": "Without padding, a deep stack of stamps runs out of picture."
+ },
+ {
+  "number": 229,
+  "name": "padding-in-the-cnn",
+  "description": "The course's CNN with and without padding=1, one epoch each on the same batches, one run each: padding adds nothing to the stamps (80 and 1,168 both), but the last layer reads 784 numbers, not 400, so 9,098 numbers against 5,258; held out 97.6% against 96.4%, 237 digits missed against 364, so the gain is not padding's alone. On test digits moved 1–6 pixels towards an edge both fall alike, to 16.9% and 18.5% at 6 pixels: padding does not help.",
+  "section": "g. Padding (10)",
+  "module": "study_blocks_o",
+  "title": "The CNN with padding, measured",
+  "summary": "The CNN with padding=1 against the CNN without, measured on the same digits: better, but not from padding alone, and no help with moved digits."
+ },
+ {
+  "number": 230,
+  "name": "padding-a-batch-is-a-block",
+  "description": "The first four training digits cut to their ink, drawn to scale as four cards: 20 × 20, 20 × 17, 20 × 20 and 20 × 14. torch.stack refuses them with PyTorch's own error (entry 0 is [1, 20, 20], entry 1 is [1, 20, 17]), because the narrower ones would leave holes in the block. pad_to fills each one out to 28 × 28, on the right and at the bottom, with the paper's value, −0.42; the padding is striped so it can be seen. The four then stack into one block, [4, 1, 28, 28], of which 1,716 of the 3,136 numbers (55%) are padding.",
+  "section": "g. Padding (10)",
+  "module": "study_blocks_p",
+  "title": "A batch is one block",
+  "summary": "A batch is one full block of numbers with no holes, so things of different sizes are padded to one size first."
+ },
+ {
+  "number": 231,
+  "name": "padding-lines-of-text",
+  "description": "The first eight lines of Tiny Shakespeare are 14, 45, 4, 13, 14, 50, 4 and 19 characters long. Each character is swapped for its id (F → 19, i → 48, r → 57; id 0 is kept for padding) and the lines are drawn as rows of tiles of eight lengths. pad_sequence pads every row with id 0 up to the longest, 50, making one [8, 50] block. Then the mask, batch != 0, is drawn row by row: 163 of the 400 cells are real characters, so 59% of the block is padding.",
+  "section": "g. Padding (10)",
+  "module": "study_blocks_p",
+  "title": "Padding lines of text",
+  "summary": "Lines of different lengths padded with id 0 to the longest, and the mask that marks the real characters."
+ },
+ {
+  "number": 232,
+  "name": "padding-masks",
+  "description": "The first eight lines of Tiny Shakespeare padded to an [8, 50] block, 163 real characters and 237 pads, and three ways to make a model ignore the pads. nn.Embedding with padding_idx=0 turns every pad into a vector of 16 zeros, so the plain mean over a padded line, vecs.mean(1), adds the real vectors and the zeros and divides by 50: exactly the true mean × length ÷ 50. \"All:\", 4 characters and 46 pads, comes out 4 ÷ 50 = 0.08 of its true mean, and the eight lines 0.28, 0.90, 0.08, 0.26, 0.28, 1.00, 0.08 and 0.38. The masked mean divides by the length and gets 1.00 for every line. In nn.MultiheadAttention with key_padding_mask, each line's first character gives every pad key a weight of exactly 0: w[1, 0] has 45 weights adding to 1.00 and 0 on its 5 pads (the other weights are random; the zeros hold whatever the weights). nn.CrossEntropyLoss(ignore_index=0) counts the 163 real targets and skips the 237 pads.",
+  "section": "g. Padding (10)",
+  "module": "study_blocks_q",
+  "title": "Masks: ignore the padding",
+  "summary": "The pads must be ignored: a plain mean shrinks by length ÷ 50 (0.08 for \"All:\"), while masked means, key_padding_mask (a weight of exactly 0 on every pad) and ignore_index (163 targets counted, not 400) leave them out."
+ },
+ {
+  "number": 233,
+  "name": "padding-sort-by-length",
+  "description": "All 32,777 lines of Tiny Shakespeare batched 64 at a time, each batch padded to its longest line. Real batches are drawn as rows of bars, blue for a line and grey for its padding: batch 1 in file order is padded to 59 characters and is 45% padding, batch 2 32%. Over all 513 batches, file order needs 1,734,987 cells for 1,075,394 characters: 38.0% padding. Shuffling the lines first (one seeded shuffle) is no better, 38.7%. After lines.sort(key=len) each batch holds lines of nearly one length (batch 172: longest 29, 2% padding; batch 343: 0%), and all the batches need 1,077,111 cells, 1,717 of them pads: 0.16%. Sorting puts similar lines together, so in practice the sorted batches are then shuffled as whole batches, and each keeps its own padding.",
+  "section": "g. Padding (10)",
+  "module": "study_blocks_q",
+  "title": "Sort by length, pad less",
+  "summary": "Batching lines of similar length wastes almost no padding: 38% of the cells are padding in file order or shuffled, 0.16% sorted by length, and the sorted batches are then shuffled whole."
+ },
+ {
+  "number": 234,
+  "name": "vector-db-training",
+  "description": "An encoder of 784 → 128 → 32 (104,608 numbers) is trained on pairs: each training digit with another drawing of the same digit, the labels used only to pick the pair. The same encoder turns both into 32 numbers of length 1, and their dot product (0.61 before training) is one cell of the [64, 64] grid of every pair in the batch, whose diagonal is the target of the cross-entropy loss (4.19 at step 0, near ln 64). At steps 0, 100 and 937 the right pairs score 0.59, 0.85 and 0.93 and the other 63 fall from 0.49 to 0.36. Sorted by digit, the step-937 grid shows why: other drawings of the same digit score 0.92, almost as much as the pairs, though the loss counted them as wrong; different digits score 0.29.",
+  "section": "h. Vector databases (4)",
+  "module": "study_blocks_r",
+  "title": "Training vectors for search",
+  "summary": "Pairs of two drawings of one digit train an encoder so that matching digits get nearby vectors."
+ },
+ {
+  "number": 235,
+  "name": "vector-db-store-and-search",
+  "description": "The trained encoder turns the 60,000 training digits into a store: a block [60000, 32] with each row's id and label kept beside it. A test digit (the script's XT[:1], a 7) goes through the same encoder to a query of 32 numbers; store @ q is 60,000 dot products, one score per stored digit (the 7s average 0.96, the other digits 0.26). topk(5) returns ids 38743, 53843, 24372, 50115 and 1833, all 7s, each scoring 0.999, and the ids give back their pictures. Over all 10,000 test digits, 96.0% of the 10 nearest share the query's label (top 1: 96.4%), against 95.4% (97.0%) for the raw 784 pixels and 81.9% (87.0%) for the untrained network: 32 numbers do about as well as 784.",
+  "section": "h. Vector databases (4)",
+  "module": "study_blocks_r",
+  "title": "Store, then search",
+  "summary": "A vector database: a table of vectors with ids and labels beside it, searched by dot products."
+ },
+ {
+  "number": 236,
+  "name": "vector-db-ivf",
+  "description": "The 60,000 stored vectors are cut by spherical k-means (region vdb-ivf-build) into 64 lists, drawn as bars of their real sizes: uneven, from 89 to 4,761 vectors. Test digit 1, a 2, is compared with the 64 centres only, and the lists of the nearest ones are searched (region vdb-ivf-search). Visiting 1, 2 and then 4 lists compares 1,923, 3,874 and 5,119 vectors (3.2%, 6.5%, 8.5% of the store) and finds 7, 8 and then 10 of its true 10 nearest. Over all 10,000 test digits, recall@10 against exact search over the same vectors is 80.9% with 1 list (2.8% scanned), 95.7% with 2 (5.1%), 99.5% with 4 (8.1%), 99.9% with 8 (11.9%) and 100% with all 64. \"Scanned\" counts the vectors compared (dot products), not time. One k-means run of 10 steps from a seeded start.",
+  "section": "h. Vector databases (4)",
+  "module": "study_blocks_s",
+  "title": "An index: look in fewer places",
+  "summary": "An inverted-file index searches only the lists nearest the query: 4 of 64 lists find 99.5% of the true 10 nearest while comparing 8.1% of the vectors."
+ },
+ {
+  "number": 237,
+  "name": "vector-db-versions",
+  "description": "The same recipe trained a second time (seed 1) gives test digit 0, a 7, a different vector: drawn as two strips of 32 numbers, the first encoder's and the retrained one's, whose dot product is 0.12 (0.08 on average over the 60,000 training digits). Searched against the store the first encoder made (region vdb-versions), the retrained encoder's query for this 7 finds five 3s. Over all 10,000 test digits the mixed search finds the right digit 7.6% of the time (759 queries; 9.8% of the top 10). That is less than chance, 10.0%: how often a stored digit picked at random has the query's label. With the same encoder for store and query it is 96.4%. Embedding all 60,000 stored digits again with the new encoder (region vdb-reembed) brings it back to 96.6%, and the same query finds 7s. A vector only means something to the encoder that made it.",
+  "section": "h. Vector databases (4)",
+  "module": "study_blocks_s",
+  "title": "A new encoder needs a new store",
+  "summary": "Vectors from two encoders don't mix: a retrained encoder's queries against the old store find the right digit 7.6% of the time, below chance, until the whole store is embedded again (96.6%)."
  }
 ]

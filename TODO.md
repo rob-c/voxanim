@@ -876,3 +876,82 @@ The point to land: **change the model, keep everything else.**
 
 A section of its own, "Blocks and code: a CNN", right after "Blocks and code" in the
 "Start here" part.
+
+## "Blocks and code": padding, 10 animations (planned 24 November 2026: items 224–233)
+
+Padding twice over: a CNN's padding, so a convolution keeps its size and reads its border;
+and padding as the only way to make one batch, one block of numbers, out of things that
+differ in size (digits cut to their ink, lines of text), with the masks that make the model
+ignore it. Same rules, alphabet, layout and audience as the 39 before it.
+
+### Honest numbers
+
+- `examples/padding.py` (regions `pad-...`) is a real program: it runs end to end in torch.
+  `voxanim/study_padding.py` computes everything shown from its lines in numpy;
+  `tests/test_padding_equivalence.py` runs the script's regions in torch and matches the
+  shapes, F.pad's four modes, the padded CNN's first SGD step (1e-5), torch.stack's error,
+  the padded block and the padded lines.
+- Exact: a 3 × 3 stamp on 28 × 28 reads a corner pixel 1 time, an edge pixel 3, a middle one
+  9; with padding=1, 4, 6 and 9. Same pads (k − 1) ÷ 2; valid loses k − 1. Twelve 3 × 3
+  stamps: 28 → 4 without padding. After Normalize a blank pixel is −0.42, so zero padding is
+  not paper but a faint frame of ink.
+- Measured, one run each: the course CNN with padding=1 (9,098 numbers: its last layer reads
+  784, not 400) reaches 97.6% held out against 96.4% without; the gain is not padding alone.
+  On digits moved 1–6 pixels towards an edge both fall alike (96.4/97.6% → 18.5/16.9% at 6).
+- Text: the first 8 lines pad to [8, 50], 163 of 400 cells real. Over all 32,777 lines in
+  batches of 64: 38% padding in file order, 39% shuffled, 0.16% sorted by length.
+
+### The ten (study_blocks_n, _o, _p, _q)
+
+224. **`padding-maps-shrink`**: 26 places across 28; the coverage map, corner 1, edge 3,
+     middle 9.
+225. **`padding-a-ring`**: padding=1, 30 × 30 with the ring, out 28 × 28; coverage 4, 6, 9;
+     the ring is 0, the paper −0.42.
+226. **`padding-same-and-valid`**: k = 3, 5, 7: same pads 1, 2, 3 and keeps 28; valid gives
+     26, 24, 22.
+227. **`padding-modes`**: constant, reflect, replicate, circular on an 8 × 8 piece of a digit.
+228. **`padding-deep-stacks`**: 12 stamps: 28 → 4 against 28 → 28; the padded course CNN,
+     28 → 28 → 14 → 14 → 7, Linear(16 * 7 * 7, 10).
+229. **`padding-in-the-cnn`**: the two CNNs measured; moved digits.
+230. **`padding-a-batch-is-a-block`**: four digits cut to their ink, torch.stack's error, padded
+     with the paper's value into [4, 1, 28, 28].
+231. **`padding-lines-of-text`**: eight lines padded to 50 with id 0, the mask.
+232. **`padding-masks`**: masked mean against plain mean (length ÷ 50), key_padding_mask,
+     ignore_index.
+233. **`padding-sort-by-length`**: 38% against 0.16% padding.
+
+### Where it goes
+
+"Blocks and code: padding", after "Blocks and code: a CNN" in the "Start here" part.
+
+## "Blocks and code": vector databases, 4 animations (planned 24 November 2026: items 234–237)
+
+A vector database built from scratch in `examples/vector_db.py` (real torch code; regions
+`vdb-...`), with `voxanim/study_vectordb.py` its numpy twin and
+`tests/test_vectordb_equivalence.py` matching one InfoNCE step with Adam (1e-5), the store, a
+search, the IVF lists and the mixed-encoder search against torch. It goes beyond the
+retrieval section's HNSW, width, temperature and hard-negative animations: how the vectors
+are trained, what the store is, an IVF index, and what happens when the encoder changes.
+
+Measured, one run each (MNIST; encoder 784-128-32, 104,608 numbers; 938 Adam steps of 64
+pairs, InfoNCE at temperature 0.1; store: the 60,000 training digits; queries: the 10,000 test
+digits):
+- right pairs' dot product 0.93 at the end, the other 63 0.36; loss 4.19 → 2.20.
+- top-10 neighbours with the query's label: 96.0% trained, 95.4% the raw 784 pixels, 81.9%
+  untrained (top-1: 96.4%, 97.0%, 87.0%): 32 numbers do as well as 784.
+- IVF, 64 lists (89 to 4,761 vectors each): nprobe 1 → recall@10 80.9% scanning 2.8%;
+  2 → 95.7%, 5.1%; 4 → 99.5%, 8.1%; 8 → 99.9%, 11.9%; 64 → 100%, 100%.
+- the same recipe retrained (seed 1): its queries against the old store find the right digit
+  7.6% of the time (top-10 9.8%), less than chance; re-embedded, 96.6%.
+
+234. **`vector-db-training`**: pairs (two drawings of one digit), the [64, 64] grid of dot
+     products whose diagonal is the target, the loss; the grid at steps 0, 100 and 937.
+235. **`vector-db-store-and-search`**: the store [60000, 32] with ids and labels beside it; a
+     query, 60,000 dot products, the top 5 with their pictures, ids, labels and scores; the
+     quality numbers against raw pixels.
+236. **`vector-db-ivf`**: 64 lists, a query visiting the nearest few; recall against scanned.
+237. **`vector-db-versions`**: the same query through a retrained encoder: wrong neighbours;
+     7.6% over all queries; re-embed the store: 96.6%.
+
+Placed as a section of its own, "Vector databases", after "Retrieval and contrastive
+learning".

@@ -1,5 +1,42 @@
 # Changelog
 
+## 2.3.0
+
+Fourteen new animations (365 in all): padding, in a CNN and in a batch, and vector
+databases; guide lines drawn in front in the Blocks series; and section headings that say
+what is in them. The 55 Blocks animations (183–237) are rendered again; the rest are 2.2.0's.
+
+- **Blocks and code: padding, 10 animations** (224–233). A CNN's padding: why maps shrink
+  and the border is read less (corner 1, edge 3, middle 9; with padding=1, 4, 6, 9), a ring
+  of padding, "same" and "valid", F.pad's four modes, deep stacks, and the course's CNN with
+  padding=1 measured (97.6% against 96.4%, one run each; its last layer is bigger too). Then
+  padding as the way to make one batch out of things that differ in size: four digits cut to
+  their ink that torch.stack refuses until padded, lines of Tiny Shakespeare padded to the
+  longest with their mask, masks that make the model ignore the pads, and sorting by length
+  (38% of every batch is padding in file order, 0.16% sorted). `examples/padding.py` is the
+  real program; `voxanim/study_padding.py` computes every number; a test runs the script's
+  lines in torch and matches them.
+- **Vector databases, 4 animations** (234–237), after "Retrieval and contrastive learning":
+  an encoder trained with InfoNCE on pairs of drawings of the same digit, a store of the
+  60,000 training digits searched by dot products (top-10 neighbours share the query's label
+  96.0% of the time, as raw pixels do with 24 times the numbers), an inverted-file index
+  (visiting 4 of 64 lists finds 99.5% of the true top 10 while scanning 8.1% of the store), and
+  a retrained encoder's queries against the old store (7.6%, below chance, until the store is
+  embedded again). `examples/vector_db.py` is the real program; `voxanim/study_vectordb.py`
+  its numpy twin, matched to torch by a test.
+- **Guide lines in front.** In the Blocks series, arrows and callout lines were painted under
+  any card or tile they crossed: lines and boxes are painted back to front, and a line's
+  `bias` does not change that. Arrows are now lifted in front of every block shape
+  (`Blocks.ARROW_LIFT`), and four hand-drawn guides with them: the head split in
+  attention, the loss floor across the meter (twice), and the epoch means over the loss
+  curve. The data's path down a model's stack stays behind its blocks, on purpose.
+- **Section headings renamed** to say what is in them: "Lessons" is now "Convolution
+  settings, one at a time"; also "Classical machine learning", "Gradients and softmax, by
+  hand", "Gradient descent", "A trained classifier", "Vision models", "Autoencoders and latent
+  codes", "GANs, flows and diffusion", "Networks as memories, rules and flows", "Anomalies
+  and backgrounds", "Position encodings", "From labels to rewards" and "Pruning and
+  distillation". The anchors (and so the links) are unchanged.
+
 ## 2.2.0
 
 Forty-one new animations (351 in all): counting a model's weights, and a first part of the

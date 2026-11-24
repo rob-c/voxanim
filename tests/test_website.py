@@ -163,14 +163,14 @@ def test_the_next_catalogue_is_listed_under_its_own_titles():
     listed = {n: t for *_, items in site.SECTIONS for n, t in items}
     anchors = [anchor for anchor, *_ in site.SECTIONS]
     assert len(anchors) == len(set(anchors))
-    assert len(site.NEXT_SECTIONS) == 30
+    assert len(site.NEXT_SECTIONS) == 32
     new = len(site.NEXT_SECTIONS)
     for item in ITEMS:
         assert listed[item["preset"]] == item["title"] == drawing(item["name"]).TITLE
         first, about = site.describe(presets.REGISTRY[item["preset"]])
         assert first == site.prose(item["summary"])           # the card shows the plain summary
         assert item["description"].split()[0] in about         # the dialog adds what was measured
-    assert new == 30
+    assert new == 32
     for _anchor, heading, intro, items in site.SECTIONS:
         assert heading and intro.endswith(".") and items
         assert "review" not in intro.lower()

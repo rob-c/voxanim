@@ -97,6 +97,10 @@ MNIST |= {"counting-weights-dnn-and-cnn"}
 MNIST |= {item["name"] for item in ITEMS if 185 <= item["number"] <= 214}
 # blocks and code, a CNN: the same program with a CNN for its model (study_course_cnn)
 MNIST |= {item["name"] for item in ITEMS if 215 <= item["number"] <= 223}
+# padding: a CNN's (on MNIST digits), then a batch of digits, then lines of real text
+MNIST |= {item["name"] for item in ITEMS if 224 <= item["number"] <= 230}
+# vector databases: an encoder trained on MNIST pairs, a store of the 60,000 digits
+MNIST |= {item["name"] for item in ITEMS if 234 <= item["number"] <= 237}
 TEXT = {
     item["name"]
     for item in ITEMS
@@ -107,6 +111,8 @@ TEXT |= {"loss-spikes", "retrieval-augmented-generation"}
 # the randomness group: real text for the chain and for measuring entropy
 TEXT |= {"markov-chains", "measuring-entropy", "seeds-and-sampled-text"}
 TEXT |= {"markov-chain-to-rnn"}
+# padding lines of text: real lines of Tiny Shakespeare
+TEXT |= {item["name"] for item in ITEMS if 231 <= item["number"] <= 233}
 NO_DATA = {item["preset"] for item in ITEMS if item["name"] not in GPT2 | MNIST | TEXT}
 
 
@@ -194,6 +200,12 @@ DRAWN_BY = (
     ("mech_blocks_k", 215, 217),
     ("mech_blocks_l", 218, 220),
     ("mech_blocks_m", 221, 223),
+    ("mech_blocks_n", 224, 226),
+    ("mech_blocks_o", 227, 229),
+    ("mech_blocks_p", 230, 231),
+    ("mech_blocks_q", 232, 233),
+    ("mech_blocks_r", 234, 235),
+    ("mech_blocks_s", 236, 237),
 )
 NUMBER = {item["name"]: item["number"] for item in ITEMS}
 

@@ -783,8 +783,9 @@ class EpochsBatches(Charted):
             if m_on <= 0.01:
                 continue
             xa, xb, y = ch.fx(e * s), ch.fx((e + 1) * s), ch.fy(mean)
-            self.polyline(sc, [self.P(xa, y), self.P(xb, y)], 6.0, dark(LOSS, 0.45), m_on,
-                          bias=1.0)
+            up = self.ARROW_LIFT                 # over the per-step curve
+            self.polyline(sc, [self.P(xa, y, up), self.P(xb, y, up)], 6.0, dark(LOSS, 0.45),
+                          m_on, bias=0.3)
             self.box(sc, (xa + xb) / 2, ch.y0 - 0.024, 50.0, 22.0, PAPER, m_on, text="%.3f" % mean,
                      border=LOSS_INK, size=SIZE)
             if e:

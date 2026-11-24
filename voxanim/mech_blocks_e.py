@@ -275,7 +275,8 @@ class LogitsSoftmax(Blocks):
                             / math.log(10))[1]
         x0 = mx - self.frac(16)[0]
         x1 = mx + self.frac(16)[0]
-        self.polyline(sc, [self.P(x0, fy), self.P(x1, fy)], 2.4, INK, f, bias=1.2)
+        up = self.ARROW_LIFT                     # across the meter, in front of it
+        self.polyline(sc, [self.P(x0, fy, up), self.P(x1, fy, up)], 2.4, INK, f, bias=0.3)
         self.text(sc, self.LOSS_SLOT[0], 0.835, "at least %s" % val(m["floor"]), f, SIZE, "lm",
                   strong=True)
         r = op * smoothstep(0.82, 0.88, u)

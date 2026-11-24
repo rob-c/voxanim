@@ -9,7 +9,7 @@ from voxanim.next_catalog import DRAWN_BY, ITEMS, drawing
 
 def test_every_catalogue_entry_has_its_own_drawing():
     classes = [drawing(item["name"]) for item in ITEMS]
-    assert len(ITEMS) == 223 and all(c is not None for c in classes)
+    assert len(ITEMS) == 237 and all(c is not None for c in classes)
     assert all(issubclass(c, mech.Mechanism) for c in classes)
     assert len(set(classes)) == len(ITEMS)                # no two share one generic canvas
     assert sum(last - first + 1 for _m, first, last in DRAWN_BY) == len(ITEMS)

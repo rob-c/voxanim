@@ -33,7 +33,9 @@ the subclass declares, at full strength all through, so nothing blanks between p
 the course's program) or ``examples/blocks_parts.py`` (:data:`PARTS`, the blocks the
 classifier does not use, and the broken programs) or ``examples/mnist_cnn.py``
 (:data:`CNN_SCRIPT`, the same program with a CNN for its model; its regions are the
-script's names with ``cnn-`` in front), comments left out.
+script's names with ``cnn-`` in front) or ``examples/padding.py`` (:data:`PADDING`,
+regions ``pad-...``) or ``examples/vector_db.py`` (:data:`VECTOR_DB`, regions ``vdb-...``),
+comments left out.
 
 A subclass sets ``TITLE``, ``PHASES``, ``LAST``, ``NEXT`` and, one per phase, ``CODE``
 (a :class:`Code`), ``STATION`` (one of :data:`STATIONS`, or None), ``EVIDENCE``
@@ -81,6 +83,8 @@ EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
 SCRIPT = EXAMPLES / "mnist_blocks.py"
 PARTS = EXAMPLES / "blocks_parts.py"
 CNN_SCRIPT = EXAMPLES / "mnist_cnn.py"   # the same program with a CNN (regions "cnn-...")
+PADDING = EXAMPLES / "padding.py"        # padding, in a CNN and in a batch (regions "pad-...")
+VECTOR_DB = EXAMPLES / "vector_db.py"    # a vector database from scratch (regions "vdb-...")
 MAX_LINES = 8                   # lines of code on screen at once
 MAX_CHARS = 41                  # and their width, in characters of the monospace font
 
@@ -113,7 +117,7 @@ def _regions(path):
 def regions():
     """``{name: (file, raw lines)}`` over the example files (names are unique)."""
     out = {}
-    for path in (SCRIPT, PARTS, CNN_SCRIPT):
+    for path in (SCRIPT, PARTS, CNN_SCRIPT, PADDING, VECTOR_DB):
         for name, lines in _regions(path).items():
             if name in out:
                 raise ValueError("region %r is in two example files" % name)
@@ -144,8 +148,8 @@ def code_lines(name, comments=False):
     try:
         _path, lines = regions()[name]
     except KeyError:
-        raise KeyError("no region %r in %s, %s or %s (regions: %s)" % (
-            name, SCRIPT.name, PARTS.name, CNN_SCRIPT.name,
+        raise KeyError("no region %r in %s, %s, %s, %s or %s (regions: %s)" % (
+            name, SCRIPT.name, PARTS.name, CNN_SCRIPT.name, PADDING.name, VECTOR_DB.name,
             ", ".join(sorted(regions())))) from None
     if comments:
         return tuple(textwrap.dedent("\n".join(lines)).splitlines())
@@ -332,6 +336,11 @@ class Blocks(Mechanism):
     """An animation of the series: :class:`~voxanim.mech.Mechanism` plus the furniture
     every one of them shares (see the module docstring)."""
 
+    # Guide lines (arrows, callouts from a ringed tile to its value) are drawn in front of
+    # every block shape: over cards, tiles and outlines (lift up to 1.3), under the dots
+    # that travel along them (1.4 and up). A line meant to run behind the blocks, showing
+    # only between them, passes ``lift=0``.
+    ARROW_LIFT = 1.35
     LAST = ""                   # what the one before showed; "" for the first
     NEXT = ""                   # what the one after shows
     LAST_SECONDS = 4.0

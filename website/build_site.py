@@ -76,8 +76,9 @@ SECTIONS = [
       ("depthwise-separable", "Depthwise separable convolution"),
       ("conv1d-full-width-scroll", "Conv1D over a sequence"),
       ("conv1d-row-sweep", "Conv1D, row by row")]),
-    ("lessons", "Lessons",
-     "Short animations that each change one setting of a convolution.",
+    ("lessons", "Convolution settings, one at a time",
+     "Short animations that each change one setting: stride, dilation, pooling, 1×1, 3-D and "
+     "1-D kernels, and an edge filter.",
      [("lesson-stride-1", "Stride 1"),
       ("lesson-stride-2", "Stride 2"),
       ("lesson-stride-3", "Stride 3"),
@@ -93,8 +94,8 @@ SECTIONS = [
       ("lesson-conv1d-stride-2", "Conv1D, stride 2"),
       ("lesson-conv1d-dilation-2", "Conv1D, dilation 2"),
       ("lesson-edge-detection", "Edge detection with Sobel filters")]),
-    ("maths", "The maths, step by step",
-     "Derivatives, probabilities and activations, with the real numbers in them.",
+    ("maths", "Gradients and softmax, by hand",
+     "Automatic differentiation, and softmax with cross-entropy, with the real numbers in them.",
      [("autodiff-graph", "Automatic differentiation"),
       ("gpt2-softmax-cross-entropy", "Softmax and cross-entropy")]),
     ("mlp", "An MLP, step by step",
@@ -108,7 +109,7 @@ SECTIONS = [
       ("mlp-7-backward-layer1", "Backward: layer 1"),
       ("mlp-8-backward-pass", "The whole backward pass"),
       ("mlp-9-training-step", "One training step")]),
-    ("training", "How networks learn",
+    ("training", "Gradient descent",
      "Forward pass, loss, gradients and update, for other kinds of network.",
      [("gradient-descent", "Gradient descent"),
       ("cnn-training-step", "A CNN training step"),
@@ -158,7 +159,7 @@ SECTIONS = [
       ("information-bottleneck", "A layer that must forget"),
       ("rank-of-a-layer", "The rank of a layer"),
       ("width-vs-depth", "Width or depth?")]),
-    ("pruning", "Trimming: pruning and distillation",
+    ("pruning", "Pruning and distillation",
      "Making a trained network smaller without losing what it learned.",
      [("magnitude-pruning", "Pruning by magnitude"),
       ("lottery-ticket", "The lottery ticket"),
@@ -175,7 +176,7 @@ SECTIONS = [
      [("quantization", "Quantization"),
       ("quantization-aware-training", "Quantization-aware training"),
       ("mixed-precision", "float32, float16, bfloat16")]),
-    ("classifiers", "Predictions",
+    ("classifiers", "A trained classifier",
      "Trained models deciding what they are looking at.",
      [("mlp-classifier", "A dense network classifies digits"),
       ("dnn-eval", "Evaluating a trained network"),
@@ -188,7 +189,7 @@ SECTIONS = [
       ("gp-kernels", "Kernels are assumptions"),
       ("gp-hyperparameters", "Learning the hyperparameters"),
       ("gp-bayesian-optimisation", "Bayesian optimisation")]),
-    ("latent", "Autoencoders",
+    ("latent", "Autoencoders and latent codes",
      "Networks that squeeze a digit into a few numbers and rebuild it.",
      [("autoencoder-dense-3d", "Dense autoencoder, 3-D codes"),
       ("autoencoder-dense-2d", "Dense autoencoder, 2-D codes"),
@@ -236,7 +237,7 @@ SECTIONS = [
       ("context-cost", "The cost of context: attention, RNN, SSM"),
       ("mixture-of-experts", "Mixture of experts"),
       ("gpt2-rotary-embeddings", "Rotary position embeddings")]),
-    ("rl", "Reinforcement learning",
+    ("rl", "From labels to rewards",
      "An agent learning from reward.",
      [("q-learning", "Q-learning in a gridworld")]),
 ]
@@ -259,9 +260,9 @@ NEXT_SECTIONS = {
           "Changing a trained model: instructions, preferences, small add-ons and weight arithmetic."),  # noqa: E501
     "F": ("interpretability", "Interpretability",
           "Looking inside a trained model: features, probes, patches and the heads that matter."),
-    "G": ("vision", "Vision",
+    "G": ("vision", "Vision models",
           "What image models see, attend to and get wrong."),
-    "H": ("generative-models", "Generative models",
+    "H": ("generative-models", "GANs, flows and diffusion",
           "Models that make new samples: adversaries, flows, diffusion, codes and pixels in order."),  # noqa: E501
     "I": ("classical-ml", "Classical machine learning",
           "The ideas under everything else: fitting, validating, separating and measuring."),
@@ -273,7 +274,7 @@ NEXT_SECTIONS = {
           "Spreading a model over devices, and what limits how fast it runs."),
     "M": ("reinforcement-learning-methods", "Reinforcement learning methods",
           "Learning from reward alone: bandits, policy gradients, values and search."),
-    "N": ("memory-and-dynamics", "Memory, dynamics and curiosities",
+    "N": ("memory-and-dynamics", "Networks as memories, rules and flows",
           "Networks as memories, as rules that grow shapes, and as flows."),
     "O": ("generative-families", "Generative families compared",
           "An autoencoder, a VAE, a GAN and DEC trained on the same digits: objectives, codes, samples."),  # noqa: E501
@@ -298,7 +299,7 @@ NEXT_SECTIONS = {
           "Claiming a signal, or saying how large a signal could be hiding."),
     "Y": ("analysis-ml", "Machine learning in a physics analysis",
           "Networks and trees used the way an analysis uses them: to estimate a quantity or to select events."),  # noqa: E501
-    "Z": ("anomaly-and-background", "Anomalies, collapse and smooth backgrounds",
+    "Z": ("anomaly-and-background", "Anomalies and backgrounds",
           "An autoencoder as a detector of the unexpected, a GAN that forgets, and a Gaussian process as a background model."),  # noqa: E501
     # the alphabet is used up: later groups take lower-case letters
     "a": ("trees", "Decision trees, forests and boosting",
@@ -312,13 +313,20 @@ NEXT_SECTIONS = {
     "f": ("blocks-cnn", "Blocks and code: a CNN",
           "The same program with one block changed: a small convolutional network for the "
           "same digits, trained by the same loop, and measured against the first."),
+    "g": ("blocks-padding", "Blocks and code: padding",
+          "Padding a picture so a convolution keeps its size and reads its border, and "
+          "padding a batch of things that differ in size so it is one block of numbers."),
+    "h": ("vector-databases", "Vector databases",
+          "A vector database built in a few lines of real code: an encoder trained on pairs, a "
+          "store searched by dot products, an index that looks in fewer places, and why a "
+          "new encoder needs a new store."),
 }
 # Groups c (the bridges between topics) and d (counting a model's weights) are not sections:
 # each of their animations is placed beside the ones it explains (see _regroup).
 BRIDGES = {item["preset"]: True for item in NEXT_ITEMS if item["section"][:3] in ("c. ", "d. ")}
 # Where each group sits on the page: the catalogue's order, except that the two groups added
 # after the hundred follow the generative models they build on, not the end of the page.
-NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMNabef"
+NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMNabefgh"
 assert sorted(NEXT_ORDER) == sorted(NEXT_SECTIONS)
 for _letter in NEXT_ORDER:
     _anchor, _heading, _intro = NEXT_SECTIONS[_letter]
@@ -603,7 +611,7 @@ def _regroup(sections):
         items[at:at] = moved
 
     by["classical-ml"][3][:0] = take("classifiers", {"decision-tree"})
-    by["classical-ml"][1] = "Decision trees and classical machine learning"
+    by["classical-ml"][1] = "Classical machine learning"
     by["classical-ml"][2] = ("From an analysis cut to a model you can read, then the classical "
                              "ideas every later model is judged by.")
     put("classical-ml", 0, "from-a-cut-to-a-tree")
@@ -632,7 +640,7 @@ def _regroup(sections):
     put("embeddings", 0, "gpt2-tokenizer")
     by["embeddings"][2] = ("Text cut into tokens, and tokens, words, sentences and image "
                            "patches as vectors.")
-    by["positions"] = ["positions", "Where each token sits",
+    by["positions"] = ["positions", "Position encodings",
                        "Attention cannot see order: the ways a transformer is told where each "
                        "token sits, and how far that stretches.", []]
     put("positions", None, "gpt2-position-blindness", "sinusoidal-positions",
@@ -666,7 +674,7 @@ PARTS = (
     ("Start here: blocks and code",
      "New to this? Each block of a model, and each step of training it, as pictures beside "
      "the code.",
-     ("blocks", "blocks-cnn")),
+     ("blocks", "blocks-cnn", "blocks-padding")),
     ("Neural networks from first principles",
      "One small network taken apart: the sums, the gradients, and what makes training work.",
      ("maths", "mlp", "training", "classifiers", "activation", "optimisation", "deep",
@@ -693,7 +701,7 @@ PARTS = (
     ("Large language models",
      "Training them, getting text out of them, steering them, and looking inside, with GPT-2.",
      ("training-language-models", "decoding", "behaviour", "fine-tuning", "interpretability",
-      "retrieval")),
+      "retrieval", "vector-databases")),
     ("After the transformer",
      "State-space models and other large sequence models built to go beyond it.",
      ("modern",)),

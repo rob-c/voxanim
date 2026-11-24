@@ -565,7 +565,7 @@ class Stack(Blocks):
             _x, bottom, _w, h = self.block_at(5, s)
             fx = self.BX + (self.PX - self.BX) * s
             self.arrow(sc, (fx, top), (fx, bottom + self.frac(0, h / 2 + 14)[1]), AXIS,
-                       min(shown[-1], op), width=1.6)
+                       min(shown[-1], op), width=1.6, lift=0.0)
         for i in range(6):
             if shown[i] <= 0.01:
                 continue

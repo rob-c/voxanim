@@ -20,12 +20,18 @@ PARTS_REGIONS = {"parts-imports", "count", "conv", "pool", "dropout", "batchnorm
                  "cnn-mistake-in-features", "cnn-mistake-channels", "cnn-mistake-no-batch",
                  "cnn-fix-no-batch"}
 CNN_REGIONS = {"cnn-" + n for n in SCRIPT_REGIONS}
+PADDING_REGIONS = {"pad-" + n for n in ("imports", "none", "one", "same", "modes", "deep", "model",
+                                        "cut", "to-block", "text", "sequences", "masked-mean",
+                                        "attention", "loss", "sort")}
+VDB_REGIONS = {"vdb-" + n for n in ("imports", "encoder", "loss", "step", "store", "search",
+                                    "ivf-build", "ivf-search", "versions", "reembed")}
 
 
 # ---------------------------------------------------------------------- the code regions
 def test_every_region_is_there_once():
     r = B.regions()
-    assert set(r) == SCRIPT_REGIONS | PARTS_REGIONS | CNN_REGIONS
+    assert set(r) == SCRIPT_REGIONS | PARTS_REGIONS | CNN_REGIONS | PADDING_REGIONS | VDB_REGIONS
+    assert {n for n, (p, _l) in r.items() if p == B.PADDING} == PADDING_REGIONS
     assert {n for n, (p, _l) in r.items() if p == B.SCRIPT} == SCRIPT_REGIONS
     assert {n for n, (p, _l) in r.items() if p == B.CNN_SCRIPT} == CNN_REGIONS
     assert B.code_file("model") == "examples/mnist_blocks.py"
@@ -89,7 +95,7 @@ def test_a_hash_inside_a_string_is_not_a_comment(tmp_path):
 
 def test_every_region_on_screen_fits_the_panel():
     for name in B.regions():
-        if name in ("imports", "cnn-imports"):
+        if name in ("imports", "cnn-imports", "pad-imports", "vdb-imports"):
             continue
         for s in B.code_lines(name):
             assert len(s) <= B.MAX_CHARS, (name, s)

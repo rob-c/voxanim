@@ -213,7 +213,7 @@ class TheModel(Cnn):
             fx, top, _w, _h = self.block_at(0, s)
             _fx, bottom, _w, h = self.block_at(7, s)
             self.arrow(sc, (fx, top), (fx, bottom + self.frac(0, h / 2 + 12)[1]), AXIS,
-                       shown[-1], width=1.6)
+                       shown[-1], width=1.6, lift=0.0)
         for i in range(8):
             if shown[i] <= 0.01:
                 continue

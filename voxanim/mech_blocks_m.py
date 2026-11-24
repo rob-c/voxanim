@@ -408,7 +408,7 @@ class CnnMistakes(Blocks):
     PHASES = (("in_features", 12.5), ("channels", 12.5), ("no batch", 12.5), ("the fix", 10.5),
               ("all three", 8.5))
     LAST = "what the CNN gets wrong"
-    NEXT = "A dense layer learns to be local"
+    NEXT = "Why maps shrink"
     STATION = ("forward",) * 5
     X0, X1 = 0.075, 0.455               # the picture's width, for the bars
     CHECK_Y = (0.76, 0.805, 0.85)       # the three lessons, kept to the end

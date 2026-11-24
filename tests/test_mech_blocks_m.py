@@ -217,7 +217,7 @@ def test_three_cnn_mistakes():
             "in_features: 16 × 5 × 5 = 400", "in_channels: 1 for a grey digit",
             "keep the batch: x[0:1], not x[0]"} <= set(five)
     assert "    nn.Linear(16 * 5 * 5, 10)," in mono(a, 4, 0.6)
-    assert "next: A dense layer learns to be local" in texts(a, 4, 0.9)
+    assert "next: Why maps shrink" in texts(a, 4, 0.9)
     # each error in the output slot is torch's, word for word
     for k, name in enumerate(("cnn-mistake-in-features", "cnn-mistake-channels",
                               "cnn-mistake-no-batch")):

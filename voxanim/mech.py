@@ -137,6 +137,10 @@ class Mechanism(Diagram):
     TITLE = ""
     PHASES: tuple = ()
     FADE = 0.5
+    # How far towards the viewer arrows (:meth:`arc`, :meth:`arrow`) are lifted, as a box's
+    # ``lift``: lines and boxes are painted back to front, so an arrow on the paper (0)
+    # goes under any box lifted above it (the Blocks series lifts them over everything).
+    ARROW_LIFT = 0.0
 
     def __init__(self, study=None):
         super().__init__(self.TITLE or (study.title if study is not None else ""), "", 10.0)
@@ -291,22 +295,27 @@ class Mechanism(Diagram):
         y = (1 - s) ** 2 * ay + 2 * s * (1 - s) * my + s ** 2 * by
         return x, y
 
-    def arc(self, sc, a, b, ink, op, u=1.0, bend=0.08, width=2.2, head=True):
+    def arc(self, sc, a, b, ink, op, u=1.0, bend=0.08, width=2.2, head=True, lift=None):
         """A curved connection from layout point ``a`` to ``b`` (bulging up by
         ``bend``; negative: down), drawn as far as fraction ``u``, with an
-        arrowhead at its end."""
+        arrowhead at its end; ``lift``: towards the viewer (default
+        :attr:`ARROW_LIFT`; 0 puts it on the paper, behind every box)."""
         if op <= 0.01 or u <= 0.0:
             return
         x, y = self._curve_points(a, b, bend)
         m = max(2, int(np.ceil(len(x) * min(u, 1.0))))
         pts = [self.P(float(px), float(py)) for px, py in zip(x[:m], y[:m])]
+        pts = [p + self.view * (self.ARROW_LIFT if lift is None else lift) for p in pts]
         self.polyline(sc, pts, width, ink, op, bias=0.3)
         if head and m >= 2:
             self._head(sc, pts[-2], pts[-1], ink, op, width)
 
-    def arrow(self, sc, a, b, ink, op, u=1.0, width=2.2, head=True):
+    def arrow(self, sc, a, b, ink, op, u=1.0, width=2.2, head=True, lift=None):
         """A straight connection from ``a`` to ``b`` (layout points), as :meth:`arc`."""
-        self.arc(sc, a, b, ink, op, u, 0.0, width, head)
+        if lift is None:            # a subclass's own arc() need not know lift
+            self.arc(sc, a, b, ink, op, u, 0.0, width, head)
+        else:
+            self.arc(sc, a, b, ink, op, u, 0.0, width, head, lift=lift)
 
     def _head(self, sc, p, q, ink, op, width):
         sp, sq = self.px(p), self.px(q)

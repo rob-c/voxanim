@@ -618,8 +618,9 @@ class Attention(Parts):
             if split:
                 x = at[0]
                 dy = self.frac(0, h / 2 + 3)[1]
-                self.polyline(sc, [self.P(x, at[1] - dy), self.P(x, at[1] + dy)], 2.4, INK, split,
-                              bias=lift + 0.5)
+                up = self.ARROW_LIFT                 # in front of the tiles it divides
+                self.polyline(sc, [self.P(x, at[1] - dy, up), self.P(x, at[1] + dy, up)], 2.4, INK,
+                              split, bias=0.3)
         return cell
 
     def half(self, at, tile, head, rows=None, row=None):

@@ -453,8 +453,9 @@ class TheLoss(Column):
         # ln 10 marked on the meter
         y = self.BASE - self.frac(0, self.bar_h(m["ln10"]))[1]
         half = self.frac(self.MW / 2 + 6)[0]
-        self.polyline(sc, [self.P(self.MX - half, y), self.P(self.MX + half, y)], 2.4, INK, b,
-                      bias=1.2)
+        up = self.ARROW_LIFT                     # across the meter, in front of it
+        self.polyline(sc, [self.P(self.MX - half, y, up), self.P(self.MX + half, y, up)], 2.4,
+                      INK, b, bias=0.3)
 
 
 # ====================================================================== 202

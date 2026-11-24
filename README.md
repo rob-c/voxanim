@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 351 animations, from a 3×3
+numpy. 365 animations, from a 3×3
 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
@@ -26,7 +26,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 351 animations
+python3 -m voxanim list --names                   # the 365 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim render gradient-descent --theme dark   # the dark-mode copy
@@ -908,14 +908,14 @@ outcome does not depend on it (40 seeds of 40 end on a shortest path with
 these settings). `tests/test_gridworld.py` replays every recorded step with
 the rule and checks the convergence and the numbers above.
 
-### The next 223: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
+### The next 237: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
 
-A further 223 animations, in thirty-two groups: 109 added in 1.6.0, in 1.7.0 eight on
+A further 237 animations, in thirty-four groups: 109 added in 1.6.0, in 1.7.0 eight on
 randomness and 41 for a physics course on data analysis and machine learning, in 1.8.0
 one on training with and without a GPU, in 1.9.0 ten on decision trees, forests and
 boosting, and since then five on entropy, impurity and loss and six bridges between
 topics, each opening the section it leads into, two that count a model's weights, and thirty, "Blocks and code", that show a
-PyTorch model and its training as blocks beside the code, for students who find this hard, with nine more that change its model to a small CNN. The GPU one, `cpu-and-gpu-training`, is the catalogue's
+PyTorch model and its training as blocks beside the code, for students who find this hard, with nine more that change its model to a small CNN, ten on padding and four on vector databases. The GPU one, `cpu-and-gpu-training`, is the catalogue's
 single explicit exception to the rule that results on screen are computed or measured: its
 speeds are representative round figures, labelled as such in every phase. They are listed in
 `next_catalog.json` and
@@ -1175,6 +1175,20 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `blocks-cnn-against-the-mlp` | **The CNN against the MLP.** The CNN against the MLP after one epoch, one run each: 5,258 numbers against 52,650, 96.4% held-out accuracy against 94.9%, and which digits each misses. |
 | `blocks-cnn-what-it-gets-wrong` | **What the CNN gets wrong.** The 364 test digits the CNN misses: most are 8s, most often read as 9s, and most of them are digits a person reads easily. |
 | `blocks-cnn-common-mistakes` | **CNN mistakes.** Three common CNN mistakes and the error each one gives, in plain words: the wrong in_features (400 arrive, not 784), the wrong number of channels (3 for a grey digit), and one digit without its batch; then the fix, x[0:1]. |
+| `padding-maps-shrink` | **Why maps shrink.** Why a convolution's maps come out smaller than its input, and why it reads the border less. |
+| `padding-a-ring` | **A ring of padding.** padding=1: a ring round the picture so the maps keep their size, though the border is still read less. |
+| `padding-same-and-valid` | **Same and valid.** "same" keeps the size by padding (k − 1) ÷ 2; "valid", the default, loses k − 1. |
+| `padding-modes` | **What goes in the border.** Four ways to fill the border: zeros, a mirror, the edge repeated, or the other side. |
+| `padding-deep-stacks` | **Deep stacks need padding.** Without padding, a deep stack of stamps runs out of picture. |
+| `padding-in-the-cnn` | **The CNN with padding, measured.** The CNN with padding=1 against the CNN without, measured on the same digits: better, but not from padding alone, and no help with moved digits. |
+| `padding-a-batch-is-a-block` | **A batch is one block.** A batch is one full block of numbers with no holes, so things of different sizes are padded to one size first. |
+| `padding-lines-of-text` | **Padding lines of text.** Lines of different lengths padded with id 0 to the longest, and the mask that marks the real characters. |
+| `padding-masks` | **Masks: ignore the padding.** The pads must be ignored: a plain mean shrinks by length ÷ 50 (0.08 for "All:"), while masked means, key_padding_mask (a weight of exactly 0 on every pad) and ignore_index (163 targets counted, not 400) leave them out. |
+| `padding-sort-by-length` | **Sort by length, pad less.** Batching lines of similar length wastes almost no padding: 38% of the cells are padding in file order or shuffled, 0.16% sorted by length, and the sorted batches are then shuffled whole. |
+| `vector-db-training` | **Training vectors for search.** Pairs of two drawings of one digit train an encoder so that matching digits get nearby vectors. |
+| `vector-db-store-and-search` | **Store, then search.** A vector database: a table of vectors with ids and labels beside it, searched by dot products. |
+| `vector-db-ivf` | **An index: look in fewer places.** An inverted-file index searches only the lists nearest the query: 4 of 64 lists find 99.5% of the true 10 nearest while comparing 8.1% of the vectors. |
+| `vector-db-versions` | **A new encoder needs a new store.** Vectors from two encoders don't mix: a retrained encoder's queries against the old store find the right digit 7.6% of the time, below chance, until the whole store is embedded again (96.6%). |
 
 **Label embeddings.** A class label as a learned vector: in a classifier, in an autoencoder, and at generation.
 
@@ -1658,7 +1672,7 @@ animations. No media is in git, and no full video is on the site:
   from existing MP4s.
 - A release carries them, with every manifest, in one file,
   `voxanim-site.tar.gz`. The site build downloads that archive from the
-  latest release and nothing else, and runs no ffmpeg: for all 351 animations
+  latest release and nothing else, and runs no ffmpeg: for all 365 animations
   in both themes it is about 58 MB, against GitHub Pages' limit of 1 GB.
 - Each card shows the poster and plays the preview of the page's theme, and
   swaps them when the "Dark mode" button is pressed; only the theme on show
@@ -1717,7 +1731,7 @@ repository, each with a `SHA256SUMS` over its files:
   both themes and every manifest (`<media>.json`, `<media>-dark.json`), and
   `voxanim-weights.tar.gz`, the trained models.
 
-That is 353 files per theme for 351 animations; GitHub is understood to
+That is 353 files per theme for 365 animations; GitHub is understood to
 allow 1,000 in a release, and one file per video, GIF and manifest in two
 themes would be 2,106. `release_assets.py` prints the count against the cap. It refuses to
 run while any animation lacks a render in either theme (`--light-only`
