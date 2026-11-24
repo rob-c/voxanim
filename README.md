@@ -1658,8 +1658,8 @@ animations. No media is in git, and no full video is on the site:
   from existing MP4s.
 - A release carries them, with every manifest, in one file,
   `voxanim-site.tar.gz`. The site build downloads that archive from the
-  latest release and nothing else, and runs no ffmpeg: for all 310 animations
-  in both themes it is about 52 MB, against GitHub Pages' limit of 1 GB.
+  latest release and nothing else, and runs no ffmpeg: for all 351 animations
+  in both themes it is about 58 MB, against GitHub Pages' limit of 1 GB.
 - Each card shows the poster and plays the preview of the page's theme, and
   swaps them when the "Dark mode" button is pressed; only the theme on show
   is downloaded. An animation with no dark preview keeps its light one. Under
@@ -1717,9 +1717,9 @@ repository, each with a `SHA256SUMS` over its files:
   both themes and every manifest (`<media>.json`, `<media>-dark.json`), and
   `voxanim-weights.tar.gz`, the trained models.
 
-That is 312 files per theme for 310 animations; GitHub is understood to
+That is 353 files per theme for 351 animations; GitHub is understood to
 allow 1,000 in a release, and one file per video, GIF and manifest in two
-themes would be 1,860. `release_assets.py` prints the count against the cap. It refuses to
+themes would be 2,106. `release_assets.py` prints the count against the cap. It refuses to
 run while any animation lacks a render in either theme (`--light-only`
 allows a release without dark renders; `--allow-partial` leaves out
 animations that are not rendered at all, to try the packaging on a few), a
