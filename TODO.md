@@ -626,3 +626,253 @@ the commit before this one.
   networks (via Markov chains), and the weights' entropy to quantization.
 - The site no longer shows anything before what it rests on (see `_regroup` in
   `website/build_site.py`); `cpu-and-gpu-training` gains a phase on number formats.
+
+## "Blocks and code", 30 animations (planned and built 23 November 2026: items 185–214)
+
+> **Built.** Shared code: `voxanim/blocks.py`, `voxanim/study_course.py`,
+> `examples/mnist_blocks.py` and `examples/blocks_parts.py`. The animations are in
+> `study_blocks_[a-j].py` and `mech_blocks_[a-j].py`, three per group. Follow-ups:
+> - 194–196 show `examples/blocks_parts.py`'s `torch.randn` lines while their pictures use
+>   real data (said on screen). Lines that build the real inputs would make code and picture
+>   match.
+> - 208 shows three epochs where the script runs `range(1)` (said on screen).
+
+A series for students who find this hard to follow, including students with a brain
+injury and students who switch off in front of a screen. Every block of a PyTorch model,
+and every part of training an MNIST digit classifier, is shown as a coloured block beside
+the few lines of code that make it. **The two counting animations (183 and 184) are the
+pilot of this style:** review them with students before building the series.
+
+### Rules for the whole series
+
+- **One idea per animation; one thing moving at a time.** At most about 12 short words of
+  explanation on screen at once, besides the numbers and the code.
+- **One visual alphabet, never changed** (a new module `voxanim/blocks.py`). Each kind of
+  thing always has the same shape and colour, and shape always backs up colour, for
+  colour-blind viewers:
+  - data: blue cards;
+  - weights: orange tiles;
+  - biases: a thin orange strip;
+  - gradients: red tiles behind the weight they belong to;
+  - the loss: a purple meter;
+  - the optimizer: a green hand that moves tiles;
+  - the training loop: a circular track;
+  - the learning rate: a dial.
+- **The same layout every time:**
+  - the picture on the left;
+  - the code on the right: monospace, at most 8 lines, with the running line
+    highlighted;
+  - a small map of the whole training loop in the corner, with "you are here" lit.
+- **Start with "last time", end with "next".** No new word without its picture.
+- **Slow:** every new element stays still for at least 3 seconds. 45–66 s each, as for
+  the other animations. No flashing, and no motion that does not mean something.
+- **Plain subtitles:** one short sentence, saying what the numbers show.
+- **A printable sheet.** Each animation's contact sheet (`voxanim sheet`) doubles as a
+  handout.
+
+### Honest numbers: one model, one run
+
+- **One model, one run.** A new `voxanim/study_course.py` trains one model in numpy and
+  records everything the series shows:
+  - the model is the step-by-step series' 784-64-32-10 MLP, plus a variant with dropout;
+  - it trains on MNIST, with batches of 64, using SGD and then Adam;
+  - it records the batches, every loss, chosen gradients and weights, and the optimizer's
+    state.
+  - The variants that go wrong are real runs too: forgetting `zero_grad`, a learning rate
+    that is too small or too large, and double softmax.
+- **The code on screen is a real program.** The lines shown are excerpts of one runnable
+  script, `examples/mnist_blocks.py`. A test (skipped without torch) runs one step of it from
+  the same weights and the same batch and compares the result with the numpy run (to 1e-5).
+  What the pictures show is then what the code does.
+
+### Part 1: the building blocks (1–6)
+
+1. **`blocks-a-tensor`**
+   - On screen: one digit as 28 × 28 tiles; `x, y = train_set[0]`; `x.shape` gives
+     `[1, 28, 28]`.
+   - The idea: a tensor is a block of numbers with a shape.
+2. **`blocks-a-batch`**
+   - On screen: 64 digit blocks slide into one stack of shape `[64, 1, 28, 28]`, the labels
+     into a row of 64; `DataLoader(train_set, batch_size=64)`.
+3. **`blocks-flatten`**
+   - On screen: the 28 × 28 square unrolls row by row into a strip of 784;
+     `nn.Flatten()`; `[64, 784]`.
+   - The idea: no weights, only a new shape.
+4. **`blocks-a-linear-layer`**
+   - On screen: `nn.Linear(784, 64)` as a grid of weight tiles and a bias strip. One
+     output lights up as "multiply the matching numbers, add them up, add the bias", with
+     the trained model's real numbers; out comes `[64, 64]`.
+5. **`blocks-relu`**
+   - On screen: `nn.ReLU()`; negative tiles turn grey (0).
+   - Measured: the share of the real hidden values that it zeroes.
+6. **`blocks-a-model-is-a-stack`**
+   - On screen: `nn.Sequential(...)` stacking blocks 3–5 into the 784-64-32-10 model,
+     with `print(model)` beside the stack and its weights counted (leads back to 183).
+
+### Part 2: each block and its PyTorch name (7–14)
+
+7. **`blocks-conv2d`**
+   - On screen: `nn.Conv2d(1, 4, 3)` as a 3 × 3 stamp sliding over the digit, making 4
+     sheets.
+   - The idea: the same 9 numbers are used everywhere.
+8. **`blocks-pooling`**
+   - On screen: `nn.MaxPool2d(2)`: each 2 × 2 square becomes 1 tile, keeping the biggest.
+     No weights.
+9. **`blocks-dropout`**
+   - On screen: `nn.Dropout(0.2)` switches random tiles off in training only;
+     `model.train()` and `model.eval()` as a switch.
+10. **`blocks-normalisation`**
+    - On screen: `nn.BatchNorm1d` against `nn.LayerNorm`, the same block averaged down the
+      batch or across the features, the direction shown by an arrow.
+11. **`blocks-embedding`**
+    - On screen: `nn.Embedding(10, 16)` as a table where picking a row is a lookup, not a
+      multiplication (leads on to the label embeddings).
+12. **`blocks-attention`**
+    - On screen: `nn.MultiheadAttention` as Q, K and V blocks, the grid of scores, and
+      the output, with the counts from 184.
+13. **`blocks-logits-and-softmax`**
+    - On screen: the 10 output numbers (logits) become bars that add up to 1.
+    - The idea: `nn.CrossEntropyLoss` takes the logits, not the softmax.
+14. **`blocks-which-is-which`**
+    - On screen: every block of 3–13 in a row, each with its code line, its input and
+      output shapes, and its weight count.
+    - A recap with pauses to guess.
+
+### Part 3: training the MNIST classifier, one piece at a time (15–26)
+
+15. **`blocks-the-data-pipeline`**
+    - On screen: Dataset → `transforms.ToTensor()` and `Normalize` (the real mean and
+      spread of the pixels, computed) → a shuffling `DataLoader` → batches arriving on a
+      conveyor belt.
+16. **`blocks-forward-pass`**
+    - On screen: `logits = model(x)`, one batch flowing through the stack, each block
+      lighting in turn and the shapes changing at each one.
+17. **`blocks-the-loss`**
+    - On screen: `loss = loss_fn(logits, y)`, one bar per digit, and their mean as one
+      number on the meter.
+    - Measured: untrained, the loss is about ln 10 = 2.30.
+18. **`blocks-backward`**
+    - On screen: `loss.backward()`. Red gradient tiles appear behind each weight tile,
+      from the last layer back to the first.
+    - The idea: `.grad` has the same shape as its weight.
+19. **`blocks-zero-grad`**
+    - On screen: `optimizer.zero_grad()` empties the red tiles.
+    - Measured: the run that forgets it, where the gradients pile up step after step and
+      the loss goes wrong.
+20. **`blocks-optimizer-step`**
+    - On screen: `optimizer.step()` with SGD. Each orange tile moves by the learning rate
+      times its red tile, shown with before and after numbers.
+    - Measured: the loss on the same batch, lower afterwards.
+21. **`blocks-learning-rate`**
+    - On screen: the dial set to three rates from the same start: one crawls, one learns,
+      one bounces.
+    - Measured: their loss curves.
+22. **`blocks-adam`**
+    - On screen: `torch.optim.Adam`, which keeps two more tiles per weight (m and v), so
+      memory is 3 ×; the update shown tile by tile.
+23. **`blocks-the-training-loop`**
+    - On screen: `for epoch` and `for x, y in loader` as a circular track, the five lines
+      of a step as stations on it.
+    - Measured: the step counter and the loss curve, drawing as the loop goes round.
+24. **`blocks-epochs-and-batches`**
+    - On screen: 60,000 digits ÷ 64 = 938 steps make one epoch. The loader shuffles
+      again.
+    - Measured: the loss per step against the loss per epoch.
+25. **`blocks-evaluation`**
+    - On screen: `model.eval()` and `with torch.no_grad():`. No red tiles are made, and
+      the right answers on held-out digits are counted one by one into the accuracy.
+26. **`blocks-save-and-load`**
+    - On screen: `torch.save(model.state_dict(), ...)`, the orange tiles packed into a
+      labelled box. Loading puts them back.
+    - The idea: the same predictions after loading.
+
+### Part 4: the whole picture (27–30)
+
+27. **`blocks-one-step-slow-motion`**
+    - On screen: a whole training step, data to update, with the map and the six code
+      lines.
+28. **`blocks-one-epoch-fast`**
+    - On screen: 938 steps sped up. The first layer's tiles turn into strokes (leads on
+      to "A dense layer learns to be local").
+    - Measured: loss and accuracy, rising together.
+29. **`blocks-the-whole-program`**
+    - On screen: the whole script, about 25 lines, on one screen. Each part of the
+      picture lights when its lines run, including `.to(device)` (leads on to
+      `cpu-and-gpu-training`).
+30. **`blocks-common-mistakes`**
+    - On screen: four broken programs, each measured:
+      - `zero_grad` forgotten;
+      - `model.eval()` forgotten with dropout;
+      - softmax put in front of `CrossEntropyLoss`;
+      - no `Flatten`, whose shape error is explained in plain words.
+
+### Where it goes, and in what order to build it
+
+- **On the page:** a part of its own, "Start here: blocks and code", ahead of "Neural
+  networks from first principles". The page's introduction gets a "new to this? start
+  here" link to it.
+- **Build order:**
+  1. `blocks.py` (the alphabet, the code panel, the loop map), `study_course.py` and
+     `examples/mnist_blocks.py` with the equivalence test.
+  2. Then the parts in order, five or six animations at a time.
+
+## "Blocks and code": a CNN for the same digits, 9 animations (planned and built 23 November 2026: items 215–223)
+
+> **Built.** Shared code: `examples/mnist_cnn.py`, `voxanim/study_course_cnn.py`, the
+> `cnn-mistake-*` regions of `examples/blocks_parts.py`; the animations are in
+> `study_blocks_[k-m].py` and `mech_blocks_[k-m].py`. Follow-ups:
+> - 215 shows `print(model)` in two halves (its lines are too wide for one screen), and its
+>   count lights the model lines: a `cnn-count` region (`sum(p.numel() ...)`) would let it
+>   print 5258.
+> - 223 draws the course's first training digit while `blocks_parts.py` runs a made-up batch
+>   of the same shape (the errors depend only on the shape; said in its limitations).
+
+The course's program again, with one block changed: the model is a small CNN. Same rules,
+same alphabet, same layout and the same audience as the 30 before it (section above).
+The point to land: **change the model, keep everything else.**
+
+### Honest numbers: the same program, one block changed
+
+- `examples/mnist_cnn.py` is `examples/mnist_blocks.py` with the model replaced (its regions
+  are the script's names with `cnn-` in front; a test checks every other region is the same
+  lines):
+  `nn.Conv2d(1, 8, 3), nn.ReLU(), nn.MaxPool2d(2), nn.Conv2d(8, 16, 3), nn.ReLU(),
+  nn.MaxPool2d(2), nn.Flatten(), nn.Linear(16 * 5 * 5, 10)`: 80 + 1,168 + 4,010 = 5,258
+  numbers, the size of the CNN in "A dense layer learns to be local".
+- `voxanim/study_course_cnn.py` trains it once in numpy, on `study_course`'s batches in the
+  same order, with `SGD(lr=0.1)`, one epoch. `tests/test_mnist_cnn_equivalence.py` runs the
+  script's own lines in torch: one SGD step and every block's output match to 1e-5.
+- Measured: first loss 2.370; held-out accuracy 96.4% (364 missed) against the MLP's 94.9%
+  (506 missed); the CNN's most common mistake is an 8 read as a 9 (36 times).
+- `examples/blocks_parts.py` gains three broken CNN programs (`cnn-mistake-in-features`,
+  `cnn-mistake-channels`, `cnn-mistake-no-batch`) and the fix of the last; their real
+  PyTorch errors are kept in `study_course_cnn.ERRORS` and checked against torch.
+
+### The nine animations (study_blocks_k, _l, _m)
+
+215. **`blocks-cnn-the-model`**: the eight blocks built as the model lines run, each with
+     its output shape on the first batch ([64, 1, 28, 28] → [64, 8, 26, 26] → … → [64, 10]),
+     `print(model)` beside them, and the count 80 + 1,168 + 4,010 = 5,258 (against 52,650).
+216. **`blocks-cnn-shapes`**: where the 400 of `nn.Linear(16 * 5 * 5, 10)` comes from. The
+     side walked down: 28, −2 → 26, ÷2 → 13, −2 → 11, ÷2 → 5 (the odd row dropped);
+     16 maps × 5 × 5 = 400. Put 784 there instead and torch says why it cannot multiply.
+217. **`blocks-cnn-forward`**: one real digit through the trained CNN: 8 maps, pooled,
+     16 maps, pooled, 400 numbers in a strip, 10 scores, the right digit wins.
+218. **`blocks-cnn-backward`**: `loss.backward()`; `model[0].weight.grad` has the stamps'
+     shape `[8, 1, 3, 3]`. One of its 72 numbers is built as the sum of 64 × 676 parts,
+     one per place the stamp sat on each digit (`stamp_grad_parts`).
+219. **`blocks-cnn-same-loop`**: the two programs side by side, only the model lines lit
+     as different; then both loss curves on the same batches.
+220. **`blocks-cnn-stamps-learn`**: the 8 first stamps at steps 0, 10, 100, 500 and 938,
+     random to trained, and the maps they make of one digit.
+221. **`blocks-cnn-against-the-mlp`**: 5,258 against 52,650 numbers; 96.4% against 94.9%;
+     the held-out curves on the same steps; which digits each misses.
+222. **`blocks-cnn-what-it-gets-wrong`**: the 364 test digits it misses, by digit and by
+     confusion (8 → 9, 2 → 7 …), real examples of each.
+223. **`blocks-cnn-common-mistakes`**: the three broken programs, each error in plain words,
+     and the fix.
+
+### Where it goes
+
+A section of its own, "Blocks and code: a CNN", right after "Blocks and code" in the
+"Start here" part.

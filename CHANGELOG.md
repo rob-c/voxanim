@@ -1,5 +1,52 @@
 # Changelog
 
+## 2.2.0
+
+Forty-one new animations (351 in all): counting a model's weights, and a first part of the
+course, "Blocks and code", for students who find this hard, ending with a CNN for the same
+digits. Only the new animations are rendered; the rest are 2.1.0's renders.
+
+- **Counting the weights**, in a deliberately simple style (one idea on screen at a time,
+  the PyTorch line beside each layer, a running total):
+  - `counting-weights-dnn-and-cnn`, beside "A dense layer learns to be local": the MNIST
+    MLP's 52,650 numbers (95% in its first layer) and the small CNN's 6,810 (40 in its
+    filters, for any picture size).
+  - `counting-weights-transformer`, after "Through the transformer": the small ViT's
+    attention is 2,304 for any number of heads, the whole ViT 5,066, a GPT-2 block
+    7,087,872, and GPT-2 small 124,439,808, matching its released weights.
+- **Blocks and code: 30 animations** (185–214), a new first part of the course for
+  students who find this hard: each block of a PyTorch model, and each step of training
+  an MNIST classifier, as coloured blocks beside the lines of code that make it, one idea
+  at a time.
+  - `voxanim/blocks.py`: one visual alphabet (data blue, weights orange, gradients red,
+    loss violet, optimizer green, a learning-rate dial), the code panel and the
+    training-loop map with "you are here".
+  - `examples/mnist_blocks.py`: the real PyTorch program every line on screen is taken
+    from. `voxanim/study_course.py` is its numpy twin. A test runs one SGD and one Adam
+    step of the script in torch and matches the twin to about 1e-7. Run for real, the
+    script reaches 95.0% after one epoch (the twin 94.9%).
+  - Part 1: a tensor, a batch, Flatten, nn.Linear, ReLU, a model as a stack. Part 2:
+    Conv2d, pooling, dropout, BatchNorm and LayerNorm, Embedding, attention, logits and
+    softmax, and a recap. Part 3: the data pipeline, the forward pass, the loss,
+    backward, zero_grad, step, the learning rate, Adam, the loop, epochs, evaluation,
+    save and load. Part 4: one step slowly, one epoch fast, the whole program, and four
+    common mistakes, each a real run (no zero_grad 10%, no eval() 91.9%, softmax twice
+    85%, no Flatten's shape error).
+- **Blocks and code: a CNN, 9 animations** (215–223): the same program with one block
+  changed. `examples/mnist_cnn.py` is `mnist_blocks.py` with a small CNN for its model
+  (Conv2d 8, pool, Conv2d 16, pool, Linear(16 * 5 * 5, 10): 5,258 numbers), and
+  `voxanim/study_course_cnn.py` its numpy twin, trained on the same batches; a test runs the
+  script's own lines in torch and matches one step and every block's output to 1e-5. One
+  epoch each: 96.4% held out against the MLP's 94.9%, with ten times fewer numbers. The
+  nine: the model block by block, where the 400 comes from, one digit through it, a shared
+  stamp's gradient, the same training loop, the stamps learning, the CNN against the MLP,
+  what it gets wrong, and three CNN mistakes with PyTorch's real errors.
+  - The page has a "Start here: blocks and code" part ahead of the neural networks, and a
+    "New to this?" link in its introduction.
+- Fix: the captioned first animations (`conv2d` and the others) dropped `probes_only`, so
+  the torch renderer's motion-blur measure failed on them. It surfaced once torch was
+  installed and `tests/test_accel.py` ran.
+
 ## 2.1.0
 
 Eleven new animations (310 in all), and a page that reads as one course without

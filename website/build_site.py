@@ -306,13 +306,19 @@ NEXT_SECTIONS = {
     "b": ("information", "Entropy, impurity and loss",
           "One measure of uncertainty, in bits or nats: in a tree's leaves, in a classifier's "
           "loss, and between two distributions."),
+    "e": ("blocks", "Blocks and code",
+          "A model as coloured blocks beside the PyTorch that makes it, and its training one "
+          "piece at a time. One idea in each, slowly."),
+    "f": ("blocks-cnn", "Blocks and code: a CNN",
+          "The same program with one block changed: a small convolutional network for the "
+          "same digits, trained by the same loop, and measured against the first."),
 }
-# Group c, the bridges between topics, is not a section: each bridge opens the section it
-# leads into (see _regroup).
-BRIDGES = {item["preset"]: True for item in NEXT_ITEMS if item["section"].startswith("c. ")}
+# Groups c (the bridges between topics) and d (counting a model's weights) are not sections:
+# each of their animations is placed beside the ones it explains (see _regroup).
+BRIDGES = {item["preset"]: True for item in NEXT_ITEMS if item["section"][:3] in ("c. ", "d. ")}
 # Where each group sits on the page: the catalogue's order, except that the two groups added
 # after the hundred follow the generative models they build on, not the end of the page.
-NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMNab"
+NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMNabef"
 assert sorted(NEXT_ORDER) == sorted(NEXT_SECTIONS)
 for _letter in NEXT_ORDER:
     _anchor, _heading, _intro = NEXT_SECTIONS[_letter]
@@ -609,6 +615,8 @@ def _regroup(sections):
     put("recurrent", 0, "markov-chain-to-rnn")
     by["training"][2] = "Forward pass, loss, gradients and update, one step at a time."
     by["transformers"][3][1:1] = take("training", {"attention-training-step"})
+    put("transformers", [n for n, _ in by["transformers"][3]].index("gpt2-transformer-block") + 1,
+        "counting-weights-transformer")
 
     # the arithmetic of impurity ahead of the first split that uses it; the weights' entropy
     # with the other measures of what a layer holds
@@ -617,7 +625,7 @@ def _regroup(sections):
     # the CNNs once convolutions are known
     put("vision", 0, "cnn-training-step", "strided-cnn-classifier")
     by["vision"][2] = "Training a CNN, then what image models see, attend to and get wrong."
-    put("convolutions", 0, "dense-layer-learns-local")
+    put("convolutions", 0, "dense-layer-learns-local", "counting-weights-dnn-and-cnn")
     by["convolutions"][2] = ("Why a dense layer gives way to a filter, then the filter sliding "
                              "over a block of channels: the conv2d set, then conv1d.")
     # text becomes tokens, then rows; where each token sits waits for attention
@@ -655,6 +663,10 @@ PARTS = (
     ("Gaussian processes",
      "A different kind of model: a distribution over functions, with its uncertainty built in.",
      ("gp",)),
+    ("Start here: blocks and code",
+     "New to this? Each block of a model, and each step of training it, as pictures beside "
+     "the code.",
+     ("blocks", "blocks-cnn")),
     ("Neural networks from first principles",
      "One small network taken apart: the sums, the gradients, and what makes training work.",
      ("maths", "mlp", "training", "classifiers", "activation", "optimisation", "deep",

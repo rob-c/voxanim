@@ -163,14 +163,14 @@ def test_the_next_catalogue_is_listed_under_its_own_titles():
     listed = {n: t for *_, items in site.SECTIONS for n, t in items}
     anchors = [anchor for anchor, *_ in site.SECTIONS]
     assert len(anchors) == len(set(anchors))
-    assert len(site.NEXT_SECTIONS) == 28
+    assert len(site.NEXT_SECTIONS) == 30
     new = len(site.NEXT_SECTIONS)
     for item in ITEMS:
         assert listed[item["preset"]] == item["title"] == drawing(item["name"]).TITLE
         first, about = site.describe(presets.REGISTRY[item["preset"]])
         assert first == site.prose(item["summary"])           # the card shows the plain summary
         assert item["description"].split()[0] in about         # the dialog adds what was measured
-    assert new == 28
+    assert new == 30
     for _anchor, heading, intro, items in site.SECTIONS:
         assert heading and intro.endswith(".") and items
         assert "review" not in intro.lower()
@@ -181,7 +181,7 @@ def test_the_page_is_ordered_as_one_course():
     generative models, recurrent networks, attention, language models, and what follows."""
     anchors = [anchor for anchor, *_ in site.SECTIONS]
     assert anchors == [a for *_, part in site.PARTS for a in part]
-    assert len(site.PARTS) == 12 and all(intro.endswith(".") for _t, intro, _a in site.PARTS)
+    assert len(site.PARTS) == 13 and all(intro.endswith(".") for _t, intro, _a in site.PARTS)
     where = {n: k for k, (*_, items) in enumerate(site.SECTIONS) for n, _ in items}
     route = ["bayes-theorem-areas", "chi-square-fit", "bump-hunt", "decision-tree",
              "gp-prior", "mlp-1-forward-layer1", "conv2d", "cpu-and-gpu-training",
@@ -214,6 +214,12 @@ def test_the_page_is_ordered_as_one_course():
     assert first["efficiency"] == "bits-in-a-weight"
     assert section["every-loss-is-a-likelihood"] == "classical-ml"
     assert section["kl-divergence"] == "information"
+    # the counting animations beside the networks they count
+    held = {a: [n for n, _ in items] for a, _h, _i, items in site.SECTIONS}
+    conv = held["convolutions"]
+    assert conv[:2] == ["dense-layer-learns-local", "counting-weights-dnn-and-cnn"]
+    tr = held["transformers"]
+    assert tr[tr.index("gpt2-transformer-block") + 1] == "counting-weights-transformer"
     # each part is announced once on the page, ahead of its first section
     names = list(presets.REGISTRY)
     page = site.page_html(dict.fromkeys(names, BOTH), "v9.9.9")

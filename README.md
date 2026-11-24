@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 310 animations, from a 3×3
+numpy. 351 animations, from a 3×3
 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
@@ -26,7 +26,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 310 animations
+python3 -m voxanim list --names                   # the 351 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim render gradient-descent --theme dark   # the dark-mode copy
@@ -908,13 +908,14 @@ outcome does not depend on it (40 seeds of 40 end on a shortest path with
 these settings). `tests/test_gridworld.py` replays every recorded step with
 the rule and checks the convergence and the numbers above.
 
-### The next 182: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
+### The next 223: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
 
-A further 182 animations, in twenty-nine groups: 109 added in 1.6.0, in 1.7.0 eight on
+A further 223 animations, in thirty-two groups: 109 added in 1.6.0, in 1.7.0 eight on
 randomness and 41 for a physics course on data analysis and machine learning, in 1.8.0
 one on training with and without a GPU, in 1.9.0 ten on decision trees, forests and
 boosting, and since then five on entropy, impurity and loss and six bridges between
-topics, each opening the section it leads into. The GPU one, `cpu-and-gpu-training`, is the catalogue's
+topics, each opening the section it leads into, two that count a model's weights, and thirty, "Blocks and code", that show a
+PyTorch model and its training as blocks beside the code, for students who find this hard, with nine more that change its model to a small CNN. The GPU one, `cpu-and-gpu-training`, is the catalogue's
 single explicit exception to the rule that results on screen are computed or measured: its
 speeds are representative round figures, labelled as such in every phase. They are listed in
 `next_catalog.json` and
@@ -1133,6 +1134,47 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `markov-chain-to-rnn` | **From a Markov chain to an RNN.** A table of counted contexts must have seen the exact context, so on held-out text it gets worse past a few characters; a small recurrent network carries a state and shares its parameters across contexts, and beats the best table. |
 | `labels-against-rewards` | **Labels against rewards.** The same classifier trained from labels and from a right-or-wrong reward: the same direction on average, at most a bit per digit, and several times the updates. |
 | `bits-in-a-weight` | **How many bits a weight carries.** A trained weight stored in 32 bits carries far fewer: rounded to each number format, the entropy of its values against the accuracy kept, and why plain 4-bit needs a shared scale. |
+| `counting-weights-dnn-and-cnn` | **Counting the weights: a DNN and a CNN.** How many numbers a dense network and a convolutional network learn, counted layer by layer beside the PyTorch line that makes each layer: 52,650 for the MNIST MLP and 6,810 for the small CNN, nearly all of them in one dense layer. |
+| `counting-weights-transformer` | **Counting the weights: a transformer.** One rule, one part at a time, counts every weight of a transformer: 2,304 in the small ViT's attention, whatever the number of heads, 5,066 in the whole ViT, 7,087,872 in a GPT-2 block and 124,439,808 in GPT-2 small, whose output layer reuses the token table. |
+| `blocks-a-tensor` | **A tensor is a block of numbers.** One digit is a tensor: 784 numbers in a block of shape [1, 28, 28], from −0.42 on the paper to 2.82 in the darkest ink. |
+| `blocks-a-batch` | **A batch: many digits in one block.** 64 digits slide into one block of shape [64, 1, 28, 28] and their labels into a row of 64: 50,176 numbers handed to the model at once. |
+| `blocks-flatten` | **Flatten: a square becomes a strip.** nn.Flatten unrolls each 28 × 28 digit row by row into a strip of 784, so [64, 1, 28, 28] becomes [64, 784], and it learns nothing. |
+| `blocks-a-linear-layer` | **nn.Linear: a grid of weights.** One output of nn.Linear(784, 64) is the digit's 784 numbers times one row of weights, added up, plus a bias: 8.09 − 0.02 = 8.07. |
+| `blocks-relu` | **nn.ReLU: negatives become 0.** nn.ReLU turns every negative number into 0 and learns nothing: 48% of the first batch's hidden numbers and 49% over all 60,000 digits. |
+| `blocks-a-model-is-a-stack` | **A model is a stack of blocks.** nn.Sequential stacks Flatten, Linear and ReLU into the 784-64-32-10 digit classifier, whose three Linear blocks learn all 52,650 numbers. |
+| `blocks-conv2d` | **nn.Conv2d: one small stamp, used everywhere.** One 3 × 3 stamp of 9 weights slides over all 676 places of a digit; 4 stamps make 4 sheets, [64, 4, 26, 26], from just 40 learned numbers. |
+| `blocks-pooling` | **nn.MaxPool2d: keep the biggest.** nn.MaxPool2d(2) keeps the biggest of each 2 × 2 square (1.34 of −1.00, 0.37, 0.47 and 1.34), so 26 × 26 sheets become 13 × 13, a quarter of the numbers, and it learns nothing. |
+| `blocks-dropout` | **nn.Dropout: switched off at random.** nn.Dropout(0.2) switches 1 in 5 numbers off at random while training (15 of 64 at the first step) and none after model.eval(), which, measured, gets 94.35% of held-out digits right against 91.90% when it is forgotten. |
+| `blocks-normalisation` | **BatchNorm and LayerNorm.** nn.BatchNorm1d gives every column of the batch mean 0 and spread 1, nn.LayerNorm every row: the same block, averaged in two directions. |
+| `blocks-embedding` | **nn.Embedding: a table you look up.** nn.Embedding(10, 16) is a table of 160 numbers. A label picks its row by lookup, not multiplication, so the batch's 64 labels become a [64, 16] block. |
+| `blocks-attention` | **nn.MultiheadAttention as blocks.** Attention as blocks on 5 patches of a real digit: Q, K and V from three weight grids, each head's grid of scores whose rows add up to 1, and an output that mixes V's rows. |
+| `blocks-logits-and-softmax` | **Logits and softmax.** The model's 10 logits become bars that add up to 1, and nn.CrossEntropyLoss takes the logits: −ln 0.74 = 0.30, where a softmax in front would keep the loss above 1.46. |
+| `blocks-which-is-which` | **Which block is which.** Eleven blocks, each with its line of code, its input and output shapes and its weight count, guessed and then answered: 6 of the 11 learn weights, from 40 in a Conv2d to 50,240 in nn.Linear(784, 64). |
+| `blocks-the-data-pipeline` | **The data pipeline.** MNIST, ToTensor (÷ 255) and Normalize (the real mean 0.1307 and spread 0.3081 of all 47 million pixels), then a shuffling DataLoader: 938 batches on a conveyor belt make one epoch. |
+| `blocks-forward-pass` | **The forward pass.** logits = model(x): one batch of 64 digits through the six blocks in order, its shape changing at each, from [64, 1, 28, 28] to the logits' [64, 10]. |
+| `blocks-the-loss` | **The loss.** loss = loss_fn(logits, y): one loss per digit, −ln of the chance given to the right label, and their mean, 2.322, close to ln 10 = 2.303 for an untrained model. |
+| `blocks-backward` | **loss.backward().** loss.backward() puts red gradient tiles behind every weight and bias, from the last layer back to the first: 52,650 of them, each .grad the shape of its weight. |
+| `blocks-zero-grad` | **optimizer.zero_grad().** optimizer.zero_grad() empties the red gradient tiles before each backward; the real run that forgets it piles them up to 45 times their size and gets 10% of test digits right, against 95%. |
+| `blocks-optimizer-step` | **optimizer.step().** optimizer.step() moves every weight by 0.1 times its gradient, against it: 0.1521 becomes 0.1566, and the same batch's loss drops from 2.3223 to 2.2616. |
+| `blocks-learning-rate` | **The learning rate.** From the same start, lr=0.001 crawls (55% right), lr=0.1 learns (95%) and lr=0.8 bounces (27%): one number decides how a run ends. |
+| `blocks-adam` | **Adam keeps two more blocks.** Adam keeps an m and a v for every weight, three times the numbers, and moves each weight by about its learning rate: one weight's update worked with real numbers, and the real Adam and SGD runs. |
+| `blocks-the-training-loop` | **The training loop.** for x, y in loader as a circular track: one batch goes once round the five lines of a training step, then 938 times, while the step counter and the real loss curve draw. |
+| `blocks-epochs-and-batches` | **Epochs and batches.** 60,000 digits ÷ 64 make 938 steps, one epoch; the loader shuffles again each epoch; the loss per step jumps while the loss per epoch falls, 0.315, 0.135, 0.098. |
+| `blocks-evaluation` | **Testing the model.** model.eval() and torch.no_grad(): no gradients are made, and the held-out digits are counted one by one, 9,494 of 10,000 right (0.9494). |
+| `blocks-save-and-load` | **Saving and loading.** torch.save(model.state_dict()): 52,650 numbers in six named tensors, packed into a file and loaded back exactly, with the same answer on 10,000 of 10,000 test digits. |
+| `blocks-one-step-slow-motion` | **One training step, slowly.** One recorded training step, station by station: a batch, the forward pass, a loss of 2.28, 52,650 gradients, and every weight moved, so the loss on that batch falls to 2.23. |
+| `blocks-one-epoch-fast` | **One epoch, fast.** One epoch of the course's MNIST classifier sped up: the first layer's weights turn from noise into strokes while the loss falls from 2.32 to 0.16 and the held-out accuracy rises from 7.6% to 94.9%. |
+| `blocks-the-whole-program` | **The whole program.** The whole training script, 63 lines, scrolled through a part at a time beside a picture in which each part (device, data, batches, model, loss, optimizer, loop, test, save) lights up as its lines run. |
+| `blocks-common-mistakes` | **Common mistakes.** Four common mistakes, each run for real: forgetting zero_grad (10.1% held-out accuracy), forgetting model.eval() with dropout (91.9% instead of 94.4%), a softmax before the loss (85.0%, the loss stuck above 1.46), and no Flatten (torch's shape error, in plain words). |
+| `blocks-cnn-the-model` | **The CNN, block by block.** The course's program with a CNN for its model: eight blocks, their shapes, and 5,258 numbers to learn instead of 52,650. |
+| `blocks-cnn-shapes` | **Where the 400 comes from.** Why the CNN's last layer reads 400 numbers: 28 → 26 → 13 → 11 → 5, and 16 × 5 × 5. |
+| `blocks-cnn-forward` | **One digit through the CNN.** One digit through the trained CNN, block by block: the maps each block makes, and the scores at the end. |
+| `blocks-cnn-backward` | **A shared stamp's gradient.** A shared stamp's gradient is the sum of one small part for every place it sat on every digit: 43,264 parts, adding up to PyTorch's number. |
+| `blocks-cnn-same-loop` | **The same training loop.** Change the model, keep everything else: the same lines train the CNN, on the same batches, to a lower loss. |
+| `blocks-cnn-stamps-learn` | **The stamps learn.** The CNN's first eight stamps from random to trained, a row per step, and the maps they make of one digit before and after. |
+| `blocks-cnn-against-the-mlp` | **The CNN against the MLP.** The CNN against the MLP after one epoch, one run each: 5,258 numbers against 52,650, 96.4% held-out accuracy against 94.9%, and which digits each misses. |
+| `blocks-cnn-what-it-gets-wrong` | **What the CNN gets wrong.** The 364 test digits the CNN misses: most are 8s, most often read as 9s, and most of them are digits a person reads easily. |
+| `blocks-cnn-common-mistakes` | **CNN mistakes.** Three common CNN mistakes and the error each one gives, in plain words: the wrong in_features (400 arrive, not 784), the wrong number of channels (3 for a grey digit), and one digit without its batch; then the fix, x[0:1]. |
 
 **Label embeddings.** A class label as a learned vector: in a classifier, in an autoencoder, and at generation.
 

@@ -1636,5 +1636,374 @@
   "module": "study_bridge_bits",
   "title": "How many bits a weight carries",
   "summary": "A trained weight stored in 32 bits carries far fewer: rounded to each number format, the entropy of its values against the accuracy kept, and why plain 4-bit needs a shared scale."
+ },
+ {
+  "number": 183,
+  "name": "counting-weights-dnn-and-cnn",
+  "description": "The two networks met earlier on the page, counted one layer at a time. A weight is one number the model learns, joining one input to one output, and each output also learns one bias: nn.Linear(1, 1) learns 1 × 1 + 1 = 2 numbers and nn.Linear(3, 2) learns 3 × 2 + 2 = 8. The MLP of \"An MLP, step by step\" (784-64-32-10) learns 784 × 64 + 64 = 50,240 in its first layer, 64 × 32 + 32 = 2,080 in its second and 32 × 10 + 10 = 330 in its last. Flatten and ReLU learn nothing, so its total is 52,650 (52,544 weights and 106 biases), 95% of them in the first layer. The CNN of \"A CNN training step\" starts with nn.Conv2d(1, 4, kernel_size=3): four 3 × 3 filters on a grey picture with one channel, 4 × 1 × 3 × 3 + 4 = 40 numbers. Run over a picture of 28 × 28 or 84 × 84, the filters use the same 40 numbers. ReLU, the 2 × 2 max-pool and Flatten learn nothing. Its dense layer reads 4 maps of 13 × 13 = 676 numbers and learns 676 × 10 + 10 = 6,770 of them, 99.4% of the CNN's 6,810, 7.7 times fewer than the MLP. Every count is checked against the size of the models' own parameter arrays, which is what sum(p.numel() for p in model.parameters()) adds up.",
+  "section": "d. Counting a model's weights (2)",
+  "module": "study_count_nets",
+  "title": "Counting the weights: a DNN and a CNN",
+  "summary": "How many numbers a dense network and a convolutional network learn, counted layer by layer beside the PyTorch line that makes each layer: 52,650 for the MNIST MLP and 6,810 for the small CNN, nearly all of them in one dense layer."
+ },
+ {
+  "number": 184,
+  "name": "counting-weights-transformer",
+  "description": "How many numbers a transformer learns, counted one part at a time with one rule: each output has one weight per input, plus one bias. Attention first, in the small vision transformer of \"A self-attention training step\": its query, key, value and output matrices are four blocks of 24 × 24 = 576 weights with no biases, 2,304 in all. Its 3 heads cut each block into pieces of 24 × 8 and add nothing: every number of heads that divides 24 gives 2,304. The rest of that model, part by part: patches to tokens 49 × 24 + 24 = 1,200, a class token of 24, positions 17 × 24 = 408, the MLP 24 × 32 + 32 = 800 and the output layer 32 × 10 + 10 = 330, for 5,066, exactly what its own arrays hold. One block of GPT-2 small, the same way: two LayerNorms of 768 + 768 = 1,536, Q, K and V in one layer of 768 × 2,304 + 2,304 = 1,771,776, the attention output 768 × 768 + 768 = 590,592, and an MLP of 768 × 3,072 + 3,072 = 2,362,368 out and 3,072 × 768 + 768 = 2,360,064 back: 7,087,872. Twelve blocks make 85,054,464. With the token table (50,257 × 768 = 38,597,376), the positions (1,024 × 768 = 786,432) and a final norm (1,536), GPT-2 small learns 124,439,808 numbers, exactly the learned tensors of its released weights. Its output layer reuses the token table, so it adds none. The MLPs hold 46% and the token table 31%. In each block attention holds a third and the MLP two thirds. Each part is shown with the line of PyTorch that makes it, and the count ends with sum(p.numel() for p in model.parameters()).",
+  "section": "d. Counting a model's weights (2)",
+  "module": "study_count_attention",
+  "title": "Counting the weights: a transformer",
+  "summary": "One rule, one part at a time, counts every weight of a transformer: 2,304 in the small ViT's attention, whatever the number of heads, 5,066 in the whole ViT, 7,087,872 in a GPT-2 block and 124,439,808 in GPT-2 small, whose output layer reuses the token table."
+ },
+ {
+  "number": 185,
+  "name": "blocks-a-tensor",
+  "description": "One digit as the computer holds it. x, y = train_set[0] gives the first training digit of MNIST, after ToTensor and Normalize((0.1307,), (0.3081,)), and its label, y = 5. It is drawn as a blue card of 28 × 28 tiles, deeper blue for a bigger number. A 3 × 3 patch of the stroke is read out number by number: 1.99, 2.80, 0.47, 0.02, 2.64, 2.44, −0.42, 0.61, 2.63. The paper reads −0.42 (0 − 0.1307, divided by 0.3081) and the darkest ink 2.82. print(x.shape, y) prints torch.Size([1, 28, 28]) 5: 1 channel, 28 rows and 28 columns, so 1 × 28 × 28 = 784 numbers. A tensor is a block of numbers with a shape. The code on screen is examples/mnist_blocks.py, and the numbers are the data as that program loads it.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_a",
+  "title": "A tensor is a block of numbers",
+  "summary": "One digit is a tensor: 784 numbers in a block of shape [1, 28, 28], from −0.42 on the paper to 2.82 in the darkest ink."
+ },
+ {
+  "number": 186,
+  "name": "blocks-a-batch",
+  "description": "DataLoader(train_set, batch_size=64, shuffle=True) gives the model 64 digits at a time. The first batch's 64 digit cards slide one behind the other into one block, then their 64 labels fill a row: 0, 8, 6, 7, 4, 3, 9, 1, 1, 1 and so on. x, y = next(iter(loader)) and print(x.shape, y.shape) give torch.Size([64, 1, 28, 28]) and torch.Size([64]): 64 × 784 = 50,176 numbers in one block. The shuffle mixes the digits: this batch holds every digit, from 9 ones and 9 threes down to 3 sixes and 3 eights.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_a",
+  "title": "A batch: many digits in one block",
+  "summary": "64 digits slide into one block of shape [64, 1, 28, 28] and their labels into a row of 64: 50,176 numbers handed to the model at once."
+ },
+ {
+  "number": 187,
+  "name": "blocks-flatten",
+  "description": "nn.Flatten(), the first block of the course's model, unrolls each 28 × 28 digit row by row into one strip of 784 numbers: row 0, then row 1, and so on, the count rising 28, 56, … 784. The tile in row 14, column 15 goes to place 14 × 28 + 15 = 407, and its number, 2.80, stays the same. Over the whole first batch, [64, 1, 28, 28] becomes [64, 784]: 64 strips, one per digit, one under the other. Flatten learns 0 numbers; it only changes the shape.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_a",
+  "title": "Flatten: a square becomes a strip",
+  "summary": "nn.Flatten unrolls each 28 × 28 digit row by row into a strip of 784, so [64, 1, 28, 28] becomes [64, 784], and it learns nothing."
+ },
+ {
+  "number": 188,
+  "name": "blocks-a-linear-layer",
+  "description": "One output of nn.Linear(784, 64), worked out with the course model's own numbers after one epoch of SGD. The first digit of the first batch, a 0, arrives from Flatten as a strip of 784 numbers. The layer is a grid of 64 rows of 784 orange weight tiles (784 × 64 = 50,176 weights) and a thin strip of 64 biases. Row 8 lights up and is copied under the strip so that matching numbers line up. The three biggest products are read out: 2.82 × 0.101 = 0.28, 2.80 × 0.078 = 0.22 and 2.76 × 0.072 = 0.20. A marker runs along all 784 products, adding them up to 8.09, and adding the bias, −0.02, gives 8.07, the biggest of the 64 outputs. Every row does the same, so the digit's 64 outputs fill a row and the batch's [64, 784] comes out as [64, 64].",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_b",
+  "title": "nn.Linear: a grid of weights",
+  "summary": "One output of nn.Linear(784, 64) is the digit's 784 numbers times one row of weights, added up, plus a bias: 8.09 − 0.02 = 8.07."
+ },
+ {
+  "number": 189,
+  "name": "blocks-relu",
+  "description": "nn.ReLU() on the 64 numbers nn.Linear(784, 64) gave the first digit of the first batch, in the course model after one epoch: 33 of them are below 0. Eight are read out: 8.07, −0.15, 1.53, 0.71, 2.51, 2.36, −2.98 and −1.00. One at a time, each negative one turns into a grey 0 while the positive ones pass unchanged, and then the rest of the row follows: 33 of 64 become 0. The shape stays [64, 64], and ReLU learns no numbers: it is a rule, not a grid of weights. Over the whole first batch, 1,954 of 4,096 numbers become 0 (48%), and over all 60,000 training digits, 49%.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_b",
+  "title": "nn.ReLU: negatives become 0",
+  "summary": "nn.ReLU turns every negative number into 0 and learns nothing: 48% of the first batch's hidden numbers and 49% over all 60,000 digits."
+ },
+ {
+  "number": 190,
+  "name": "blocks-a-model-is-a-stack",
+  "description": "nn.Sequential stacks six blocks into the course's 784-64-32-10 digit classifier. They are built one by one as the lines of examples/mnist_blocks.py run: Flatten (a blue card with no weights), Linear(784, 64) (its trained weights as orange tiles), ReLU (grey), Linear(64, 32), ReLU and Linear(32, 10). On the first batch, each block hands the next a new shape: [64, 1, 28, 28] in, then [64, 784], [64, 64], [64, 64], [64, 32], [64, 32] and [64, 10]. That is 784 → 64 → 32 → 10 numbers per digit. print(model) writes the same six blocks, numbered 0 to 5, shown in full beside the stack. Only the three Linear blocks learn numbers: 50,240 + 2,080 + 330 = 52,650, which print(sum(p.numel() for p in params)) prints, as counted in \"Counting the weights: a DNN and a CNN\".",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_b",
+  "title": "A model is a stack of blocks",
+  "summary": "nn.Sequential stacks Flatten, Linear and ReLU into the 784-64-32-10 digit classifier, whose three Linear blocks learn all 52,650 numbers."
+ },
+ {
+  "number": 191,
+  "name": "blocks-conv2d",
+  "description": "nn.Conv2d(1, 4, 3) makes 4 stamps of 3 × 3 weights, shown here as a fresh layer starts them: random numbers between −1/3 and 1/3, not trained. On the first digit of the first batch (a 0), one stamp covers the 3 × 3 pixels at row 20, column 15. Each pixel is multiplied by its weight and the 9 products add up to −0.38; the bias, −0.04, brings it to −0.42, one number of a new sheet. The same stamp then slides over all 26 × 26 = 676 places, using the same 9 numbers every time, and fills the sheet. Four stamps make four sheets, so maps = conv(x) turns [64, 1, 28, 28] into [64, 4, 26, 26]. The layer learns 4 × 3 × 3 + 4 = 40 numbers, the same 40 for a picture of any size. Every number is exact arithmetic on the real digit, checked against direct loops and against PyTorch's own nn.Conv2d.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_c",
+  "title": "nn.Conv2d: one small stamp, used everywhere",
+  "summary": "One 3 × 3 stamp of 9 weights slides over all 676 places of a digit; 4 stamps make 4 sheets, [64, 4, 26, 26], from just 40 learned numbers."
+ },
+ {
+  "number": 192,
+  "name": "blocks-pooling",
+  "description": "nn.MaxPool2d(2) on the first sheet that nn.Conv2d made from a real digit (the untrained stamps of the animation before). The sheet is cut into 2 × 2 squares, and each square becomes one number, its biggest. In the square at row 18, column 18 the four numbers are −1.00, 0.37, 0.47 and 1.34, so 1.34 is kept. Square after square, all 13 × 13 = 169 squares make a sheet of 13 × 13. Over the 4 sheets of every digit, small = pool(maps) turns [64, 4, 26, 26] into [64, 4, 13, 13]: 2,704 numbers per digit become 676, a quarter. The block learns 0 numbers; it only picks. The arithmetic is exact, checked against a direct loop and against PyTorch's nn.MaxPool2d.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_c",
+  "title": "nn.MaxPool2d: keep the biggest",
+  "summary": "nn.MaxPool2d(2) keeps the biggest of each 2 × 2 square (1.34 of −1.00, 0.37, 0.47 and 1.34), so 26 × 26 sheets become 13 × 13, a quarter of the numbers, and it learns nothing."
+ },
+ {
+  "number": 193,
+  "name": "blocks-dropout",
+  "description": "nn.Dropout(0.2) in the course's dropout run: the digit classifier with nn.Dropout(0.2) after each ReLU, trained one epoch with SGD. The 64 numbers h of the first digit after the first ReLU (30 of them already 0) meet the switches that run really drew. In training, drop(h) switches 15 of the 64 off at random and makes the others 1 / (1 − 0.2) = 1.25 times bigger (0.93 becomes 1.16). Every step picks a new set, 12 then 15 off, and over the epoch 768,326 of 3,840,000 switches were off, 20.0%. In eval() nothing is switched off and drop(h) gives back h. On the 10,000 held-out digits, the model left in training mode gets 91.90% right (9,190); after model.eval() it gets 94.35% (9,435), 245 more. The switches are checked to reproduce the run's first loss exactly. The accuracies are measured.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_c",
+  "title": "nn.Dropout: switched off at random",
+  "summary": "nn.Dropout(0.2) switches 1 in 5 numbers off at random while training (15 of 64 at the first step) and none after model.eval(), which, measured, gets 94.35% of held-out digits right against 91.90% when it is forgotten."
+ },
+ {
+  "number": 194,
+  "name": "blocks-normalisation",
+  "description": "The same block of numbers normalised two ways. h is the course model's real hidden layer for the first batch: 64 digits (rows) by 64 features (columns), after one epoch of training, 48% of them 0 after ReLU. Its column means run from 0.02 to 2.33. nn.BatchNorm1d(64) works down each column, over the batch: column 22's mean 2.33 and spread 2.35 become 0.00 and 1.00, and so does every column's. nn.LayerNorm(64) works across each row, over the features: row 0's mean 1.16 and spread 1.71 become 0.00 and 1.00, and so does every row's. Side by side, each evens out one direction only. After BatchNorm the row means still run from −0.25 to 0.32; after LayerNorm the column means run from −0.68 to 0.80. Both blocks are as created (scale 1, shift 0, eps 1e-5), and BatchNorm is in training mode. The same numbers come out of torch.nn.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_d",
+  "title": "BatchNorm and LayerNorm",
+  "summary": "nn.BatchNorm1d gives every column of the batch mean 0 and spread 1, nn.LayerNorm every row: the same block, averaged in two directions."
+ },
+ {
+  "number": 195,
+  "name": "blocks-embedding",
+  "description": "nn.Embedding(10, 16) is a table: 10 rows of 16 numbers, 160 that it learns. It starts at random, as PyTorch starts it (normal, spread 1), seeded here. A label picks its row, which is copied out: the first batch's first label, 0, gives row 0 (0.87, 0.64, 2.22, 1.37, …) and the second, 8, gives row 8 (−0.18, −0.66, −0.29, 1.72, …). Nothing is multiplied. The batch's 64 labels pick 64 rows, so [64] becomes [64, 16], and equal labels give equal rows: the batch's 8th to 10th labels are all 1. The same answer as a product: a one-hot row for 8 times the table gives row 8 exactly, with 160 multiplications, 144 of them by 0, where the lookup needs none.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_d",
+  "title": "nn.Embedding: a table you look up",
+  "summary": "nn.Embedding(10, 16) is a table of 160 numbers. A label picks its row by lookup, not multiplication, so the batch's 64 labels become a [64, 16] block."
+ },
+ {
+  "number": 196,
+  "name": "blocks-attention",
+  "description": "nn.MultiheadAttention(16, 2, batch_first=True) drawn as blocks, on 5 tokens of a real digit. Where the code makes up torch.randn(64, 5, 16), each of the first batch's 64 digits gives 5 patches of 4 × 4 pixels across its middle: 16 numbers per token, [64, 5, 16]. The weights are untrained and initialised as PyTorch does, seeded. Three 16 × 16 grids turn the tokens into Q, K and V, each cut into 2 heads of 8. In head 1, token 5 (the 0's right stroke) scores against token 2 (its left stroke) as 3.67 ÷ √8 = 1.30. Softmax turns that row into 0.05, 0.59, 0.16, 0.16, 0.03, which adds up to 1. Tokens 3 and 4 are blank paper and score alike. The scores the line returns are the two heads' grids averaged, [64, 5, 5]. Each output row mixes V's rows by its scores (token 5 takes 0.59 of token 2's in head 1), then out_proj, one more 16 × 16 grid, gives out, [64, 5, 16]. Its weights are counted in \"Counting the weights: a transformer\", and a trained model's attention is in \"Inside GPT-2\".",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_d",
+  "title": "nn.MultiheadAttention as blocks",
+  "summary": "Attention as blocks on 5 patches of a real digit: Q, K and V from three weight grids, each head's grid of scores whose rows add up to 1, and an output that mixes V's rows."
+ },
+ {
+  "number": 197,
+  "name": "blocks-logits-and-softmax",
+  "description": "One held-out digit through the course's trained model: test digit 15, a 5 (the first the model gets right with less than 90% on it, so that the other bars show). Its 10 logits come out as bars either side of 0: 4.96 for 5, 3.69 for 3, 1.97 for 8, down to −3.16 for 4. probs = logits.softmax(dim=1) turns them into positive shares, 0.74 for 5, 0.21 for 3, 0.04 for 8, which added up one at a time make 1.00. nn.CrossEntropyLoss takes the logits and does the softmax itself: the loss is −ln 0.74 = 0.30 on the purple meter. With nn.Softmax(dim=1) at the end of the model the loss softmaxes again: the bars go flat (0.09 to 0.18), this digit's loss is 1.69, and no model can get below ln(1 + 9/e) = 1.46; the run trained that way gets 85% of the test digits right, against 95%.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_e",
+  "title": "Logits and softmax",
+  "summary": "The model's 10 logits become bars that add up to 1, and nn.CrossEntropyLoss takes the logits: −ln 0.74 = 0.30, where a softmax in front would keep the loss above 1.46."
+ },
+ {
+  "number": 198,
+  "name": "blocks-which-is-which",
+  "description": "A recap of the eleven blocks so far, two or three at a time, with a pause to guess before each answer. Each block shows its call from the real code, its input shape and a question mark for its output shape and its weights; then the answers come one block at a time. nn.Flatten() turns [64, 1, 28, 28] into [64, 784] and learns 0; nn.Linear(784, 64) gives [64, 64] and learns 784 × 64 + 64 = 50,240; nn.ReLU() learns 0. nn.Conv2d(1, 4, 3) gives [64, 4, 26, 26] with 4 × 1 × 3 × 3 + 4 = 40; nn.MaxPool2d(2) halves each side to 13 × 13; nn.Dropout(0.2) keeps the shape; neither of those two learns. nn.BatchNorm1d(64) and nn.LayerNorm(64) learn 64 + 64 = 128 each, nn.Embedding(10, 16) is a table of 10 × 16 = 160, nn.MultiheadAttention(16, 2) keeps [64, 5, 16] and learns 4 × 16 × 16 + 4 × 16 = 1,088, and softmax learns nothing. A tally along the bottom ends at 6 of the 11 blocks learning weights. Every shape and count is worked out from the settings in the code and checked against PyTorch's own modules.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_e",
+  "title": "Which block is which",
+  "summary": "Eleven blocks, each with its line of code, its input and output shapes and its weight count, guessed and then answered: 6 of the 11 learn weights, from 40 in a Conv2d to 50,240 in nn.Linear(784, 64)."
+ },
+ {
+  "number": 199,
+  "name": "blocks-the-data-pipeline",
+  "description": "Where the batches come from. MNIST(\"data\", transform=prep) gives 60,000 training digits and 10,000 test digits. A 3 × 3 window of the first training digit, a 5, is read out as its pixels 0..255 (190, 253, 70 …); ToTensor divides by 255 (0.75, 0.99, 0.27 …); Normalize((0.1307,), (0.3081,)) subtracts the mean and divides by the spread of all 47,040,000 training pixels, computed here as 0.13066 and 0.30811, so the pixel 81 becomes 0.318 and then (0.318 − 0.1307) ÷ 0.3081 = 0.61, the paper −0.42. DataLoader(..., shuffle=True) mixes the digits in a new order every epoch: the first epoch starts with digits 31202, 55764, 45425, the second with 13043, 20175, 4220. Then batches of 64 ride a conveyor belt into the model, one after another, 938 of them: 937 × 64 + 32 = 60,000, one epoch.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_e",
+  "title": "The data pipeline",
+  "summary": "MNIST, ToTensor (÷ 255) and Normalize (the real mean 0.1307 and spread 0.3081 of all 47 million pixels), then a shuffling DataLoader: 938 batches on a conveyor belt make one epoch."
+ },
+ {
+  "number": 200,
+  "name": "blocks-forward-pass",
+  "description": "The first batch of 64 digits goes through the untrained model with logits = model(x). Its six blocks are stacked in the order of nn.Sequential, and the batch reaches them one at a time. After each block the batch appears as a blue block of 64 rows, one per digit, as wide as its numbers per digit, with its shape beside it. Flatten makes each 28 × 28 digit one strip, so [64, 1, 28, 28] becomes [64, 784]. Linear(784, 64) gives 64 numbers per digit, [64, 64]. ReLU turns its negative numbers to 0, drawn grey: 46% of them. Linear(64, 32) gives [64, 32], and the second ReLU zeroes 45%. The last Linear(32, 10) gives 10 scores per digit, the logits, [64, 10]. Untrained, they all lie between −0.28 and 0.27. Each shape is checked against the arrays, and the logits against the model run again.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_f",
+  "title": "The forward pass",
+  "summary": "logits = model(x): one batch of 64 digits through the six blocks in order, its shape changing at each, from [64, 1, 28, 28] to the logits' [64, 10]."
+ },
+ {
+  "number": 201,
+  "name": "blocks-the-loss",
+  "description": "loss = loss_fn(logits, y) on the first batch, before any training. The batch's first digit is a 0, and the untrained model gives 0 a chance of 0.094 (the softmax of its logits, which nn.CrossEntropyLoss works out inside), so that digit's loss is −ln 0.094 = 2.36. Every digit gets a loss the same way, one purple bar each: 64 bars, from 2.10 to 2.55. The loss is their mean: the 64 add up to 148.63, and 148.63 ÷ 64 = 2.322, one number on the purple meter that says how wrong the model is. A blind guess of 1 in 10 for every digit would score −ln 0.1 = ln 10 = 2.303, so the untrained model is almost exactly guessing. The mean is checked against the recorded first loss of the run, and each bar against −ln of its digit's chance.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_f",
+  "title": "The loss",
+  "summary": "loss = loss_fn(logits, y): one loss per digit, −ln of the chance given to the right label, and their mean, 2.322, close to ln 10 = 2.303 for an untrained model."
+ },
+ {
+  "number": 202,
+  "name": "blocks-backward",
+  "description": "loss.backward() on the first batch, from the untrained weights. The model's three Linear blocks hold their weights as orange tiles and their biases as thin orange strips. Starting from the loss, 2.322, the backward pass works up the stack from the last layer to the first. Red gradient tiles appear behind each weight: first behind Linear(32, 10)'s [10, 32] weights and its 10 biases, 330 numbers; then Linear(64, 32)'s [32, 64], 2,410 so far; then Linear(784, 64)'s [64, 784], 52,650 in all, one gradient for every number the model learns. Then each gradient slides out beside its weight: .grad always has its weight's shape, and print(model[1].weight.grad.shape) prints torch.Size([64, 784]). The gradients are the recorded ones of the run, checked against loss.backward() of the script's own PyTorch lines and, in float64, against the change in the loss when single weights are nudged.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_f",
+  "title": "loss.backward()",
+  "summary": "loss.backward() puts red gradient tiles behind every weight and bias, from the last layer back to the first: 52,650 of them, each .grad the shape of its weight."
+ },
+ {
+  "number": 203,
+  "name": "blocks-zero-grad",
+  "description": "optimizer.zero_grad() shown on the last layer's weight, model[5].weight, a 10 × 32 block of orange tiles with its gradient as red tiles behind it. After the first batch, loss.backward() leaves a red gradient behind every weight; three of them read 0.0161, −0.0454 and −0.0256, and all 52,650 together have a size (length) of 0.84. zero_grad() sets every one to 0 (grey), and the second batch's backward fills them with its own gradients, of size 0.78. In the real run that leaves zero_grad out, backward adds to the old tiles instead: after two batches .grad holds their sum, size 1.29, and after 100 batches 37.56, while that batch's own gradient is only 0.17. The model trained this way lets its loss climb back up to about 2.6 (mean of 25 steps), where the script's run falls to 0.13. After one epoch it gets 10% of the 10,000 test digits right, no better than guessing, against the script's 95%. Code from examples/mnist_blocks.py (the step) and examples/blocks_parts.py (the broken step).",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_g",
+  "title": "optimizer.zero_grad()",
+  "summary": "optimizer.zero_grad() empties the red gradient tiles before each backward; the real run that forgets it piles them up to 45 times their size and gets 10% of test digits right, against 95%."
+ },
+ {
+  "number": 204,
+  "name": "blocks-optimizer-step",
+  "description": "optimizer.step() with SGD(lr=0.1), one real step from the first weights. The optimizer is a green hand and the learning rate a dial set to 0.1. Three tiles of model[5].weight are stepped one at a time with their real numbers. Each moves against its red gradient by 0.1 times it: 0.0858 − 0.1 × 0.0161 = 0.0842 goes down, 0.1521 − 0.1 × (−0.0454) = 0.1566 goes up, and −0.1276 − 0.1 × (−0.0256) = −0.1250 goes up. The hand then sweeps the whole block: the same rule moves its 320 numbers and all 52,650 of the model at once. The new weights are exactly the recorded weights of the next step. On the same 64 digits the loss was 2.3223 before the step and is 2.2616 after it, lower by 0.0607.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_g",
+  "title": "optimizer.step()",
+  "summary": "optimizer.step() moves every weight by 0.1 times its gradient, against it: 0.1521 becomes 0.1566, and the same batch's loss drops from 2.3223 to 2.2616."
+ },
+ {
+  "number": 205,
+  "name": "blocks-learning-rate",
+  "description": "The learning rate as a dial, turned to three settings from the same start: the same model, data and first weights, with first loss 2.32. The script's line is lr=0.1; the other two runs change only that number. On the first step one tile moves 0.000045 at lr=0.001, 0.0045 at lr=0.1 and 0.036 at lr=0.8. Each run's training loss (mean of each 25 steps) is drawn in its own row over 938 steps. At 0.001 it crawls, still at 1.96 after one epoch, with 55% of the 10,000 test digits right. At 0.1 it learns, down to 0.13, with 95% right. At 0.8 every step jumps too far: the loss bounces, one batch reaches 18.85, and only 27% are right.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_g",
+  "title": "The learning rate",
+  "summary": "From the same start, lr=0.001 crawls (55% right), lr=0.1 learns (95%) and lr=0.8 bounces (27%): one number decides how a run ends."
+ },
+ {
+  "number": 206,
+  "name": "blocks-adam",
+  "description": "torch.optim.Adam keeps two more numbers for every number the model learns: m and v, two blocks the shape of the weights, both 0 at the start. For the MNIST classifier's 52,650 numbers that makes 3 × 52,650 = 157,950. One weight of the last layer goes through Adam's second step with its real numbers. Its gradient is −0.021709, so m becomes 0.9 × −0.004535 + 0.1 × −0.021709 = −0.006252 and v becomes 0.999 × 2.057×10⁻⁶ + 0.001 × 0.021709² = 2.526×10⁻⁶. Corrected for the early steps, m ÷ 0.19 = −0.0329 and √(v ÷ 0.001999) = 0.0355. The weight then moves by 0.001 × 0.0329 ÷ 0.0355 = +0.00093, from 0.15306 to 0.15398. No number in the model moves by more than 0.0010, the learning rate. From the same start, the real runs show Adam (lr 0.001) lower for the first 236 steps and SGD (lr 0.1) lower from step 237. After one epoch they get 94.61% and 94.94% of the 10,000 held-out digits right.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_h",
+  "title": "Adam keeps two more blocks",
+  "summary": "Adam keeps an m and a v for every weight, three times the numbers, and moves each weight by about its learning rate: one weight's update worked with real numbers, and the real Adam and SGD runs."
+ },
+ {
+  "number": 207,
+  "name": "blocks-the-training-loop",
+  "description": "The training loop drawn as a circular track, with the five lines of a step as its stations: the loader gives a batch (data), logits = model(x) (forward), loss = loss_fn(logits, y) (loss), optimizer.zero_grad() and loss.backward() (backward), and optimizer.step() (step). The first batch goes round once, slowly. It is x of shape [64, 1, 28, 28], which gives logits of shape [64, 10] and a loss of 2.322, close to ln 10 = 2.303 for a model that has not learned yet. The gradients are set to 0, loss.backward() makes 52,650 of them, and the step moves all 52,650 numbers. Then the loop goes round 938 times, once per batch. The step counter climbs and the real loss of every step draws as it goes, falling from 2.32 to 0.16. At the end of the epoch, print(epoch, loss.item()) shows the last batch's loss, 0.1583.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_h",
+  "title": "The training loop",
+  "summary": "for x, y in loader as a circular track: one batch goes once round the five lines of a training step, then 938 times, while the step counter and the real loss curve draw."
+ },
+ {
+  "number": 208,
+  "name": "blocks-epochs-and-batches",
+  "description": "60,000 training digits in batches of 64: 60,000 ÷ 64 = 937.5, so the loader makes 937 batches of 64 and a last one of 32 (937 × 64 + 32 = 60,000). That is 938 steps, one epoch, in which each digit is used exactly once. With shuffle=True the loader deals the same 60,000 digits in a new order every epoch: the first three epochs start with digits 31,202, 13,043 and 32,956. The course's SGD run, continued for two more epochs, shows the loss of every one of its 2,814 steps jumping from batch to batch. In the third epoch alone it ranges from 0.006 to 0.484, while the mean loss of each epoch falls steadily: 0.315, 0.135, 0.098. Held-out accuracy after the three epochs is 94.94%, 95.97% and 96.31%.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_h",
+  "title": "Epochs and batches",
+  "summary": "60,000 digits ÷ 64 make 938 steps, one epoch; the loader shuffles again each epoch; the loss per step jumps while the loss per epoch falls, 0.315, 0.135, 0.098."
+ },
+ {
+  "number": 209,
+  "name": "blocks-evaluation",
+  "description": "Testing the trained model as region evaluate of examples/mnist_blocks.py does it. model.eval() is a switch from train to eval; this model has no dropout, so none of its numbers changes (on the course's dropout run it matters: 0.9435 in test mode, 0.919 left in training mode). correct = 0 starts a running total that stays on screen. Under with torch.no_grad(): the forward pass lights the three weights in turn and no red gradient tile is made behind them: 0, where a training step makes 52,650. The first ten held-out digits are counted one by one, each with the model's answer and a tick or a cross: test digit 8 is a 5 that the model calls a 6, so 9 of the 10 are right. Then test_loader's ten batches of 1,000 add up: 949, 916, 929, 943, 931, 958, 961, 976, 977 and 954 right, so correct grows 949, 1,865, … to 9,494, and the last line prints 9,494 / 10,000 = 0.9494. The model is the course's one run after one epoch of SGD (lr 0.1, batches of 64).",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_i",
+  "title": "Testing the model",
+  "summary": "model.eval() and torch.no_grad(): no gradients are made, and the held-out digits are counted one by one, 9,494 of 10,000 right (0.9494)."
+ },
+ {
+  "number": 210,
+  "name": "blocks-save-and-load",
+  "description": "model.state_dict() drawn as six labelled orange boxes of tiles, each with its key and shape: 1.weight [64, 784], 1.bias [64], 3.weight [32, 64], 3.bias [32], 5.weight [10, 32], 5.bias [10]. Counted, they hold 50,176 + 64, 2,048 + 32 and 320 + 10 = 52,650 numbers, 210,600 bytes at 4 bytes a float32. torch.save(state, \"mnist.pt\") packs a copy of each into the file; torch.load and load_state_dict put them, by name, into a new model of the same shape (drawn with fresh random numbers until each tensor arrives). Every number comes back exactly (largest change 0), so the loaded model gives the same answer on 10,000 of 10,000 held-out digits, accuracy 0.9494 before and after. The round trip is measured in numpy (written to bytes and read back), not with torch.save.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_i",
+  "title": "Saving and loading",
+  "summary": "torch.save(model.state_dict()): 52,650 numbers in six named tensors, packed into a file and loaded back exactly, with the same answer on 10,000 of 10,000 test digits."
+ },
+ {
+  "number": 211,
+  "name": "blocks-one-step-slow-motion",
+  "description": "One whole training step in slow motion: the recorded second step (step 2 of 938) of the course's run, one station of the loop map per phase, beside the six lines of the step. Data: a batch, x [64, 1, 28, 28] and y [64], labels 9, 4, 8, 1, 3, 5, 8, 1, … Forward: logits = model(x), and the batch's shape after each block: [64, 784], [64, 64], [64, 32], [64, 10]; the first digit is a 9, and its highest score is for 5. Loss: the purple meter fills to 2.28, near ln 10 = 2.30: the model is still guessing. Backward: optimizer.zero_grad() takes away the red tiles left from step 1, then loss.backward() makes 52,650 new ones, from the last layer back to the first. Step: the green hand passes over the weights, and one tile of 5.weight is read out: −0.1525 − 0.1 × (−0.0273) = −0.1498. On the same batch the loss falls from 2.28 to 2.23. Every number is recomputed from the recorded weights and batch, and the update matches the recorded weights of the next step exactly.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_i",
+  "title": "One training step, slowly",
+  "summary": "One recorded training step, station by station: a batch, the forward pass, a loss of 2.28, 52,650 gradients, and every weight moved, so the loss on that batch falls to 2.23."
+ },
+ {
+  "number": 212,
+  "name": "blocks-one-epoch-fast",
+  "description": "The course's MNIST classifier (784-64-32-10, SGD at lr 0.1, batches of 64) through its first epoch, 938 steps, sped up. The run is replayed step by step from the same initial weights over the same batches and matches the recorded run bit for bit. The first layer's weights are kept at 49 steps, more often early on. Four of its 64 units (the first four, not chosen) are drawn as 28 × 28 pictures of orange weight tiles: random noise at the start, strokes after the epoch. How alike next-door weights are (their correlation, averaged over all 64 units) goes from 0.0 to 0.18 by step 100 and 0.41 at the end. Meanwhile the loss of each step falls from 2.32 (ln 10 = 2.30) to 0.16 for the last batch. The held-out accuracy, measured every 25 steps on the 10,000 test digits, rises from 7.6% to 94.9%. The code panel is the script's training loop, ending in print(epoch, loss.item()) → 0 0.1583479940891266.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_j",
+  "title": "One epoch, fast",
+  "summary": "One epoch of the course's MNIST classifier sped up: the first layer's weights turn from noise into strokes while the loss falls from 2.32 to 0.16 and the held-out accuracy rises from 7.6% to 94.9%."
+ },
+ {
+  "number": 213,
+  "name": "blocks-the-whole-program",
+  "description": "The whole of examples/mnist_blocks.py, 63 lines, on a map beside the picture: each line a bar of its length in the colour of its part, lit once it has run. The code panel scrolls down the program in eight windows of at most 8 lines: the device, the data, the batches, the model, the loss and optimizer, the training loop, the test, and save and load (the 7 lines of imports and the two prints after the loop are on the map only). Each part of the picture appears and lights while its lines run: the device (\"cuda\" if there is a GPU, else \"cpu\"); train_set (60,000) and test_set (10,000), and a batch of 64; the model's three weight grids, then .to(device) moving them onto the device; loss_fn and the optimizer; one step of the loop, with the batch moved to the device, the forward pass, the loss (2.32 on the first step), the red gradient tiles and the optimizer's hand, then 938 steps to a loss of 0.16; the test, 9,494 of 10,000 right, printed as 0.9494; and the 52,650 numbers saved to mnist.pt and loaded back. The loop map follows the running line, and the printed outputs are the script's own lines' outputs, from the course's numpy run.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_j",
+  "title": "The whole program",
+  "summary": "The whole training script, 63 lines, scrolled through a part at a time beside a picture in which each part (device, data, batches, model, loss, optimizer, loop, test, save) lights up as its lines run."
+ },
+ {
+  "number": 214,
+  "name": "blocks-common-mistakes",
+  "description": "Four broken versions of the course's program (examples/blocks_parts.py), each run for one epoch from the same weights over the same batches and scored on the 10,000 held-out digits, against the right program's 94.9%. Forgetting optimizer.zero_grad(): .grad keeps the sum of every step's gradient, 37.6 long at the end against 0.28 for the last batch alone; the run reaches 53% at step 25, then collapses to 10.1%. Forgetting model.eval() with dropout (nn.Dropout(0.2) after each ReLU): testing still switches 1 in 5 hidden numbers off (one random mask of 64 is drawn, with 13 off), and accuracy is 91.9% instead of 94.4% with eval(). A softmax put in front of nn.CrossEntropyLoss: the loss then reads probabilities, so it cannot go below ln(e + 9) − 1 = 1.46 (exact); its lowest step is 1.52, and accuracy is 85.0%. Forgetting nn.Flatten(): nn.Linear(784, 64) reads the last dimension, 28, as the features, so the batch [64, 1, 28, 28] becomes 64 × 1 × 28 = 1,792 rows of 28, and torch stops with RuntimeError: addmm: mat1 and mat2 shapes cannot be multiplied (1792x28 and 784x64), torch 2.15's message, checked against torch in a test. Last, the four side by side.",
+  "section": "e. Blocks and code (30)",
+  "module": "study_blocks_j",
+  "title": "Common mistakes",
+  "summary": "Four common mistakes, each run for real: forgetting zero_grad (10.1% held-out accuracy), forgetting model.eval() with dropout (91.9% instead of 94.4%), a softmax before the loss (85.0%, the loss stuck above 1.46), and no Flatten (torch's shape error, in plain words)."
+ },
+ {
+  "number": 215,
+  "name": "blocks-cnn-the-model",
+  "description": "examples/mnist_cnn.py's model built block by block as its lines run: Conv2d, ReLU and MaxPool2d twice, then Flatten and Linear, each with its output shape on the first batch ([64, 1, 28, 28] → [64, 8, 26, 26] → [64, 8, 13, 13] → [64, 16, 11, 11] → [64, 16, 5, 5] → [64, 400] → [64, 10]). print(model)'s real text is shown beside the blocks in two halves. Only the two Conv2d blocks and the Linear learn numbers: 80 + 1,168 + 4,010 = 5,258, against the MLP's 52,650.",
+  "section": "f. A CNN for the same digits (9)",
+  "module": "study_blocks_k",
+  "title": "The CNN, block by block",
+  "summary": "The course's program with a CNN for its model: eight blocks, their shapes, and 5,258 numbers to learn instead of 52,650."
+ },
+ {
+  "number": 216,
+  "name": "blocks-cnn-shapes",
+  "description": "The side of the CNN's maps walked down as squares that shrink, to scale, on a real digit's maps: 28, then 26 after a 3 × 3 stamp, 13 after 2 × 2 pooling, 11, then 5 (11 ÷ 2 = 5.5, the odd last row and column dropped). 16 maps of 5 × 5 are 16 × 5 × 5 = 400 numbers, the in_features of nn.Linear(16 * 5 * 5, 10). With nn.Linear(784, 10) instead, torch stops: \"mat1 and mat2 shapes cannot be multiplied (64x400 and 784x10)\", because 400 numbers arrive and the layer expects 784.",
+  "section": "f. A CNN for the same digits (9)",
+  "module": "study_blocks_k",
+  "title": "Where the 400 comes from",
+  "summary": "Why the CNN's last layer reads 400 numbers: 28 → 26 → 13 → 11 → 5, and 16 × 5 × 5."
+ },
+ {
+  "number": 217,
+  "name": "blocks-cnn-forward",
+  "description": "train_set[0], a 5, through the CNN after its epoch, as a batch of one: 8 stamps make 8 maps of 26 × 26 (ReLU sets 61% of their numbers to 0); pooling leaves 8 maps of 13 × 13; 16 stamps make 16 maps of 11 × 11, pooled to 5 × 5; Flatten lines them up as 400 numbers; nn.Linear makes 10 scores, and the 5's is the biggest, 10.16, with the 3 next at 8.22.",
+  "section": "f. A CNN for the same digits (9)",
+  "module": "study_blocks_k",
+  "title": "One digit through the CNN",
+  "summary": "One digit through the trained CNN, block by block: the maps each block makes, and the scores at the end."
+ },
+ {
+  "number": 218,
+  "name": "blocks-cnn-backward",
+  "description": "loss.backward() on the CNN's first batch: red gradient tiles appear behind the 8 stamps of the first nn.Conv2d, and model[0].weight.grad comes out with the stamps' shape, [8, 1, 3, 3], 72 numbers. One of them, stamp 1's centre weight, is built from its parts. On one digit, each of the 676 places the stamp sat adds pixel × red (three worked out: 2.59 × 0.00039 = 0.00100, 2.50 × −0.00023 = −0.00059, 2.82 × 0 = 0; only 50 are not 0), and that digit's parts add to 0.00599. Over 64 digits × 676 places = 43,264 parts, one bar per digit, they add up to 0.05934, the number PyTorch leaves in .grad.",
+  "section": "f. A CNN for the same digits (9)",
+  "module": "study_blocks_l",
+  "title": "A shared stamp's gradient",
+  "summary": "A shared stamp's gradient is the sum of one small part for every place it sat on every digit: 43,264 parts, adding up to PyTorch's number."
+ },
+ {
+  "number": 219,
+  "name": "blocks-cnn-same-loop",
+  "description": "examples/mnist_blocks.py and examples/mnist_cnn.py side by side: the MLP's six blocks (52,650 numbers) and the CNN's eight (5,258) come from the only model lines that differ. The six lines of a training step are identical in both files, as are 55 of the programs' 63 lines (the others are the model, a print of a .grad's shape, and the saved file's name). Both trained once on the same 938 batches: their losses, each point the mean of 25 steps; the CNN's is lower at all 38 points, and over the last 100 steps it is 0.095 against the MLP's 0.164.",
+  "section": "f. A CNN for the same digits (9)",
+  "module": "study_blocks_l",
+  "title": "The same training loop",
+  "summary": "Change the model, keep everything else: the same lines train the CNN, on the same batches, to a lower loss."
+ },
+ {
+  "number": 220,
+  "name": "blocks-cnn-stamps-learn",
+  "description": "The first nn.Conv2d's 8 stamps of 3 × 3, one row per moment of training: as they start (random, none bigger than 1/3), and after 10, 100, 500 and 938 steps. On average each weight has moved 0.02 from its start after 10 steps and 0.14 after the epoch, and the biggest grows from 0.32 to 0.65. Then a real training digit, a 5, and the 8 maps the stamps make of it, untrained and trained, each column one stamp before and after.",
+  "section": "f. A CNN for the same digits (9)",
+  "module": "study_blocks_l",
+  "title": "The stamps learn",
+  "summary": "The CNN's first eight stamps from random to trained, a row per step, and the maps they make of one digit before and after."
+ },
+ {
+  "number": 221,
+  "name": "blocks-cnn-against-the-mlp",
+  "description": "The course's MLP and the CNN of examples/mnist_cnn.py, each trained for one epoch with SGD at lr 0.1 on the same batches in the same order, one run each. Their numbers to learn are drawn as two stacks of orange tiles to scale, 250 numbers to a tile: 52,650 for the MLP and 5,258 for the CNN (80 + 1,168 + 4,010), ten times fewer. Their held-out accuracy, measured every 25 steps on the same 10,000 test digits, climbs side by side; after step 0 the CNN is ahead at every test, and it ends at 96.4% against 94.9%. The CNN misses 364 digits and the MLP 506. Per digit, the CNN misses far fewer 5s (33 against 117) and 3s (24 against 59), but more 8s (131 against 64) and 2s (71 against 60). A table keeps the numbers as they come, headed \"one run each\": each model was trained from one seed, and nothing here measures how much another seed would move them.",
+  "section": "f. A CNN for the same digits (9)",
+  "module": "study_blocks_m",
+  "title": "The CNN against the MLP",
+  "summary": "The CNN against the MLP after one epoch, one run each: 5,258 numbers against 52,650, 96.4% held-out accuracy against 94.9%, and which digits each misses."
+ },
+ {
+  "number": 222,
+  "name": "blocks-cnn-what-it-gets-wrong",
+  "description": "The 364 of 10,000 test digits the CNN of examples/mnist_cnn.py misses after one epoch, by digit and by confusion. By digit, 8s are its weak point: 131 of the 974 eights, then 71 twos. Its three most common mistakes are an 8 read as a 9 (36 times), a 2 read as a 7 (33) and an 8 read as a 0 (22), 91 of the 364 together. Each is shown as its part of the digit's bar, with the first four such test digits in test-set order (not picked) and what the CNN said. Looked at by eye, most are digits a person reads easily; one, test digit 947, an 8 with its lower loop filled in, could pass for a 9, and the CNN called it a 9 with a softmax of 0.99.",
+  "section": "f. A CNN for the same digits (9)",
+  "module": "study_blocks_m",
+  "title": "What the CNN gets wrong",
+  "summary": "The 364 test digits the CNN misses: most are 8s, most often read as 9s, and most of them are digits a person reads easily."
+ },
+ {
+  "number": 223,
+  "name": "blocks-cnn-common-mistakes",
+  "description": "Three broken versions of the CNN in examples/blocks_parts.py, each with PyTorch's own error (torch 2.15, checked against torch in a test) and the shapes that explain it. nn.Linear(784, 10) after the convolutions: Flatten hands it 16 × 5 × 5 = 400 numbers per digit, not 784, and torch stops with RuntimeError: addmm: mat1 and mat2 shapes cannot be multiplied (64x400 and 784x10). nn.Conv2d(3, 8, 3) on grey digits: its stamps are 3 × 3 × 3, built for a colour picture, while the batch [64, 1, 28, 28] has 1 channel, so torch says weight of size [8, 3, 3, 3], expected input[64, 1, 28, 28] to have 3 channels, but got 1 channels instead. x[0] drops the batch: the blocks read [1, 28, 28] as one digit, Flatten turns [16, 5, 5] into 16 rows of 25 instead of one row of 400, and torch says (16x25 and 400x10). The fix, x[0:1], keeps a batch of one, [1, 1, 28, 28]: one row of 400 after Flatten and scores of shape [1, 10]. Last, the three shapes to check: 1 channel in, 400 into the Linear, and the batch in front.",
+  "section": "f. A CNN for the same digits (9)",
+  "module": "study_blocks_m",
+  "title": "CNN mistakes",
+  "summary": "Three common CNN mistakes and the error each one gives, in plain words: the wrong in_features (400 arrive, not 784), the wrong number of channels (3 for a grey digit), and one digit without its batch; then the fix, x[0:1]."
  }
 ]

@@ -6,4 +6,4 @@ Start at :mod:`voxanim.presets` (every animation, by name) and
 The architecture is described in README.md.
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"

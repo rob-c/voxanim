@@ -76,9 +76,11 @@ def _captioned(anim, title, subtitle):
     anim.cam = dataclasses.replace(cam, zoom=cam.zoom * CAPTION_ZOOM,
                                    anchor=(cam.anchor[0], cam.anchor[1] + CAPTION_DROP))
 
-    def captioned(t):
-        sc = scene(t)
-        title_block(sc, title, subtitle)
+    def captioned(t, **options):
+        # options (probes_only for the motion-blur measure) pass through to the scene
+        sc = scene(t, **options)
+        if not options.get("probes_only"):
+            title_block(sc, title, subtitle)
         return sc
 
     anim.scene = captioned

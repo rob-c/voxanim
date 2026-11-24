@@ -91,6 +91,12 @@ MNIST |= {"network-regression", "classifier-score-as-variable", "boosted-regress
 MNIST |= {item["name"] for item in ITEMS if 160 <= item["number"] <= 175}
 # the bridges between topics: all on MNIST but the chain-to-RNN one, which reads real text
 MNIST |= {item["name"] for item in ITEMS if 176 <= item["number"] <= 182} - {"markov-chain-to-rnn"}
+# counting the weights: the DNN and CNN are checked against their trained arrays
+MNIST |= {"counting-weights-dnn-and-cnn"}
+# blocks and code: one MNIST classifier trained once (study_course) and shown block by block
+MNIST |= {item["name"] for item in ITEMS if 185 <= item["number"] <= 214}
+# blocks and code, a CNN: the same program with a CNN for its model (study_course_cnn)
+MNIST |= {item["name"] for item in ITEMS if 215 <= item["number"] <= 223}
 TEXT = {
     item["name"]
     for item in ITEMS
@@ -173,6 +179,21 @@ DRAWN_BY = (
     ("mech_bridge_text", 180, 180),
     ("mech_bridge_reward", 181, 181),
     ("mech_bridge_bits", 182, 182),
+    ("mech_count_nets", 183, 183),
+    ("mech_count_attention", 184, 184),
+    ("mech_blocks_a", 185, 187),
+    ("mech_blocks_b", 188, 190),
+    ("mech_blocks_c", 191, 193),
+    ("mech_blocks_d", 194, 196),
+    ("mech_blocks_e", 197, 199),
+    ("mech_blocks_f", 200, 202),
+    ("mech_blocks_g", 203, 205),
+    ("mech_blocks_h", 206, 208),
+    ("mech_blocks_i", 209, 211),
+    ("mech_blocks_j", 212, 214),
+    ("mech_blocks_k", 215, 217),
+    ("mech_blocks_l", 218, 220),
+    ("mech_blocks_m", 221, 223),
 )
 NUMBER = {item["name"]: item["number"] for item in ITEMS}
 
