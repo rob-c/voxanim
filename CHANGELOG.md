@@ -1,5 +1,42 @@
 # Changelog
 
+## 2.5.0
+
+Eight animations between machine learning and a physics result (272–279), chosen after
+reading the glossary again: 21 of its 27 terms with no animation were HEP working practice.
+All on seeded made-up data, said on screen; each has a real program in `examples/` and a
+numpy study checked against it (and against torch where the program trains a network).
+
+- **Error bars on a network** (272), after "Minuit and SGD": the same fit trained by SGD 100
+  times. New seeds alone spread by about 0.02 (the optimiser's noise); bootstrap resamples
+  spread by 0.15, 0.14, 0.11, near HESSE's 0.18, 0.21, 0.11 and tilted alike (−0.82 against
+  −0.81), a third short in τ, which is the bootstrap's own shortfall, not SGD's.
+- New section **The classifier and the likelihood ratio**:
+  - **A classifier learns the likelihood ratio** (273): s / (1 − s) within 10% of the exact
+    ratio where there are events, drifting where there are none; at 5% of H0 kept it keeps
+    19.6% of H1 against the best test's 19.3% and one cut's 9.9%.
+  - **Reweighting simulation with a classifier** (274): weights s / (1 − s) make made-up
+    simulation match made-up data to 12–14%, even in x + y, never an input; where it fails
+    (tails, extreme weights, few events) is shown too.
+- New section **From simulation to a result**:
+  - **Event weights** (275): σ × L ÷ N, in a histogram, a loss (mean score 0.135 against
+    0.250 unweighted) and an efficiency (3.5% against 1.8%); negative weights keep the sum
+    but 10,000 events are worth 3,600.
+  - **Simulation is not data: scale factors** (276): a control region gives ε_data ÷ ε_MC =
+    0.925 ± 0.008, which brings the prediction within one error of the data; it fixes the
+    count, not the shape.
+  - **Unfolding: running the smearing backwards** (277): the response matrix from simulation;
+    inverting it swings by thousands through its small singular values; D'Agostini's
+    iterations trade bias for spread, best near 10 here.
+  - **The Asimov dataset** (278): one dataset of expected counts gives 2.93 σ, on the median
+    of 10,000 toys (2.89); s / √b says 9.98 σ where the Asimov dataset and the toys agree on
+    6.77 and 6.74.
+- New section **Jets as sets of particles** (279): shuffling a jet's particles drops an MLP
+  from 90.2% to 78.3% and flips 754 of 4,000 answers; Deep Sets keeps 92.4% with none
+  flipped.
+- The glossary links 13 more terms to animations and adds 8 (365 entries).
+- `voxanim.blocks.regions()` reads every program in `examples/`, so a new one needs no entry.
+
 ## 2.4.1
 
 One new animation (399 in all). It and `resample-up`, whose "next" now points to it, are

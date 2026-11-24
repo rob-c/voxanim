@@ -42,11 +42,16 @@ MINUIT_REGIONS = {"mn-" + n for n in ("imports", "data", "model", "chi2", "migra
 # ---------------------------------------------------------------------- the code regions
 def test_every_region_is_there_once():
     r = B.regions()
-    assert set(r) == (SCRIPT_REGIONS | PARTS_REGIONS | CNN_REGIONS | PADDING_REGIONS
+    assert set(r) >= (SCRIPT_REGIONS | PARTS_REGIONS | CNN_REGIONS | PADDING_REGIONS
                       | VDB_REGIONS | FACES_REGIONS | HOSTING_REGIONS | THINKING_REGIONS
                       | RESAMPLE_REGIONS | AE_GAN_REGIONS | MINUIT_REGIONS)
     assert {n for n, (p, _l) in r.items() if p == B.PADDING} == PADDING_REGIONS
     assert {n for n, (p, _l) in r.items() if p == B.SCRIPT} == SCRIPT_REGIONS
+    # every other example file's regions share one prefix of their own ("en-", "lr-", ...)
+    for path in {p for p, _l in r.values()}:
+        prefixes = {n.split("-")[0] for n, (p, _l) in r.items() if p == path}
+        if path not in (B.SCRIPT, B.PARTS):
+            assert len(prefixes) == 1, (path.name, prefixes)
     assert {n for n, (p, _l) in r.items() if p == B.CNN_SCRIPT} == CNN_REGIONS
     assert B.code_file("model") == "examples/mnist_blocks.py"
     assert B.code_file("conv") == "examples/blocks_parts.py"

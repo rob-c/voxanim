@@ -613,7 +613,7 @@ class Versus(Fit):
     PHASES = (("Minuit", 9.0), ("a batch", 12.0), ("the walk", 14.0), ("the end", 13.0),
               ("the counts", 12.0))
     LAST = "How Minuit feels its way"
-    NEXT = "The likelihood curve"
+    NEXT = "Error bars on a network"
     AVERAGE_U = 0.45            # phase 4: the average of the last 1,000 is drawn, and counted
     FIRST_U = 0.6               # phase 2: SGD's first step
     FIRST = 10                  # phase 2 takes the first 10 steps; phase 3 the rest

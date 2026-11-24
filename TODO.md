@@ -1167,3 +1167,34 @@ Made-up data: 40 points of y = a exp(−x/τ) + b, a = 5, τ = 2.5, b = 1, noise
      1,000 positions beside Minuit's minimum; the counts.
 
 Placed as a section, "Minuit and SGD", after "Minimisation and chi-square fitting".
+
+## "Blocks and code": between ML and a physics result, 8 animations (planned and built 24 November 2026: items 272–279)
+
+Chosen after reading the site and the glossary again: 21 of the 27 glossary terms with no
+animation are HEP working practice, the steps between a trained classifier and a result, where
+the two fields meet. All on seeded made-up (pseudo-)data, said on screen, as the physics course
+does; each has a real program in `examples/` (its own region prefix; `blocks.regions()` now reads
+every example file) and a numpy study, matched to torch by a test where the program uses torch.
+Every number is measured or exact, one run per seed unless stated; claims follow the measurements.
+
+272. **`error-bars-on-a-network`** ("Error bars on a network"), after "Minuit and SGD": the same
+     3-parameter fit trained by SGD many times (new seeds; bootstrap resamples of the 40 points):
+     the spread of the answers, an ensemble's error bars, against HESSE's errors and the
+     chi-square + 1 ellipse. (`examples/ensembles.py`, `en-`.)
+273. **`classifier-learns-the-likelihood-ratio`**, after "Hypothesis tests": a small network trained
+     on two made-up hypotheses; s / (1 − s) against the exact likelihood ratio; its ROC against
+     Neyman–Pearson's best. (`examples/likelihood_ratio.py`, `lr-`.)
+274. **`reweighting-with-a-classifier`**: a classifier trained on made-up "simulation" against
+     "data"; the weight s / (1 − s) per simulated event makes its distributions match the data's.
+275. **`event-weights`**, in "From simulation to a result": cross-section × luminosity ÷ events
+     generated; weights in a loss, a histogram, an efficiency; negative weights.
+     (`examples/weights_and_scale_factors.py`, `ws-`.)
+276. **`scale-factors`**: a classifier trained on simulation, used on "data" that differs a little;
+     efficiencies measured in a control region; the scale factor ε_data / ε_MC and its error.
+277. **`unfolding`**: smearing as a response matrix (the resizing animations' matrix picture),
+     inversion amplifying noise, regularised unfolding. (`examples/unfolding.py`, `uf-`.)
+278. **`asimov-dataset`**: the Asimov dataset's expected significance against the median of toy
+     experiments. (`examples/asimov.py`, `as-`.)
+279. **`jets-as-sets`** ("Jets as sets of particles"): made-up jets as sets of particles; an MLP on
+     a list changes its answer when the list is shuffled, a Deep Sets network cannot.
+     (`examples/jets_as_sets.py`, `js-`.)

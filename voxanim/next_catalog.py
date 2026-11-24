@@ -235,6 +235,12 @@ DRAWN_BY = (
     ("mech_blocks_zc", 265, 268),
     ("mech_blocks_zd", 269, 270),
     ("mech_blocks_ze", 271, 271),
+    ("mech_blocks_zf", 272, 272),
+    ("mech_blocks_zg", 273, 274),
+    ("mech_blocks_zh", 275, 276),
+    ("mech_blocks_zi", 277, 277),
+    ("mech_blocks_zf", 278, 278),
+    ("mech_blocks_zj", 279, 279),
 )
 NUMBER = {item["name"]: item["number"] for item in ITEMS}
 

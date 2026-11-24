@@ -340,13 +340,22 @@ NEXT_SECTIONS = {
     "n": ("minuit-vs-sgd", "Minuit and SGD",
           "How a physicist's minimiser, Minuit, feels its way to a fit's minimum, and how "
           "machine learning's SGD stumbles there instead: the same fit, two ways."),
+    "o": ("likelihood-ratio", "The classifier and the likelihood ratio",
+          "Why a trained classifier is the best test between two hypotheses, and how the same "
+          "trick reweights simulation to look like data."),
+    "p": ("simulation-to-result", "From simulation to a result",
+          "The steps between a trained classifier and a physics result: event weights, scale "
+          "factors, unfolding and the Asimov dataset."),
+    "q": ("jets-and-sets", "Jets as sets of particles",
+          "A jet is a set, not a list: a network built so the order of its particles cannot "
+          "matter."),
 }
 # Groups c (the bridges between topics) and d (counting a model's weights) are not sections:
 # each of their animations is placed beside the ones it explains (see _regroup).
 BRIDGES = {item["preset"]: True for item in NEXT_ITEMS if item["section"][:3] in ("c. ", "d. ")}
 # Where each group sits on the page: the catalogue's order, except that the two groups added
 # after the hundred follow the generative models they build on, not the end of the page.
-NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMNabefghijklmn"
+NEXT_ORDER = "ABCDEFGHOPIQRSTUVWXYZJKLMNabefghijklmnopq"
 assert sorted(NEXT_ORDER) == sorted(NEXT_SECTIONS)
 for _letter in NEXT_ORDER:
     _anchor, _heading, _intro = NEXT_SECTIONS[_letter]
@@ -684,7 +693,7 @@ PARTS = (
     ("Statistics for data analysis",
      "Probability, fits, errors, tests and limits: what a measurement says, and how sure it is.",
      ("probability", "randomness", "fitting", "minuit-vs-sgd", "likelihood", "systematics",
-      "selection", "tests",
+      "selection", "tests", "likelihood-ratio",
       "discovery")),
     ("Trees and classical machine learning",
      "The first models: ones you can read, and the ideas used to judge every model after them.",
@@ -706,7 +715,8 @@ PARTS = (
       "face-recognition")),
     ("Models in use",
      "Networks and trees doing a job, and the craft of training, shrinking and running them.",
-     ("analysis-ml", "optimisation-deeper", "pruning", "finetune", "efficiency", "systems")),
+     ("analysis-ml", "simulation-to-result", "jets-and-sets", "optimisation-deeper", "pruning",
+      "finetune", "efficiency", "systems")),
     ("Other ways to learn",
      "Learning from reward instead of labels, and a few systems that learn in their own way.",
      ("rl", "reinforcement-learning-methods", "memory-and-dynamics")),

@@ -2415,7 +2415,7 @@
   "number": 269,
   "name": "minuit-feels-its-way",
   "description": "iminuit 2.33.0's MIGRAD fitting y = a exp(−x/τ) + b to 40 made-up points, every call it made shown in its order. The model's three numbers are a point in a 3-D space drawn in perspective (a left–right, τ back, b up); the start (1, 1, 0) has chi-square 2,692. Before stepping, MIGRAD asks about points a little up and down each axis: 12 probes, two step sizes per parameter (0.00025 and 0.0025 for a and τ, 0.0012 and 0.0025 for b), each shown in a magnified inset and marked lower or higher. Its first step goes too far (chi-square 3,454) and is dropped; the line search comes back to 109 and keeps it. Round each kept point it probes the three axes again, then steps: 52 probes, 12 tries and 5 kept points in 65 calls, chi-square 2,692 → 109 → 35.3 → 34.0 → 33.9. Meanwhile the model's curve closes in on the data. The last probes change chi-square by less than 0.0001 (flat), and it stops with EDM 0.00014 at a = 5.14, τ = 2.41, b = 1.007 (chi-square 33.9 for 40 points). HESSE's 16 further calls give the errors ±0.18, ±0.21 and ±0.11.",
-  "section": "n. Minuit and SGD (2)",
+  "section": "n. Minuit and SGD (3)",
   "module": "study_blocks_zd",
   "title": "How Minuit feels its way",
   "summary": "Before each step Minuit asks the model about points a little up and down each axis, then steps, sometimes too far and back, until the minimum."
@@ -2424,7 +2424,7 @@
   "number": 270,
   "name": "minuit-and-sgd",
   "description": "The same fit by SGD (stochastic gradient descent), from the same start. Each step looks at a batch of 8 of the 40 points and moves the learning rate, 0.005, times their slope. The first ten steps are drawn one by one, chi-square on all 40 points falling from 2,692 to 643. Over 3,000 steps the path wobbles like a drunken walk, since each batch pulls a different way, but it gets there. Magnified, its last 1,000 positions wander round the minimum with a spread of about 0.02, a tenth of Minuit's errors. Their average, (5.131, 2.399, 1.020), has chi-square 33.96, against Minuit's 33.94 found in 65 calls and 5 kept steps. Counted in single-point model evaluations (counts, not times), SGD used 3,000 × 8 = 24,000 and MIGRAD 65 × 40 = 2,600. For a small fit Minuit wins easily and gives error bars; SGD pays off when the data are too many for every step to look at all of them. One SGD run, one seed.",
-  "section": "n. Minuit and SGD (2)",
+  "section": "n. Minuit and SGD (3)",
   "module": "study_blocks_zd",
   "title": "Minuit and SGD",
   "summary": "Minuit's handful of careful steps on all the data, or SGD's thousands of noisy steps on a few points at a time that average out at the same minimum."
@@ -2437,5 +2437,77 @@
   "title": "Bigger: a kernel larger than the picture",
   "description": "Making a picture bigger with one conv2d whose kernel is larger than the picture, nothing learned and no other smoothing step. Photo 0 of the Olivetti faces is shrunk to 6 × 6; the kernel is a 9 × 9 bell (the row [1, 8, 28, 56, 70, 56, 28, 8, 1] / 256 times itself, middle row 0.001 0.009 0.030 0.060 0.075 0.060 0.030 0.009 0.001, all 81 adding up to 1), too big to fit inside the picture. Padding 8 puts the picture in a 22 × 22 frame of zeros, and the kernel fits in 6 + 2 × 8 − 9 + 1 = 14 places a side: 196 output pixels. In the middle all 36 pixels lie under the kernel (its other 45 numbers land on zeros): multiplied and added, 0.61. As a matrix, x flattened to 36 numbers and the output to 196, conv2d is M @ x with M of 196 × 36. Column 25 of M (the brightest pixel, 0.76), reshaped to 14 × 14, is the kernel stamped where that pixel sits: one pixel spreads into 81 outputs. The output is the 36 stamps added up, each times its pixel: a smooth picture the 36 numbers never showed. Without padding, the same kernel is a matrix V of 36 × 196 that shrinks 14 × 14 to 6 × 6, each pixel an average of 81; M is exactly V turned on its side. Each column of M adds up to 1, so the total stays 22.99: the new pixels hold no new information, only the old spread out.",
   "summary": "A kernel larger than the picture, with padding, makes it bigger: as a matrix each pixel spreads into a smooth blob of 81, exactly the shrinking matrix turned on its side, with the total kept."
+ },
+ {
+  "number": 272,
+  "name": "error-bars-on-a-network",
+  "description": "The 3-parameter fit of \"Minuit and SGD\" (40 made-up points of a exp(−x/τ) + b, noise 0.3), trained by SGD again and again, as a network is. Each run takes 3,000 steps of learning rate 0.005 on 8 points a step from (1, 1, 0), and its answer is where it ends, drawn in the plane of τ and b. 100 runs with new seeds on the same 40 points land within about 0.02 of each other (spreads 0.017, 0.016, 0.021 for a, τ, b): the optimiser's noise only, a tenth to a fifth of Minuit's errors. A bootstrap resample picks 40 of the 40 points at random, repeats allowed; resample 1 leaves 12 out and counts 11 twice or more. 100 runs on 100 resamples spread into a cloud (0.15, 0.14, 0.11) whose covariance ellipse tilts with correlation −0.82. HESSE's chi-square + 1 ellipse tilts alike (−0.81), with errors 0.18, 0.21 and 0.11: the bootstrap comes near in a and b and is about a third short in τ. The shortfall is the bootstrap's, not SGD's: refitting the same resamples exactly gives the same spread, while 1,000 new made-up datasets, refitted, give 0.18, 0.22, 0.11, HESSE's. One run per seed.",
+  "section": "n. Minuit and SGD (3)",
+  "module": "study_blocks_zf",
+  "title": "Error bars on a network",
+  "summary": "The spread of many SGD runs is an error bar only if each run sees new data: new seeds alone spread by 0.02, bootstrap resamples by about HESSE's errors, a third short in τ."
+ },
+ {
+  "number": 273,
+  "name": "classifier-learns-the-likelihood-ratio",
+  "description": "Two made-up hypotheses about one measured value x: under H0, x is Gaussian at 0 with spread 1; under H1, at 1 with spread 0.5. Because the spreads differ, the exact likelihood ratio p1/p0 is not monotone: it peaks at x = 1.33 (3.9) and falls on both sides, so the best test keeps a window of x. A small network (1-32-32-1) is trained once on 20,000 events of each with binary cross-entropy. Its loss falls from 0.682 to 0.4691, against the exact ratio's own 0.4692 on the same events. Its output s gives s / (1 − s), which stays within 10% of the exact ratio for x from −0.75 to 2.25, where both hypotheses have events, and drifts beyond: at x = 3, with 20 H0 and 2 H1 events past it, it says 0.24 against the exact 0.060. Keeping 5% of fresh H0 events, it keeps 19.6% of fresh H1 events (±0.3). The best test (Neyman–Pearson) keeps 19.3%, a single cut x > 1.64 keeps 9.9%, and the network's own window, computed exactly, keeps 19.0%. One training run, one seed.",
+  "section": "o. The classifier and the likelihood ratio (2)",
+  "module": "study_blocks_zg",
+  "title": "A classifier learns the likelihood ratio",
+  "summary": "A network trained to tell two made-up hypotheses apart learns their likelihood ratio, s / (1 − s), wherever there are events, and so becomes as good as the best test."
+ },
+ {
+  "number": 274,
+  "name": "reweighting-with-a-classifier",
+  "description": "Made-up 'simulation' (x, y Gaussian at 0, spread 1, independent) and 'data' (x shifted by 0.4, y spread 1.25, correlation 0.4), 50,000 events of each. A small network (2-32-32-1) is trained once to tell them apart, and each event of a fresh simulated sample gets the weight w = s / (1 − s). On fresh samples, where 95% of the data are, the weighted simulation is off by at most 12% in x and 14% in y, against up to 110% and 49% before weighting. In x + y, which the network was never given as an input, it is off by at most 12%, against 80% before. Where it fails: 38 data events lie where the simulation has none, and no weight can make them. The largest weights are too small: 38 where the exact weight is 151. The 50,000 weighted events count like 30,400. A network trained on 1,000 events of each gives weights typically off by 24%, against 5%. One training run per sample size, one seed.",
+  "section": "o. The classifier and the likelihood ratio (2)",
+  "module": "study_blocks_zg",
+  "title": "Reweighting simulation with a classifier",
+  "summary": "A classifier trained to tell made-up simulation from made-up data gives each simulated event the weight s / (1 − s), which makes the simulation match the data even in a variable it never saw, except in the tails and with few events."
+ },
+ {
+  "number": 275,
+  "name": "event-weights",
+  "description": "Made-up simulated events of one variable x: a signal and two backgrounds, generated 20,000, 50,000 and 10,000 at a time and drawn as a stacked histogram of 80,000 events. Each event counts for σ × L ÷ N real ones. With made-up cross-sections of 50, 200 and 120 fb and a luminosity of 100 fb⁻¹, the weights are 0.25, 0.4 and 1.2 (50 × 100 ÷ 20,000 = 0.25). Weighted, the bars shrink or grow and each sample adds up exactly to σ × L: 5,000, 20,000 and 12,000 events expected. The signal is 13.5% of them, not the 25% the raw counts suggest. In the loss, each event's cross-entropy is multiplied by its weight. A logistic regression on x trained by gradient descent (3,000 steps, one run each way) ends with a mean score of 0.135 with the weights, the signal's expected share, and 0.250 without them, its share of the events made. In an efficiency, the background passing the cut x > 0.915 is 1,077 of 60,000 = 1.8% counted, but 1,124 of 32,000 = 3.5% weighted, because bkg 2, which passes more often, counts for more. Some generators make negative weights. If 2,000 of bkg 2's 10,000 events had weight −2 and the rest +2, their bars would hang below the axis and the sum would still be 12,000. But the effective number of events, (Σw)² ÷ Σw², would be 3,600: 10,000 events worth 3,600.",
+  "section": "p. From simulation to a result (4)",
+  "module": "study_blocks_zh",
+  "title": "Event weights",
+  "summary": "Each simulated event counts for cross-section × luminosity ÷ events generated, in a histogram, in a loss and in an efficiency; negative weights keep the sum but cost events."
+ },
+ {
+  "number": 276,
+  "name": "scale-factors",
+  "description": "The cut x > 0.915 is chosen on the made-up simulation of 'Event weights': it keeps 16,000 of the 20,000 simulated signal events, the 80% working point. The made-up data differ in one way: their signal-like objects spread 0.13 instead of 0.10. In a control region of probes known to be signal-like (as tag and probe gives; here with no background), 16,106 of 20,000 simulated probes pass the cut (0.805), but only 3,724 of 5,000 in data (0.745). The scale factor ε_data ÷ ε_MC is 0.925 ± 0.008, a statistical error from binomial errors on the two efficiencies. In the signal region (x above the cut), the weighted simulation predicts 5,124 events (4,000 signal, 1,124 background), and the pseudo-data have 4,739 ± 69: 385 too many, 4.6 times the combined error. With its signal scaled by 0.925 (3,699), the prediction is 4,823 ± 57, within one error of the data (pull 0.9). The scale factor corrects how many pass, not the shape: above x = 1.2 the wider data still hold more events than the corrected simulation. One draw of the pseudo-data.",
+  "section": "p. From simulation to a result (4)",
+  "module": "study_blocks_zh",
+  "title": "Simulation is not data: scale factors",
+  "summary": "Measured in a control region, the cut keeps 80.5% of simulated signal-like objects but 74.5% of the data's; their ratio, 0.925 ± 0.008, scales the simulation's signal until its prediction matches the data."
+ },
+ {
+  "number": 277,
+  "name": "unfolding",
+  "description": "Made-up events: a falling energy spectrum with a bump at 60 GeV, 10,000 events in 10 bins of 10 GeV. The detector's response matrix R is built from 1,000,000 simulated events, drawn as orange tiles: each column shows where a true bin is measured (60–90% found, smeared by 10 GeV). Measured = R @ truth: 6,345 expected, one Poisson draw of 6,362, noise about ±25 a bin. Inverting R gives the truth back exactly from the expected counts (3.6×10⁻¹² apart), but on the data it swings from −900 to 3,475. The reason is R's singular values, 0.75 down to 0.0078: the noise along the last directions is divided by them, up to 2,759. D'Agostini's iterative Bayesian unfolding, started from the simulation's spectrum (no bump), recovers the bump in 10 iterations. Over 2,000 pseudo-experiments, more iterations mean less bias (423 → 41 → 24) but more spread (0 → 53 → 69); together they are smallest near 10 iterations, against a spread of 1,166 for R inverted.",
+  "section": "p. From simulation to a result (4)",
+  "module": "study_blocks_zi",
+  "title": "Unfolding: running the smearing backwards",
+  "summary": "Smearing as a response matrix built from simulation; inverting it blows the noise up through R's small singular values; D'Agostini's iterations trade bias for spread."
+ },
+ {
+  "number": 278,
+  "name": "asimov-dataset",
+  "description": "A made-up binned analysis: 4 bins of a mass with expected background 30, 20, 12, 8 and signal 3, 8, 8, 3. A toy experiment draws each bin's count at random (Poisson) round s + b; fitting the signal strength (never below 0) gives its significance Z = √q0. Toy 1, with counts 35, 33, 17, 14, has Z = 3.38 σ. 10,000 toys pile up into a histogram of Z with median 2.89 σ: the expected significance. The Asimov dataset puts exactly s + b in every bin (33, 28, 20, 11). One fit gives μ = 1 and Z = √(2Σ((s+b) ln(1+s/b) − s)) = 2.93 σ, on the toys' median, with no toys. The quick s/√b, bin by bin and added in quadrature, gives 3.16 σ, a little high. With a tenth of the background (3, 2, 1.2, 0.8; Asimov counts 6, 10, 9.2, 3.8), s/√b says 9.98 σ, while the Asimov dataset gives 6.77 σ and the toys' median is 6.74. 10,000 toys a case, one seed each; Z from the large-sample formula.",
+  "section": "p. From simulation to a result (4)",
+  "module": "study_blocks_zf",
+  "title": "The Asimov dataset",
+  "summary": "One made-up dataset where every bin holds exactly its expected count gives the median significance of 10,000 toy experiments; s/√b does not when the background is small."
+ },
+ {
+  "number": 279,
+  "name": "jets-as-sets",
+  "description": "Made-up jets (6 to 20 particles; momentum fractions z from a Dirichlet(0.7); one core for a toy QCD jet, two cores 0.25 to 1.0 apart for a toy W; each centred and turned so its spread runs along η) are written as lists sorted by z, padded with zeros to 20 rows, with a mask. An MLP reading the 60 numbers in a row and a Deep Sets network (φ on each particle, summed over the real ones, then ρ) are trained once each on 40,000 jets (Adam, 6,000 steps of 64). On 4,000 held-out jets the MLP gets 90.2% right and Deep Sets 92.4%. With each jet's particles shuffled, the MLP falls to 78.3% and 754 of its 4,000 answers flip (most move little: median 0.035); Deep Sets keeps 92.4% and no answer flips, since a sum does not depend on the order of what it adds (float32 rounding moves its answers by at most 4 × 10⁻⁷). Sorting the shuffled list again restores the MLP exactly; the other fix is to build the symmetry in. Graph networks, which also pass messages between particles, are mentioned, not built.",
+  "section": "q. Jets as sets of particles (1)",
+  "module": "study_blocks_zj",
+  "title": "Jets as sets of particles",
+  "summary": "An MLP reading a jet's particles as a list changes its answer when they are shuffled; Deep Sets, adding up what it makes of each particle, cannot."
  }
 ]

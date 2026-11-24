@@ -48,7 +48,6 @@ def mono(a, phase, u=0.6):
 # ---------------------------------------------------------------------- no drawing needed
 def test_the_titles_and_the_chain_are_the_catalogues():
     from voxanim.mech_stats_fit import BinnedOrNot as Binned
-    from voxanim.mech_stats_likelihood import ANIMATIONS as LIKELIHOOD
 
     titles = {i["name"]: i["title"] for i in ITEMS}
     classes = [M.ANIMATIONS[n] for n in NAMES]
@@ -57,9 +56,10 @@ def test_the_titles_and_the_chain_are_the_catalogues():
     assert M.Feels.LAST == "Binned or unbinned?" == Binned.TITLE
     for before, after in pairwise(classes):
         assert before.NEXT == after.TITLE and after.LAST == before.TITLE
-    assert M.Versus.NEXT == "The likelihood curve"
-    assert M.Versus.NEXT in {c.TITLE for c in LIKELIHOOD.values()}
-    assert {i["section"] for i in ITEMS if i["name"] in NAMES} == {"n. Minuit and SGD (2)"}
+    assert M.Versus.NEXT == "Error bars on a network"
+    from voxanim import mech_blocks_zf
+    assert M.Versus.NEXT == mech_blocks_zf.ANIMATIONS["error-bars-on-a-network"].TITLE
+    assert {i["section"] for i in ITEMS if i["name"] in NAMES} == {"n. Minuit and SGD (3)"}
 
 
 def test_the_space_is_drawn_as_its_labels_say():
@@ -277,7 +277,7 @@ def test_versus_numbers_on_screen():
     assert {"24,000", "2,600", "SGD   3,000 × 8", "MIGRAD   65 × 40",
             "small fit: Minuit · huge data: SGD"} <= set(five)
     assert a.heading_for(4, 0.5) == "points the model ran on, each way"
-    assert "next: The likelihood curve" in five
+    assert "next: Error bars on a network" in five
     m = s.metadata
     assert m["sgd_evaluations_text"] in a.subtitle_for(4)
     assert m["average_chi2_text"] in a.subtitle_for(3)

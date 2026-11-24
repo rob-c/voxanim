@@ -2084,7 +2084,7 @@
   "full": "",
   "topic": "Particle physics (HEP)",
   "plain": "A number saying how much a simulated event counts, to match real data; not a network weight.",
-  "see": "",
+  "see": "event-weights",
   "aka": "Sample weight, importance weight"
  },
  {
@@ -2092,7 +2092,7 @@
   "full": "Monte Carlo (simulation)",
   "topic": "Particle physics (HEP)",
   "plain": "Simulated events made with random numbers to model what the detector should see.",
-  "see": "",
+  "see": "event-weights",
   "aka": "Simulation, synthetic data"
  },
  {
@@ -2108,7 +2108,7 @@
   "full": "",
   "topic": "Particle physics (HEP)",
   "plain": "A single made-up dataset where every bin holds exactly its expected count, used for quick sensitivity estimates.",
-  "see": "",
+  "see": "asimov-dataset",
   "aka": "Expected-value dataset"
  },
  {
@@ -2236,7 +2236,7 @@
   "full": "",
   "topic": "Particle physics (HEP)",
   "plain": "A spray of particles from one quark or gluon, recorded together in the detector.",
-  "see": "",
+  "see": "jets-as-sets",
   "aka": ""
  },
  {
@@ -2268,7 +2268,7 @@
   "full": "Graph Neural Network",
   "topic": "Particle physics (HEP)",
   "plain": "A network that works on points and their links, used in HEP for tracks, jets and particle clouds.",
-  "see": "",
+  "see": "jets-as-sets",
   "aka": ""
  },
  {
@@ -2764,7 +2764,7 @@
   "full": "",
   "topic": "Particle physics (HEP)",
   "plain": "How likely a process is in each collision, measured in barns.",
-  "see": "",
+  "see": "event-weights",
   "aka": ""
  },
  {
@@ -2772,7 +2772,7 @@
   "full": "",
   "topic": "Particle physics (HEP)",
   "plain": "How many collisions a dataset holds; times a cross-section it gives the expected number of events.",
-  "see": "",
+  "see": "event-weights",
   "aka": ""
  },
  {
@@ -2780,7 +2780,7 @@
   "full": "",
   "topic": "Particle physics (HEP)",
   "plain": "The overall size of a predicted distribution, such as cross-section times luminosity; not a normalisation layer.",
-  "see": "",
+  "see": "event-weights",
   "aka": ""
  },
  {
@@ -2796,7 +2796,7 @@
   "full": "",
   "topic": "Particle physics (HEP)",
   "plain": "A correction that makes simulation match data, such as for a tagging efficiency.",
-  "see": "",
+  "see": "scale-factors",
   "aka": "Data/MC correction"
  },
  {
@@ -2804,7 +2804,7 @@
   "full": "",
   "topic": "Particle physics (HEP)",
   "plain": "How well simulation matches real data; models trained on simulation depend on it.",
-  "see": "",
+  "see": "scale-factors",
   "aka": "Domain shift, sim-to-real gap (ML)"
  },
  {
@@ -2812,7 +2812,7 @@
   "full": "",
   "topic": "Particle physics (HEP)",
   "plain": "Making a model trained on one kind of data, like simulation, work on another, like real data.",
-  "see": "",
+  "see": "reweighting-with-a-classifier",
   "aka": ""
  },
  {
@@ -2820,7 +2820,7 @@
   "full": "",
   "topic": "Particle physics (HEP)",
   "plain": "Removing detector effects from a measured distribution to estimate the true one.",
-  "see": "",
+  "see": "unfolding",
   "aka": "Deconvolution, inverse problem"
  },
  {
@@ -2852,7 +2852,71 @@
   "full": "",
   "topic": "Particle physics (HEP)",
   "plain": "What really happened in a simulated event, known because we simulated it; the labels ML trains on.",
-  "see": "",
+  "see": "unfolding",
   "aka": "Ground truth, labels"
+ },
+ {
+  "term": "Response matrix",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "A table, built from simulation, of how often events from each true bin are measured in each bin.",
+  "see": "unfolding",
+  "aka": "Migration matrix, smearing matrix"
+ },
+ {
+  "term": "Effective number of events",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "How many unweighted events a weighted sample is worth: (Σw)² ÷ Σw².",
+  "see": "event-weights",
+  "aka": "N_eff, Kish's effective sample size"
+ },
+ {
+  "term": "Tag and probe",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Measuring an efficiency in data: one object (the tag) picks clean events; the other (the probe) is tested.",
+  "see": "scale-factors",
+  "aka": ""
+ },
+ {
+  "term": "Expected significance",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "The significance a typical experiment would get: the median over toys, or one Asimov dataset.",
+  "see": "asimov-dataset",
+  "aka": "Median significance, sensitivity"
+ },
+ {
+  "term": "Classifier reweighting",
+  "full": "",
+  "topic": "Particle physics (HEP)",
+  "plain": "Training a classifier to tell simulation from data, then weighting each simulated event by s / (1 − s).",
+  "see": "reweighting-with-a-classifier",
+  "aka": "Density-ratio estimation, the likelihood-ratio trick"
+ },
+ {
+  "term": "Deep Sets",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "A network that runs on each item of a set, adds the results up, then reads the sum: order cannot matter.",
+  "see": "jets-as-sets",
+  "aka": "Permutation-invariant network; Energy Flow Network (HEP)"
+ },
+ {
+  "term": "Permutation invariance",
+  "full": "",
+  "topic": "Networks and layers",
+  "plain": "An answer that stays the same however the inputs are ordered, as a set's should.",
+  "see": "jets-as-sets",
+  "aka": "Order does not matter"
+ },
+ {
+  "term": "Ensemble error bars",
+  "full": "",
+  "topic": "Fitting and minimisation",
+  "plain": "Training many times on resampled data and taking the spread of the answers as an error bar.",
+  "see": "error-bars-on-a-network",
+  "aka": "Deep ensembles; bootstrap errors"
  }
 ]

@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 399 animations, from a 3×3
+numpy. 407 animations, from a 3×3
 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
@@ -26,7 +26,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 399 animations
+python3 -m voxanim list --names                   # the 407 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim render gradient-descent --theme dark   # the dark-mode copy
@@ -908,14 +908,14 @@ outcome does not depend on it (40 seeds of 40 end on a shortest path with
 these settings). `tests/test_gridworld.py` replays every recorded step with
 the rule and checks the convergence and the numbers above.
 
-### The next 271: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
+### The next 279: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
 
-A further 271 animations, in forty groups: 109 added in 1.6.0, in 1.7.0 eight on
+A further 279 animations, in forty-three groups: 109 added in 1.6.0, in 1.7.0 eight on
 randomness and 41 for a physics course on data analysis and machine learning, in 1.8.0
 one on training with and without a GPU, in 1.9.0 ten on decision trees, forests and
 boosting, and since then five on entropy, impurity and loss and six bridges between
 topics, each opening the section it leads into, two that count a model's weights, and thirty, "Blocks and code", that show a
-PyTorch model and its training as blocks beside the code, for students who find this hard, with nine more that change its model to a small CNN, ten on padding, four on vector databases, fourteen on finding and recognising faces eleven on hosting a language model three on resizing pictures with convolutions four on wiring an autoencoder's blocks into a GAN and two on Minuit against SGD. The GPU one, `cpu-and-gpu-training`, is the catalogue's
+PyTorch model and its training as blocks beside the code, for students who find this hard, with nine more that change its model to a small CNN, ten on padding, four on vector databases, fourteen on finding and recognising faces, eleven on hosting a language model, three on resizing pictures with convolutions, four on wiring an autoencoder's blocks into a GAN, three on Minuit against SGD, and seven more on the steps between a trained classifier and a physics result. The GPU one, `cpu-and-gpu-training`, is the catalogue's
 single explicit exception to the rule that results on screen are computed or measured: its
 speeds are representative round figures, labelled as such in every phase. They are listed in
 `next_catalog.json` and
@@ -1223,6 +1223,7 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `ae-gan-one-loss-or-two` | **One loss or two players.** The autoencoder's one loss falls; the GAN's judge and generator pull against each other and only balance. |
 | `minuit-feels-its-way` | **How Minuit feels its way.** Before each step Minuit asks the model about points a little up and down each axis, then steps, sometimes too far and back, until the minimum. |
 | `minuit-and-sgd` | **Minuit and SGD.** Minuit's handful of careful steps on all the data, or SGD's thousands of noisy steps on a few points at a time that average out at the same minimum. |
+| `error-bars-on-a-network` | **Error bars on a network.** The spread of many SGD runs is an error bar only if each run sees new data: new seeds alone spread by 0.02, bootstrap resamples by about HESSE's errors, a third short in τ. |
 
 **Label embeddings.** A class label as a learned vector: in a classifier, in an autoencoder, and at generation.
 
@@ -1305,6 +1306,13 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `neyman-pearson` | **The likelihood ratio is the best test.** Three ways to turn two measured values into one test, cut to the same false-alarm rate: the likelihood ratio catches the most signal, and no other direction of cut does better. |
 | `look-elsewhere-effect` | **The look-elsewhere effect.** A spectrum with nothing in it still shows a striking excess somewhere when enough places are searched; many such spectra show how often, and what a local significance is worth after the search. |
 
+**The classifier and the likelihood ratio.** Why a trained classifier is the best test between two hypotheses, and how the same trick reweights simulation to look like data.
+
+| name | shows |
+| --- | --- |
+| `classifier-learns-the-likelihood-ratio` | **A classifier learns the likelihood ratio.** A network trained to tell two made-up hypotheses apart learns their likelihood ratio, s / (1 − s), wherever there are events, and so becomes as good as the best test. |
+| `reweighting-with-a-classifier` | **Reweighting simulation with a classifier.** A classifier trained to tell made-up simulation from made-up data gives each simulated event the weight s / (1 − s), which makes the simulation match the data even in a variable it never saw, except in the tails and with few events. |
+
 **Discoveries, exclusion and upper limits.** Claiming a signal, or saying how large a signal could be hiding.
 
 | name | shows |
@@ -1323,6 +1331,21 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `classifier-score-as-variable` | **A classifier's score as a variable.** A network's score separates signal from background; a cut on it trades efficiency for purity, and its shape can be fitted for how much signal a sample holds. |
 | `boosted-regression-trees` | **Boosted trees for regression.** Small trees are added one at a time, each fitted to what the sum so far still gets wrong, first on one measured number and then on a whole detector read-out. |
 | `overtraining-check` | **The overtraining check.** The scores of the events a classifier was trained on are laid over those of events it never saw; where they part, it has learnt its sample rather than the rule. |
+
+**From simulation to a result.** The steps between a trained classifier and a physics result: event weights, scale factors, unfolding and the Asimov dataset.
+
+| name | shows |
+| --- | --- |
+| `event-weights` | **Event weights.** Each simulated event counts for cross-section × luminosity ÷ events generated, in a histogram, in a loss and in an efficiency; negative weights keep the sum but cost events. |
+| `scale-factors` | **Simulation is not data: scale factors.** Measured in a control region, the cut keeps 80.5% of simulated signal-like objects but 74.5% of the data's; their ratio, 0.925 ± 0.008, scales the simulation's signal until its prediction matches the data. |
+| `unfolding` | **Unfolding: running the smearing backwards.** Smearing as a response matrix built from simulation; inverting it blows the noise up through R's small singular values; D'Agostini's iterations trade bias for spread. |
+| `asimov-dataset` | **The Asimov dataset.** One made-up dataset where every bin holds exactly its expected count gives the median significance of 10,000 toy experiments; s/√b does not when the background is small. |
+
+**Jets as sets of particles.** A jet is a set, not a list: a network built so the order of its particles cannot matter.
+
+| name | shows |
+| --- | --- |
+| `jets-as-sets` | **Jets as sets of particles.** An MLP reading a jet's particles as a list changes its answer when they are shuffled; Deep Sets, adding up what it makes of each particle, cannot. |
 
 **Anomalies, collapse and smooth backgrounds.** An autoencoder as a detector of the unexpected, a GAN that forgets, and a Gaussian process as a background model.
 

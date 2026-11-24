@@ -125,10 +125,14 @@ def _regions(path):
 
 @cache
 def regions():
-    """``{name: (file, raw lines)}`` over the example files (names are unique)."""
+    """``{name: (file, raw lines)}`` over the example files (names are unique): the named
+    ones first, then every other ``examples/*.py``, so a new example's regions need no entry
+    here."""
     out = {}
-    for path in (SCRIPT, PARTS, CNN_SCRIPT, PADDING, VECTOR_DB, FACES, SERVE, THINKING,
-                 RESAMPLE, AE_GAN, MINUIT):
+    named = (SCRIPT, PARTS, CNN_SCRIPT, PADDING, VECTOR_DB, FACES, SERVE, THINKING, RESAMPLE,
+             AE_GAN, MINUIT)
+    others = sorted(p for p in EXAMPLES.glob("*.py") if p not in named)
+    for path in (*named, *others):
         for name, lines in _regions(path).items():
             if name in out:
                 raise ValueError("region %r is in two example files" % name)
