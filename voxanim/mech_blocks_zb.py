@@ -519,7 +519,7 @@ class Bigger(Resize):
     PHASES = (("spread", 9.0), ("fill the gaps", 13.0), ("nearest", 8.0), ("the edge", 11.0),
               ("400 photos", 10.0), ("closer?", 10.0))
     LAST = "Smaller: blur, then skip"
-    NEXT = "A CNN training step"
+    NEXT = "Bigger: a kernel larger than the picture"
     IN, IPX = (0.105, 0.53), 2.4
     OUT, LEFT, OPX = (0.35, 0.55), (0.14, 0.55), 2.2
     LABEL_Y = 0.385

@@ -2361,7 +2361,7 @@
   "number": 263,
   "name": "resample-down",
   "description": "Making a picture smaller with conv2d, nothing learned. The kernel is [1, 2, 1] / 4 times itself, shown as a multiplication table: nine sixteenths, 1 2 1 / 2 4 2 / 1 2 1, adding up to 16/16 = 1, so a flat grey stays the same. On photo 0 of the Olivetti faces the kernel covers 9 pixels at an eye's edge (picked by a rule: the most varied 9 in the middle of the picture). Multiplied by the kernel's numbers and added up they give 0.53, one pixel of the 32 × 32 picture. With stride 2 the kernel jumps 2 pixels at a time until all 1,024 are filled. The same thing is a matrix D of 32 × 64: each row is [1, 2, 1] / 4 moved 2 places on, and row 0's first number falls past the edge. D @ plate shrinks a zone plate down to 32 × 64, @ D.T shrinks it across to 32 × 32, and the result is conv2d's picture (the script prints 1.7881e-07: float32 rounding). Where the plate's rings are finer than 32 × 32 can hold (827 of the 1,024 small pixels), a true copy is plain grey. Keeping every second pixel leaves false rings of RMS 0.354 there; blurring first leaves 0.079.",
-  "section": "l. Resizing pictures (2)",
+  "section": "l. Resizing pictures (3)",
   "module": "study_blocks_zb",
   "title": "Smaller: blur, then skip",
   "summary": "Downsampling with a fixed blur kernel and stride 2, the same as a matrix D, and why skipping pixels makes false rings."
@@ -2370,7 +2370,7 @@
   "number": 264,
   "name": "resample-up",
   "description": "Making a picture bigger with conv_transpose2d. Photo 0's 32 × 32 picture is spread to 64 × 64 with a zero after each pixel (1,024 kept, 3,072 zeros), then the kernel × 4 slides over it. A kept pixel stays itself, a gap between two gets half of each ((0.64 + 0.53) / 2 = 0.59), and a gap among four gets their average (0.54): bilinear interpolation. Nearest instead copies each pixel into a 2 × 2 block, and the picture comes out blocky. A flat picture of ones comes back 1 inside, 0.5 on the last row and column and 0.25 at the corner, because one neighbour there is past the edge. So the photo's last row is dim (0.28 on average) until up_even divides by what each pixel received (0.57). Over the 400 photos, going down and back up, the mean squared difference from the photo (pixels 0 to 1) inside the 1-pixel border is 0.00129 for bilinear and 0.00302 for nearest. Over the whole picture bilinear scores 0.00343, and 0.00199 with the edge made even. Skipping instead of blurring before bilinear lands closer still (0.00092): the blur throws detail away, and what it buys is no false rings (0.354 against 0.079 on the zone plate), not a closer copy.",
-  "section": "l. Resizing pictures (2)",
+  "section": "l. Resizing pictures (3)",
   "module": "study_blocks_zb",
   "title": "Bigger: spread, then blur",
   "summary": "Upsampling with a transposed convolution: zeros between the pixels, then the kernel × 4 (bilinear), against nearest's blocks, the edge that gets half, and 400 measured round trips."
@@ -2428,5 +2428,14 @@
   "module": "study_blocks_zd",
   "title": "Minuit and SGD",
   "summary": "Minuit's handful of careful steps on all the data, or SGD's thousands of noisy steps on a few points at a time that average out at the same minimum."
+ },
+ {
+  "number": 271,
+  "name": "resample-big-kernel",
+  "section": "l. Resizing pictures (3)",
+  "module": "study_blocks_ze",
+  "title": "Bigger: a kernel larger than the picture",
+  "description": "Making a picture bigger with one conv2d whose kernel is larger than the picture, nothing learned and no other smoothing step. Photo 0 of the Olivetti faces is shrunk to 6 × 6; the kernel is a 9 × 9 bell (the row [1, 8, 28, 56, 70, 56, 28, 8, 1] / 256 times itself, middle row 0.001 0.009 0.030 0.060 0.075 0.060 0.030 0.009 0.001, all 81 adding up to 1), too big to fit inside the picture. Padding 8 puts the picture in a 22 × 22 frame of zeros, and the kernel fits in 6 + 2 × 8 − 9 + 1 = 14 places a side: 196 output pixels. In the middle all 36 pixels lie under the kernel (its other 45 numbers land on zeros): multiplied and added, 0.61. As a matrix, x flattened to 36 numbers and the output to 196, conv2d is M @ x with M of 196 × 36. Column 25 of M (the brightest pixel, 0.76), reshaped to 14 × 14, is the kernel stamped where that pixel sits: one pixel spreads into 81 outputs. The output is the 36 stamps added up, each times its pixel: a smooth picture the 36 numbers never showed. Without padding, the same kernel is a matrix V of 36 × 196 that shrinks 14 × 14 to 6 × 6, each pixel an average of 81; M is exactly V turned on its side. Each column of M adds up to 1, so the total stays 22.99: the new pixels hold no new information, only the old spread out.",
+  "summary": "A kernel larger than the picture, with padding, makes it bigger: as a matrix each pixel spreads into a smooth blob of 81, exactly the shrinking matrix turned on its side, with the total kept."
  }
 ]

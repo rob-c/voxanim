@@ -3,7 +3,7 @@
 Animations that explain convolutions, neural networks and transformers,
 rendered from **real numbers**: every weight, activation, gradient and
 probability on screen comes from a model trained or run right here, in plain
-numpy. 398 animations, from a 3×3
+numpy. 399 animations, from a 3×3
 convolution to the inside of GPT-2, all from
 one small renderer (voxels, lines, textured quads and text, written with
 numpy and Pillow).
@@ -26,7 +26,7 @@ Needs Python 3.11+ and `ffmpeg` on the `PATH` (only for encoding).
 
 ```bash
 python3 -m pip install -r requirements-lock.txt   # the exact reference versions
-python3 -m voxanim list --names                   # the 398 animations
+python3 -m voxanim list --names                   # the 399 animations
 python3 -m voxanim still conv2d -t 1.0 12.7       # single frames -> build/stills/
 python3 -m voxanim render gradient-descent        # frames + MP4/GIF -> build/out/
 python3 -m voxanim render gradient-descent --theme dark   # the dark-mode copy
@@ -908,14 +908,14 @@ outcome does not depend on it (40 seeds of 40 end on a shortest path with
 these settings). `tests/test_gridworld.py` replays every recorded step with
 the rule and checks the convergence and the numbers above.
 
-### The next 270: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
+### The next 271: mechanisms on real data (`mech.py`, `mech_*.py`, `study_*.py`, `next_*.py`)
 
-A further 270 animations, in forty groups: 109 added in 1.6.0, in 1.7.0 eight on
+A further 271 animations, in forty groups: 109 added in 1.6.0, in 1.7.0 eight on
 randomness and 41 for a physics course on data analysis and machine learning, in 1.8.0
 one on training with and without a GPU, in 1.9.0 ten on decision trees, forests and
 boosting, and since then five on entropy, impurity and loss and six bridges between
 topics, each opening the section it leads into, two that count a model's weights, and thirty, "Blocks and code", that show a
-PyTorch model and its training as blocks beside the code, for students who find this hard, with nine more that change its model to a small CNN, ten on padding, four on vector databases, fourteen on finding and recognising faces eleven on hosting a language model two on resizing pictures with convolutions four on wiring an autoencoder's blocks into a GAN and two on Minuit against SGD. The GPU one, `cpu-and-gpu-training`, is the catalogue's
+PyTorch model and its training as blocks beside the code, for students who find this hard, with nine more that change its model to a small CNN, ten on padding, four on vector databases, fourteen on finding and recognising faces eleven on hosting a language model three on resizing pictures with convolutions four on wiring an autoencoder's blocks into a GAN and two on Minuit against SGD. The GPU one, `cpu-and-gpu-training`, is the catalogue's
 single explicit exception to the rule that results on screen are computed or measured: its
 speeds are representative round figures, labelled as such in every phase. They are listed in
 `next_catalog.json` and
@@ -1216,6 +1216,7 @@ claim to a margin; `tests/test_next_review.py` builds and loops every one.
 | `thinking-effort` | **Effort: how much thinking is allowed.** Effort is a budget of thinking tokens: at every effort, right answers out of 468 and tokens written (one pass each). The tiny model stays about chance up to 6 steps and gets 465 of 468 with 12, for 13 tokens instead of 1. |
 | `resample-down` | **Smaller: blur, then skip.** Downsampling with a fixed blur kernel and stride 2, the same as a matrix D, and why skipping pixels makes false rings. |
 | `resample-up` | **Bigger: spread, then blur.** Upsampling with a transposed convolution: zeros between the pixels, then the kernel × 4 (bilinear), against nearest's blocks, the edge that gets half, and 400 measured round trips. |
+| `resample-big-kernel` | **Bigger: a kernel larger than the picture.** A kernel larger than the picture, with padding, makes it bigger: as a matrix each pixel spreads into a smooth blob of 81, exactly the shrinking matrix turned on its side, with the total kept. |
 | `ae-to-gan-rewire` | **Same blocks, wired again.** An autoencoder's encoder and decoder, unchanged inside, wired again as a GAN: only the judge's one-number head is new. |
 | `ae-gan-blurry-or-sharp` | **Blurry or sharp.** The same decoder on the same made-up codes before and after the GAN game, against real digits and rebuilds: how grey each is, and why rebuilds blur. |
 | `ae-gan-rebuild-or-invent` | **Rebuild or invent.** The autoencoder rebuilds the digit it is given; the GAN makes every digit from noise but none on request. |

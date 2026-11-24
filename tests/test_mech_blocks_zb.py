@@ -148,7 +148,7 @@ def test_the_titles_and_the_chain_are_the_catalogues():
     assert M.Smaller.LAST == "Edge detection with Sobel filters"
     assert M.Smaller.NEXT == titles["resample-up"] == M.Bigger.TITLE
     assert M.Bigger.LAST == titles["resample-down"] == M.Smaller.TITLE
-    assert M.Bigger.NEXT == "A CNN training step"
+    assert M.Bigger.NEXT == "Bigger: a kernel larger than the picture"
 
 
 # ---------------------------------------------------------------------- 263

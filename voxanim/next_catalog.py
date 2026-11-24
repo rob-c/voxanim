@@ -128,7 +128,7 @@ TEXT |= {item["name"] for item in ITEMS if 231 <= item["number"] <= 233}
 # faces: the Olivetti faces (voxanim.olivetti), for detection and recognition
 FACES = {item["name"] for item in ITEMS if 238 <= item["number"] <= 251}
 # resizing pictures: a zone plate (exact) and the Olivetti photos
-FACES |= {"resample-down", "resample-up"}
+FACES |= {"resample-down", "resample-up", "resample-big-kernel"}
 NO_DATA = {item["preset"] for item in ITEMS
            if item["name"] not in GPT2 | MNIST | TEXT | FACES}
 
@@ -234,6 +234,7 @@ DRAWN_BY = (
     ("mech_blocks_zb", 263, 264),
     ("mech_blocks_zc", 265, 268),
     ("mech_blocks_zd", 269, 270),
+    ("mech_blocks_ze", 271, 271),
 )
 NUMBER = {item["name"]: item["number"] for item in ITEMS}
 

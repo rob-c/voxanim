@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.4.1
+
+One new animation (399 in all). It and `resample-up`, whose "next" now points to it, are
+rendered; the rest are 2.4.0's.
+
+- **Bigger: a kernel larger than the picture** (271), the third animation on resizing
+  pictures: a 9 × 9 bell kernel, larger than a 6 × 6 photo, with padding 8, makes it 14 × 14.
+  Shown only as a conv2d matrix, no code: M is 196 × 36, each column the kernel stamped where
+  one input pixel sits, so each pixel spreads into a smooth blob of 81 and the output is the
+  blobs added up, smooth values the 36 never showed (the new pixels hold no new information); M is exactly the transpose of the matrix that shrinks 14 × 14 to 6 × 6 by
+  averaging, and keeps the picture's total. `voxanim/study_upconv.py`, all exact arithmetic,
+  checked against torch's conv2d.
+
 ## 2.4.0
 
 Thirty-three new animations (398 in all): finding and recognising faces, hosting a language
